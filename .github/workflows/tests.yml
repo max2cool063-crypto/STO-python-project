@@ -53,5 +53,8 @@ jobs:
       - name: Check Django configuration
         run: python manage.py check
 
+      - name: Check migrations are up to date
+        run: python manage.py makemigrations --check --dry-run
+
       - name: Run tests
         run: python manage.py test booking.tests --verbosity 2
