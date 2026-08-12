@@ -70,11 +70,14 @@ class BookingCoreTests(TestCase):
 
         slots = self.station.get_available_slots(target, vehicle_type="TRUCK")
 
-        self.assertEqual(len(slots), 2)
-        self.assertEqual(slots[0]["start"][11:16], "09:00")
-        self.assertEqual(slots[0]["end"][11:16], "11:00")
-        self.assertEqual(slots[1]["start"][11:16], "10:00")
-        self.assertEqual(slots[1]["end"][11:16], "12:00")
+        # A 4-hour working window with 60-minute start increments allows
+        # three valid 2-hour appointments: 09:00-11:00, 10:00-12:00,
+        # and 11:00-13:00.
+        self.assertEqual(len(slots), 3)
+        self.assertEqual(
+            [(slot["start"][11:16], slot["end"][11:16]) for slot in slots],
+            [("09:00", "11:00"), ("10:00", "12:00"), ("11:00", "13:00")],
+        )
 
     def test_holiday_without_explicit_schedule_is_closed(self):
         target = date(2026, 1, 1)
