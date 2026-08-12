@@ -33,7 +33,6 @@ def station_select(request):
     if stations.count() == 1:
         return redirect("station_dashboard", station_id=stations.first().pk)
 
-    # Сериализуем для json_script — float координаты всегда с точкой
     import json
     stations_list = list(stations.values("id", "name", "address", "latitude", "longitude"))
     return render(request, "booking/station/select.html", {
@@ -50,29 +49,22 @@ def station_dashboard(request, station_id, staff=None):
     station = staff.station
     now = timezone.now()
     today = now.date()
-
-    # Статистика за последние 30 дней
     since = now - timedelta(days=30)
     appts = Appointment.objects.filter(station=station, start__gte=since)
 
     stats = {
-        "total":     appts.count(),
-        "done":      appts.filter(status="DONE").count(),
+        "total": appts.count(),
+        "done": appts.filter(status="DONE").count(),
         "cancelled": appts.filter(status="CANCELLED").count(),
-        "no_show":   appts.filter(status="NO_SHOW").count(),
-        "today":     Appointment.objects.filter(
-                         station=station,
-                         start__date=today,
-                         status="BOOKED"
-                     ).count(),
-        "upcoming":  Appointment.objects.filter(
-                         station=station,
-                         start__gte=now,
-                         status="BOOKED"
-                     ).count(),
+        "no_show": appts.filter(status="NO_SHOW").count(),
+        "today": Appointment.objects.filter(
+            station=station, start__date=today, status="BOOKED"
+        ).count(),
+        "upcoming": Appointment.objects.filter(
+            station=station, start__gte=now, status="BOOKED"
+        ).count(),
     }
 
-    # Ближайшие 5 записей
     upcoming = (
         Appointment.objects
         .filter(station=station, start__gte=now, status="BOOKED")
@@ -82,8 +74,8 @@ def station_dashboard(request, station_id, staff=None):
 
     return render(request, "booking/station/dashboard.html", {
         "station": station,
-        "staff":   staff,
-        "stats":   stats,
+        "staff": staff,
+        "stats": stats,
         "upcoming": upcoming,
         "now": now,
     })
@@ -103,10 +95,9 @@ def station_appointments(request, station_id, staff=None):
         .order_by("-start")
     )
 
-    # Фильтры
     status_filter = request.GET.get("status", "")
-    date_filter   = request.GET.get("date", "")
-    search        = request.GET.get("q", "").strip()
+    date_filter = request.GET.get("date", "")
+    search = request.GET.get("q", "").strip()
 
     if status_filter:
         qs = qs.filter(status=status_filter)
@@ -121,12 +112,12 @@ def station_appointments(request, station_id, staff=None):
         )
 
     return render(request, "booking/station/appointments.html", {
-        "station":       station,
-        "staff":         staff,
-        "appointments":  qs,
+        "station": station,
+        "staff": staff,
+        "appointments": qs,
         "status_filter": status_filter,
-        "date_filter":   date_filter,
-        "search":        search,
+        "date_filter": date_filter,
+        "search": search,
         "status_choices": Appointment.STATUS_CHOICES,
         "now": timezone.now(),
     })
@@ -143,12 +134,12 @@ def station_appointment_create(request, station_id, staff=None):
         from django.utils.timezone import make_aware, is_aware
         from django.db import transaction
 
-        car_id       = request.POST.get("car_id", "").strip()
-        start_s      = request.POST.get("start", "")
-        client_name  = request.POST.get("client_name", "").strip()
+        car_id = request.POST.get("car_id", "").strip()
+        start_s = request.POST.get("start", "")
+        client_name = request.POST.get("client_name", "").strip()
         client_phone = request.POST.get("client_phone", "").strip()
-        start_raw    = parse_datetime(start_s)
-        start        = make_aware(start_raw) if start_raw and not is_aware(start_raw) else start_raw
+        start_raw = parse_datetime(start_s)
+        start = make_aware(start_raw) if start_raw and not is_aware(start_raw) else start_raw
 
         if not start:
             messages.error(request, "Не выбрано время записи")
@@ -162,17 +153,15 @@ def station_appointment_create(request, station_id, staff=None):
             messages.error(request, "Нельзя записать в прошлое")
             return redirect(request.path)
 
-        # Если авто не найдено по номеру — создаём новое
         if not car_id:
-            plate     = request.POST.get("plate", "").strip().upper()
-            model_id  = request.POST.get("new_model_id", "").strip()
-            email     = request.POST.get("new_user_email", "").strip().lower()
+            plate = request.POST.get("plate", "").strip().upper()
+            model_id = request.POST.get("new_model_id", "").strip()
+            email = request.POST.get("new_user_email", "").strip().lower()
 
             if not plate or not model_id or not email:
                 messages.error(request, "Для нового автомобиля укажите госномер, модель и email клиента")
                 return redirect(request.path)
 
-            # Создаём или находим пользователя
             from django.utils.crypto import get_random_string
             from django.core.mail import send_mail as _send_mail
             client_user, user_created = User.objects.get_or_create(
@@ -202,7 +191,7 @@ def station_appointment_create(request, station_id, staff=None):
         try:
             with transaction.atomic():
                 locked_station = Station.objects.select_for_update().get(pk=station.pk)
-                Appointment.objects.create(
+                appointment = Appointment.objects.create(
                     station=locked_station,
                     user=car.owner,
                     car=car,
@@ -223,8 +212,8 @@ def station_appointment_create(request, station_id, staff=None):
 
     return render(request, "booking/station/appointment_create.html", {
         "station": station,
-        "staff":   staff,
-        "today":   timezone.now().date(),
+        "staff": staff,
+        "today": timezone.now().date(),
     })
 
 
@@ -234,7 +223,7 @@ def station_appointment_create(request, station_id, staff=None):
 def station_appointment_status(request, station_id, pk, staff=None):
     """Быстрая смена статуса записи."""
     station = staff.station
-    appt    = get_object_or_404(Appointment, pk=pk, station=station)
+    appt = get_object_or_404(Appointment, pk=pk, station=station)
     new_status = request.POST.get("status")
 
     if new_status not in dict(Appointment.STATUS_CHOICES):
@@ -247,7 +236,6 @@ def station_appointment_status(request, station_id, pk, staff=None):
     if comment:
         appt.notes = (appt.notes + "\n" + comment).strip() if appt.notes else comment
     appt.save()
-    # Логируем изменение статуса
     AppointmentLog.objects.create(
         appointment=appt,
         changed_by=request.user,
@@ -255,7 +243,6 @@ def station_appointment_status(request, station_id, pk, staff=None):
         new_status=new_status,
         comment=comment,
     )
-    # Уведомляем клиента при отмене оператором
     if new_status == "CANCELLED" and old_status == "BOOKED":
         notify_client_cancelled(appt, cancelled_by_station=True)
     messages.success(request, f"Статус изменён: {appt.get_status_display()}")
@@ -269,7 +256,7 @@ def station_appointment_status(request, station_id, pk, staff=None):
 def station_appointments_csv(request, station_id, staff=None):
     station = staff.station
     date_from = request.GET.get("from", "")
-    date_to   = request.GET.get("to", "")
+    date_to = request.GET.get("to", "")
 
     qs = (
         Appointment.objects
@@ -283,26 +270,16 @@ def station_appointments_csv(request, station_id, staff=None):
         qs = qs.filter(start__date__lte=date_to)
 
     response = HttpResponse(content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = (
-        f'attachment; filename="appointments_{station.pk}.csv"'
-    )
-    response.write("\ufeff")  # BOM для Excel
+    response["Content-Disposition"] = f'attachment; filename="appointments_{station.pk}.csv"'
+    response.write("\ufeff")
 
     writer = csv.writer(response)
-    writer.writerow(["Дата", "Время начала", "Время конца", "Клиент",
-                     "Телефон", "Госномер", "Марка/модель", "VIN", "Статус"])
+    writer.writerow(["Дата", "Время начала", "Время конца", "Клиент", "Телефон", "Госномер", "Марка/модель", "VIN", "Статус"])
 
     for a in qs:
         writer.writerow([
-            a.start.strftime("%d.%m.%Y"),
-            a.start.strftime("%H:%M"),
-            a.end.strftime("%H:%M"),
-            a.name,
-            a.phone or "",
-            a.car.plate_number,
-            str(a.car.model),
-            a.vin or "",
-            a.get_status_display(),
+            a.start.strftime("%d.%m.%Y"), a.start.strftime("%H:%M"), a.end.strftime("%H:%M"),
+            a.name, a.phone or "", a.car.plate_number, str(a.car.model), a.vin or "", a.get_status_display(),
         ])
 
     return response
@@ -313,15 +290,14 @@ def station_appointments_csv(request, station_id, staff=None):
 @login_required
 @require_station_access()
 def station_schedule(request, station_id, staff=None):
-    station   = staff.station
-    weekly    = station.weekly_schedules.order_by("weekday")
+    station = staff.station
+    weekly = station.weekly_schedules.order_by("weekday")
     schedules = station.schedules.order_by("date")
 
     if request.method == "POST":
         action = request.POST.get("action")
 
         if action == "save_weekly":
-            # Сохраняем/обновляем недельное расписание
             for wd in range(7):
                 ws = request.POST.get(f"work_start_{wd}", "").strip()
                 we = request.POST.get(f"work_end_{wd}", "").strip()
@@ -331,16 +307,13 @@ def station_schedule(request, station_id, staff=None):
                         defaults={"work_start": ws, "work_end": we},
                     )
                 else:
-                    # Пустые поля — удаляем день если был
-                    StationWeeklySchedule.objects.filter(
-                        station=station, weekday=wd
-                    ).delete()
+                    StationWeeklySchedule.objects.filter(station=station, weekday=wd).delete()
             messages.success(request, "Недельное расписание сохранено")
 
         elif action == "add_exception":
-            date     = request.POST.get("date", "").strip()
-            ws       = request.POST.get("work_start", "").strip()
-            we       = request.POST.get("work_end", "").strip()
+            date = request.POST.get("date", "").strip()
+            ws = request.POST.get("work_start", "").strip()
+            we = request.POST.get("work_end", "").strip()
             if date and ws and we:
                 StationSchedule.objects.update_or_create(
                     station=station, date=date,
@@ -364,8 +337,7 @@ def station_schedule(request, station_id, staff=None):
                 created = skipped = 0
                 for hdate, hname in sorted(ru_holidays.items()):
                     _, was_created = StationSchedule.objects.get_or_create(
-                        station=station,
-                        date=hdate,
+                        station=station, date=hdate,
                         defaults={"work_start": time(0, 0), "work_end": time(0, 0)}
                     )
                     if was_created:
@@ -387,24 +359,20 @@ def station_schedule(request, station_id, staff=None):
         if not (h == 0 and m == 0)
     ]
 
-    # Формируем список строк для шаблона — каждый день недели с текущими значениями
     weekly_map = {ws.weekday: ws for ws in weekly}
     weekday_rows = []
     for wd_num, wd_name in StationWeeklySchedule.WEEKDAYS:
         ws_obj = weekly_map.get(wd_num)
         weekday_rows.append({
-            "num":        wd_num,
-            "name":       wd_name,
+            "num": wd_num,
+            "name": wd_name,
             "work_start": ws_obj.work_start.strftime("%H:%M") if ws_obj else "",
-            "work_end":   ws_obj.work_end.strftime("%H:%M") if ws_obj else "",
+            "work_end": ws_obj.work_end.strftime("%H:%M") if ws_obj else "",
         })
 
     return render(request, "booking/station/schedule.html", {
-        "station":      station,
-        "staff":        staff,
-        "weekday_rows": weekday_rows,
-        "schedules":    schedules,
-        "time_choices": TIME_CHOICES,
+        "station": station, "staff": staff, "weekday_rows": weekday_rows,
+        "schedules": schedules, "time_choices": TIME_CHOICES,
     })
 
 
@@ -414,7 +382,7 @@ def station_schedule(request, station_id, staff=None):
 @require_station_access()
 def station_slot_blocks(request, station_id, staff=None):
     station = staff.station
-    blocks  = station.slot_blocks.select_related("created_by").order_by("-start")
+    blocks = station.slot_blocks.select_related("created_by").order_by("-start")
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -423,25 +391,20 @@ def station_slot_blocks(request, station_id, staff=None):
             from django.utils.dateparse import parse_datetime
             from django.utils.timezone import make_aware, is_aware
             start_raw = parse_datetime(request.POST.get("start", ""))
-            end_raw   = parse_datetime(request.POST.get("end", ""))
-            reason    = request.POST.get("reason", "").strip()
+            end_raw = parse_datetime(request.POST.get("end", ""))
+            reason = request.POST.get("reason", "").strip()
 
             if not start_raw or not end_raw:
                 messages.error(request, "Укажите время начала и конца блокировки")
             else:
-                # parse_datetime возвращает naive datetime если нет timezone в строке.
-                # make_aware добавляет текущий timezone (Europe/Moscow из settings).
                 start = make_aware(start_raw) if not is_aware(start_raw) else start_raw
-                end   = make_aware(end_raw)   if not is_aware(end_raw)   else end_raw
+                end = make_aware(end_raw) if not is_aware(end_raw) else end_raw
                 if start >= end:
                     messages.error(request, "Конец блокировки должен быть позже начала")
                 else:
                     SlotBlock.objects.create(
-                        station=station,
-                        start=start,
-                        end=end,
-                        reason=reason,
-                        created_by=request.user,
+                        station=station, start=start, end=end,
+                        reason=reason, created_by=request.user,
                     )
                     messages.success(request, "Слот заблокирован")
 
@@ -457,11 +420,8 @@ def station_slot_blocks(request, station_id, staff=None):
         for h in range(0, 24) for m in (0, 30)
     ]
     return render(request, "booking/station/slot_blocks.html", {
-        "station":      station,
-        "staff":        staff,
-        "blocks":       blocks,
-        "now":          timezone.now(),
-        "time_choices": TIME_CHOICES,
+        "station": station, "staff": staff, "blocks": blocks,
+        "now": timezone.now(), "time_choices": TIME_CHOICES,
     })
 
 
@@ -471,9 +431,8 @@ def station_slot_blocks(request, station_id, staff=None):
 @require_station_access(role=StationStaff.ROLE_OWNER)
 def station_clients(request, station_id, staff=None):
     station = staff.station
-    search  = request.GET.get("q", "").strip()
+    search = request.GET.get("q", "").strip()
 
-    # Уникальные пользователи у которых есть записи на эту станцию
     users_qs = (
         User.objects
         .filter(appointments__station=station)
@@ -485,12 +444,11 @@ def station_clients(request, station_id, staff=None):
     if search:
         users_qs = users_qs.filter(
             Q(profile__first_name__icontains=search) |
-            Q(profile__last_name__icontains=search)  |
-            Q(profile__phone__icontains=search)       |
+            Q(profile__last_name__icontains=search) |
+            Q(profile__phone__icontains=search) |
             Q(email__icontains=search)
         )
 
-    # Аннотируем количеством визитов
     users_qs = users_qs.annotate(
         visit_count=Count(
             "appointments",
@@ -499,19 +457,17 @@ def station_clients(request, station_id, staff=None):
     ).order_by("-visit_count")
 
     return render(request, "booking/station/clients.html", {
-        "station": station,
-        "staff":   staff,
-        "clients": users_qs,
-        "search":  search,
+        "station": station, "staff": staff, "clients": users_qs, "search": search,
     })
 
 
 # ─── Персонал ─────────────────────────────────────────────────────────────────
 
 @login_required
-@require_station_access()
+@require_station_access(role=StationStaff.ROLE_OWNER)
 def station_staff(request, station_id, staff=None):
-    station    = staff.station
+    """Управление сотрудниками станции доступно только владельцу."""
+    station = staff.station
     staff_list = (
         StationStaff.objects
         .filter(station=station)
@@ -522,11 +478,10 @@ def station_staff(request, station_id, staff=None):
     if request.method == "POST":
         action = request.POST.get("action")
 
-        # Создать нового оператора
         if action == "create_operator":
-            login    = request.POST.get("login", "").strip()
+            login = request.POST.get("login", "").strip()
             password = request.POST.get("password", "").strip()
-            email    = request.POST.get("email", "").strip().lower()
+            email = request.POST.get("email", "").strip().lower()
 
             if not login:
                 messages.error(request, "Укажите логин для оператора")
@@ -557,9 +512,7 @@ def station_staff(request, station_id, staff=None):
                         f"Вас добавили как оператора станции «{station.name}».\n"
                         f"Логин: {login}\nПароль: {password}\n\n"
                         f"Рекомендуем сменить пароль после первого входа.",
-                        None,
-                        [email],
-                        fail_silently=True,
+                        None, [email], fail_silently=True,
                     )
                 except Exception:
                     pass
@@ -572,8 +525,7 @@ def station_staff(request, station_id, staff=None):
             )
             messages.success(request, f"Оператор «{login}» создан")
 
-        # Деактивировать/активировать (только владелец)
-        elif action == "toggle_active" and staff.role == StationStaff.ROLE_OWNER:
+        elif action == "toggle_active":
             member_id = request.POST.get("member_id")
             member = get_object_or_404(StationStaff, pk=member_id, station=station)
             if member.user == request.user:
@@ -584,9 +536,8 @@ def station_staff(request, station_id, staff=None):
                 status_str = "активирован" if member.is_active else "деактивирован"
                 messages.success(request, f"Сотрудник {status_str}")
 
-        # Сброс пароля оператора (только владелец)
-        elif action == "reset_password" and staff.role == StationStaff.ROLE_OWNER:
-            member_id   = request.POST.get("member_id")
+        elif action == "reset_password":
+            member_id = request.POST.get("member_id")
             new_password = request.POST.get("new_password", "").strip()
             member = get_object_or_404(StationStaff, pk=member_id, station=station)
             if len(new_password) < 8:
@@ -601,13 +552,8 @@ def station_staff(request, station_id, staff=None):
         return redirect("station_staff", station_id=station_id)
 
     return render(request, "booking/station/staff.html", {
-        "station":    station,
-        "staff":      staff,
-        "staff_list": staff_list,
+        "station": station, "staff": staff, "staff_list": staff_list,
     })
-
-
-
 
 
 # ─── Детальная страница записи ────────────────────────────────────────────────
@@ -615,14 +561,12 @@ def station_staff(request, station_id, staff=None):
 @login_required
 @require_station_access()
 def station_appointment_detail(request, station_id, pk, staff=None):
-    station     = staff.station
+    station = staff.station
     appointment = get_object_or_404(Appointment, pk=pk, station=station)
-    logs        = appointment.logs.select_related("changed_by").order_by("created_at")
-
+    logs = appointment.logs.select_related("changed_by").order_by("created_at")
     return render(request, "booking/station/appointment_detail.html", {
-        "station":     station,
-        "staff":       staff,
+        "station": station,
+        "staff": staff,
         "appointment": appointment,
-        "logs":        logs,
-        "status_choices": Appointment.STATUS_CHOICES,
+        "logs": logs,
     })
