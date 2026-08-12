@@ -4,7 +4,8 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET
 from django.contrib.auth.decorators import login_required
 
-from booking.models import Brand, CarModel, Station, Car
+from booking.models import Brand, CarModel, Station, Car, StationStaff
+from booking.station_access import get_staff_record
 
 
 def brands_api(request):
@@ -61,20 +62,33 @@ def car_api(request, car_id):
 @require_GET
 @login_required
 def car_by_plate_api(request):
-    """Поиск автомобиля по госномеру для операторов станций."""
+    """Поиск автомобиля по госномеру в рамках станции оператора."""
     plate = request.GET.get("plate", "").strip().upper()
-    if not plate:
-        return JsonResponse({"error": "plate required"}, status=400)
+    station_id = request.GET.get("station_id", "").strip()
 
-    from booking.models import StationStaff
-    if not StationStaff.objects.filter(user=request.user, is_active=True).exists():
+    if not plate or not station_id:
+        return JsonResponse({"error": "plate and station_id required"}, status=400)
+
+    staff = get_staff_record(request.user, station_id)
+    if not staff:
         return JsonResponse({"error": "forbidden"}, status=403)
 
-    try:
-        car = Car.objects.select_related("model__brand", "owner__profile").get(
-            plate_number=plate, is_active=True
+    # Автомобиль доступен оператору только если у него уже есть запись
+    # на этой станции. Это не позволяет использовать endpoint как глобальный
+    # справочник персональных данных клиентов.
+    car = (
+        Car.objects
+        .select_related("model__brand", "owner__profile")
+        .filter(
+            plate_number=plate,
+            is_active=True,
+            appointments__station=staff.station,
         )
-    except Car.DoesNotExist:
+        .distinct()
+        .first()
+    )
+
+    if not car:
         return JsonResponse({"error": "not found"}, status=404)
 
     profile = getattr(car.owner, "profile", None)
@@ -85,20 +99,19 @@ def car_by_plate_api(request):
         owner_name = car.owner.username
 
     return JsonResponse({
-        "id":           car.id,
+        "id": car.id,
         "vehicle_type": car.model.vehicle_type,
-        "brand":        car.model.brand.name,
-        "model":        car.model.name,
-        "vin":          car.vin or "",
-        "owner_name":   owner_name,
-        "owner_phone":  profile.phone if profile else "",
+        "brand": car.model.brand.name,
+        "model": car.model.name,
+        "vin": car.vin or "",
+        "owner_name": owner_name,
+        "owner_phone": profile.phone if profile else "",
     })
 
 
 @require_GET
 def brands_with_models_api(request):
     """Все марки с моделями для формы создания авто оператором."""
-    from booking.models import StationStaff
     if not request.user.is_authenticated:
         return JsonResponse({"error": "auth required"}, status=401)
     if not StationStaff.objects.filter(user=request.user, is_active=True).exists():
