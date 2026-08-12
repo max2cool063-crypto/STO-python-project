@@ -1,1 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}СТО Онлайн-запись{% endblock %}</title>
+  {% load static %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{% static 'booking/css/site.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
 
+<header class="site-header">
+  <div class="header-inner">
+    <a href="/" class="logo-wrap">
+      <img src="{% static 'booking/img/logo.png' %}" alt="ТО" class="logo-img">
+      <div class="logo-text">
+        Технический Осмотр
+        <span>онлайн запись</span>
+      </div>
+    </a>
+
+    {% if user.is_authenticated %}
+    <nav class="header-nav">
+      {% if user.station_roles.exists %}
+        <a href="{% url 'station_select' %}" class="nav-link nav-link--accent">Кабинет станции</a>
+      {% else %}
+        <a href="/" class="nav-link">Станции</a>
+        <a href="{% url 'cabinet' %}" class="nav-link">Кабинет</a>
+        <a href="{% url 'cabinet_appointments' %}" class="nav-link">Мои записи</a>
+        <a href="{% url 'cabinet_cars' %}" class="nav-link">Мои авто</a>
+      {% endif %}
+    </nav>
+    <div class="header-actions">
+      <form method="post" action="{% url 'logout' %}" style="margin:0">
+        {% csrf_token %}
+        <button type="submit" class="btn-header">Выйти</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="header-actions" style="margin-left:auto">
+      <a href="{% url 'login' %}" class="btn-header">Войти</a>
+      <a href="{% url 'register' %}" class="btn-header primary">Регистрация</a>
+    </div>
+    {% endif %}
+  </div>
+</header>
+
+<div class="page-wrap">
+  {% if messages %}
+  <div class="messages">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'success' %}success{% else %}info{% endif %}">
+      {% if message.tags == 'error' %}⚠️{% elif message.tags == 'success' %}✅{% else %}ℹ️{% endif %}
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</div>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
