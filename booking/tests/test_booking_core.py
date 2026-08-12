@@ -31,6 +31,11 @@ class BookingCoreTests(TestCase):
             email="other@example.com",
             password="test-password",
         )
+        self.third_user = User.objects.create_user(
+            username="third@example.com",
+            email="third@example.com",
+            password="test-password",
+        )
         self.brand = Brand.objects.create(name="Test")
         self.car_model = CarModel.objects.create(
             brand=self.brand,
@@ -61,6 +66,23 @@ class BookingCoreTests(TestCase):
             weekday=target_date.weekday(),
             work_start=time.fromisoformat(start),
             work_end=time.fromisoformat(end),
+        )
+
+    def create_appointment(self, station=None, user=None, car=None, start_hour=10):
+        station = station or self.station
+        user = user or self.user
+        car = car or self.car
+        target = date(2099, 2, 3)
+        self.add_weekday_schedule(target, station=station)
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, start_hour, 0))
+        return Appointment.objects.create(
+            user=user,
+            car=car,
+            station=station,
+            start=start,
+            end=start + timedelta(minutes=30),
+            name="Client",
+            phone="123",
         )
 
     def test_station_default_slot_duration_is_30_minutes(self):
@@ -181,27 +203,13 @@ class BookingCoreTests(TestCase):
             role=StationStaff.ROLE_OPERATOR,
             is_active=True,
         )
-        target = date(2099, 2, 3)
-        self.add_weekday_schedule(target)
-        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
-        Appointment.objects.create(
-            user=self.user,
-            car=self.car,
-            station=self.station,
-            start=start,
-            end=start + timedelta(minutes=30),
-            name="Client",
-            phone="123",
-        )
+        self.create_appointment()
 
         self.client.login(username="other@example.com", password="test-password")
         url = reverse("car_by_plate_api")
         response = self.client.get(
             url,
-            {
-                "plate": self.car.plate_number,
-                "station_id": self.station.id,
-            },
+            {"plate": self.car.plate_number, "station_id": self.station.id},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -217,27 +225,13 @@ class BookingCoreTests(TestCase):
             role=StationStaff.ROLE_OPERATOR,
             is_active=True,
         )
-        target = date(2099, 2, 3)
-        self.add_weekday_schedule(target, station=self.other_station)
-        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
-        Appointment.objects.create(
-            user=self.user,
-            car=self.car,
-            station=self.other_station,
-            start=start,
-            end=start + timedelta(minutes=30),
-            name="Client",
-            phone="123",
-        )
+        self.create_appointment(station=self.other_station)
 
         self.client.login(username="other@example.com", password="test-password")
         url = reverse("car_by_plate_api")
         response = self.client.get(
             url,
-            {
-                "plate": self.car.plate_number,
-                "station_id": self.station.id,
-            },
+            {"plate": self.car.plate_number, "station_id": self.station.id},
         )
 
         self.assertEqual(response.status_code, 404)
@@ -254,10 +248,7 @@ class BookingCoreTests(TestCase):
         url = reverse("car_by_plate_api")
         response = self.client.get(
             url,
-            {
-                "plate": self.car.plate_number,
-                "station_id": self.station.id,
-            },
+            {"plate": self.car.plate_number, "station_id": self.station.id},
         )
 
         self.assertEqual(response.status_code, 403)
@@ -275,10 +266,7 @@ class BookingCoreTests(TestCase):
         target = date(2099, 2, 3)
         self.add_weekday_schedule(target, "09:00", "18:00")
 
-        url = reverse(
-            "station_appointment_create",
-            kwargs={"station_id": self.station.id},
-        )
+        url = reverse("station_appointment_create", kwargs={"station_id": self.station.id})
         response = self.client.post(
             url,
             {
@@ -300,6 +288,154 @@ class BookingCoreTests(TestCase):
         self.assertEqual(appointment.end, appointment.start + timedelta(minutes=30))
         notify_staff.assert_called_once_with(appointment)
         notify_client.assert_called_once_with(appointment)
+
+    def test_client_sees_only_own_appointments(self):
+        own = self.create_appointment(station=self.station)
+        foreign = self.create_appointment(station=self.other_station, user=self.other_user, car=self.other_car, start_hour=11)
+
+        self.client.login(username="client@example.com", password="test-password")
+        response = self.client.get(reverse("cabinet_appointments"))
+
+        self.assertEqual(response.status_code, 200)
+        appointments = list(response.context["appointments"])
+        self.assertIn(own, appointments)
+        self.assertNotIn(foreign, appointments)
+
+    def test_client_cannot_cancel_foreign_appointment(self):
+        foreign = self.create_appointment(user=self.other_user, car=self.other_car)
+
+        self.client.login(username="client@example.com", password="test-password")
+        response = self.client.post(
+            reverse("cabinet_cancel_appointment", kwargs={"pk": foreign.pk})
+        )
+
+        self.assertEqual(response.status_code, 404)
+        foreign.refresh_from_db()
+        self.assertEqual(foreign.status, "BOOKED")
+
+    def test_operator_cannot_access_other_station_appointments(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        self.client.login(username="other@example.com", password="test-password")
+
+        response = self.client.get(
+            reverse("station_appointments", kwargs={"station_id": self.other_station.id})
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("station_select"),
+            fetch_redirect_response=False,
+        )
+
+    def test_operator_cannot_change_foreign_station_appointment_status(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        foreign = self.create_appointment(station=self.other_station)
+
+        self.client.login(username="other@example.com", password="test-password")
+        response = self.client.post(
+            reverse(
+                "station_appointment_status",
+                kwargs={"station_id": self.other_station.id, "pk": foreign.pk},
+            ),
+            {"status": "DONE"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("station_select"),
+            fetch_redirect_response=False,
+        )
+        foreign.refresh_from_db()
+        self.assertEqual(foreign.status, "BOOKED")
+
+    def test_operator_cannot_open_foreign_station_appointment_detail(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        foreign = self.create_appointment(station=self.other_station)
+
+        self.client.login(username="other@example.com", password="test-password")
+        response = self.client.get(
+            reverse(
+                "station_appointment_detail",
+                kwargs={"station_id": self.other_station.id, "pk": foreign.pk},
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("station_select"),
+            fetch_redirect_response=False,
+        )
+
+    def test_operator_cannot_manage_station_staff(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        self.client.login(username="other@example.com", password="test-password")
+
+        response = self.client.get(
+            reverse("station_staff", kwargs={"station_id": self.station.id})
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("station_dashboard", kwargs={"station_id": self.station.id}),
+            fetch_redirect_response=False,
+        )
+
+    def test_station_owner_can_manage_station_staff(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.user,
+            role=StationStaff.ROLE_OWNER,
+            is_active=True,
+        )
+        self.client.login(username="client@example.com", password="test-password")
+
+        response = self.client.get(
+            reverse("station_staff", kwargs={"station_id": self.station.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_operator_cannot_change_foreign_station_status_even_with_valid_post(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        foreign = self.create_appointment(station=self.other_station)
+
+        self.client.login(username="other@example.com", password="test-password")
+        response = self.client.post(
+            reverse(
+                "station_appointment_status",
+                kwargs={"station_id": self.other_station.id, "pk": foreign.pk},
+            ),
+            {"status": "CANCELLED", "comment": "attempt"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        foreign.refresh_from_db()
+        self.assertEqual(foreign.status, "BOOKED")
 
     def test_appointment_rejects_conflicting_time(self):
         target = date(2099, 2, 3)
