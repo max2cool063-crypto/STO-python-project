@@ -1,1 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Вход в систему{% endblock %}
+{% block content %}
 
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-icon">🔐</div>
+    <div class="auth-title">Вход в систему</div>
+    <div class="auth-subtitle">Войдите, чтобы записаться на технический осмотр</div>
+
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="form-group">
+        <label>{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+          <p class="form-error">{{ field.errors.0 }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary btn-block btn-lg">
+        Войти →
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
