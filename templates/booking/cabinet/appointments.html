@@ -1,1 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Мои записи{% endblock %}
+{% block content %}
 
+<div class="section-header">
+  <div>
+    <div class="page-title">Мои записи</div>
+    <div class="page-subtitle" style="margin-bottom:0">История и предстоящие визиты на ТО</div>
+  </div>
+  <a href="/" class="btn btn-primary">+ Новая запись</a>
+</div>
+
+<div class="appt-list">
+{% for a in appointments %}
+<div class="appt-card">
+  <div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px">
+      <div class="appt-station">{{ a.station.name }}</div>
+      {% if a.status == "BOOKED" %}
+        <span class="badge badge-booked">⏳ Запланировано</span>
+      {% elif a.status == "DONE" %}
+        <span class="badge badge-done">✔ Выполнено</span>
+      {% elif a.status == "CANCELLED" %}
+        <span class="badge badge-cancelled">⛔ Отменено</span>
+      {% elif a.status == "NO_SHOW" %}
+        <span class="badge badge-noshow">⚠ Не явился</span>
+      {% endif %}
+    </div>
+    <div class="appt-time">
+      🗓 {{ a.start|date:"d.m.Y" }} &nbsp;·&nbsp; 🕐 {{ a.start|date:"H:i" }} – {{ a.end|date:"H:i" }}
+    </div>
+    <div class="appt-car" style="margin-top:6px">
+      🚗 {{ a.car }}
+    </div>
+
+    {% if a.photos.all %}
+    <div class="appt-photos">
+      {% for photo in a.photos.all %}
+        <img src="{{ photo.image.url }}" alt="фото">
+      {% endfor %}
+    </div>
+    <div style="margin-top:10px">
+      <a href="{% url 'appointment_photos_zip' a.id %}" class="btn btn-secondary btn-sm">
+        📦 Скачать фото (ZIP)
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if a.status == "BOOKED" and a.start > now %}
+    <form method="post" action="{% url 'cabinet_cancel_appointment' a.id %}"
+          onsubmit="return confirm('Отменить эту запись?')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-sm">❌ Отменить</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="empty-state">
+  <div class="empty-state-icon">📭</div>
+  <div class="empty-state-title">Записей пока нет</div>
+  <div class="empty-state-text">Выберите станцию и запишитесь на технический осмотр</div>
+  <a href="/" class="btn btn-primary">Записаться на ТО →</a>
+</div>
+{% endfor %}
+</div>
+
+{% endblock %}

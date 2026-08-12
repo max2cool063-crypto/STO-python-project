@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Редактировать автомобиль{% endblock %}
+{% block content %}
+
+<div style="margin-bottom:20px">
+  <a href="{% url 'cabinet_cars' %}" style="color:var(--text-muted); text-decoration:none; font-size:14px">← Назад к автомобилям</a>
+</div>
+
+<div class="page-title">✏️ Редактировать автомобиль</div>
+<div class="page-subtitle">{{ car }}</div>
+
+<div class="card card-accent" style="max-width:480px">
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="form-group">
+      <label>{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}
+        <p style="color:var(--danger); font-size:12px; margin-top:4px">{{ field.errors.0 }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <div style="display:flex; gap:10px; margin-top:8px">
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+      <a href="{% url 'cabinet_cars' %}" class="btn btn-secondary">Отмена</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

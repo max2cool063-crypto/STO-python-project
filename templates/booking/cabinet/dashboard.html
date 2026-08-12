@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Личный кабинет{% endblock %}
+{% block content %}
+
+<div class="page-title">Личный кабинет</div>
+<div class="page-subtitle">Управляйте профилем, автомобилями и записями на технический осмотр</div>
+
+<div style="display:grid; grid-template-columns: minmax(280px, 380px) 1fr; gap:24px; align-items:start">
+
+  <div class="card card-accent">
+    <h3 style="margin-bottom:18px">Личные данные</h3>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Имя</label>
+        {{ form.first_name }}
+      </div>
+      <div class="form-group">
+        <label>Фамилия</label>
+        {{ form.last_name }}
+      </div>
+      <div class="form-group">
+        <label>Телефон</label>
+        {{ form.phone }}
+      </div>
+      {% if form.errors %}
+        <p class="form-error">Проверьте введённые данные</p>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+    </form>
+  </div>
+
+  <div class="dash-grid">
+    <a href="{% url 'cabinet_cars' %}" class="dash-tile">
+      <div class="dash-tile-icon">🚗</div>
+      <div class="dash-tile-title">Мои автомобили</div>
+      <div class="dash-tile-desc">Управление транспортными средствами</div>
+    </a>
+    <a href="{% url 'cabinet_appointments' %}" class="dash-tile">
+      <div class="dash-tile-icon">📅</div>
+      <div class="dash-tile-title">Мои записи</div>
+      <div class="dash-tile-desc">История и предстоящие визиты</div>
+    </a>
+    <a href="/" class="dash-tile">
+      <div class="dash-tile-icon">🗓</div>
+      <div class="dash-tile-title">Записаться на ТО</div>
+      <div class="dash-tile-desc">Выбрать станцию и время</div>
+    </a>
+    <a href="{% url 'change_password' %}" class="dash-tile">
+      <div class="dash-tile-icon">🔑</div>
+      <div class="dash-tile-title">Сменить пароль</div>
+      <div class="dash-tile-desc">Изменить пароль от кабинета</div>
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}
