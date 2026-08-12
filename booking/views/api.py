@@ -24,9 +24,9 @@ def models_api(request, brand_id):
 
 
 @require_GET
+@login_required
 def station_slots_api(request, station_id):
-    # FIX: passes vehicle_type to get_available_slots
-    # FIX: только активные станции
+    """Return available station slots for the authenticated user's car."""
     station = get_object_or_404(Station, id=station_id, is_active=True)
     date = parse_date(request.GET.get("date"))
     car_id = request.GET.get("car")
@@ -36,21 +36,22 @@ def station_slots_api(request, station_id):
 
     vehicle_type = None
     if car_id:
-        try:
-            car = Car.objects.select_related("model").get(id=car_id)
-            vehicle_type = car.model.vehicle_type
-        except Car.DoesNotExist:
-            pass
+        car = get_object_or_404(
+            Car.objects.select_related("model"),
+            id=car_id,
+            owner=request.user,
+            is_active=True,
+        )
+        vehicle_type = car.model.vehicle_type
 
     slots = station.get_available_slots(date, vehicle_type=vehicle_type)
     return JsonResponse({"slots": slots})
 
 
 @require_GET
-@login_required  # FIX: API машин требует авторизации
+@login_required
 def car_api(request, car_id):
-    # FIX: проверка владельца — нельзя запросить данные чужой машины
-    car = get_object_or_404(Car, id=car_id, owner=request.user)
+    car = get_object_or_404(Car, id=car_id, owner=request.user, is_active=True)
     return JsonResponse({
         "id": car.id,
         "vehicle_type": car.model.vehicle_type,
@@ -66,7 +67,6 @@ def car_by_plate_api(request):
         return JsonResponse({"error": "plate required"}, status=400)
 
     from booking.models import StationStaff
-    # Только сотрудники станций могут искать чужие машины
     if not StationStaff.objects.filter(user=request.user, is_active=True).exists():
         return JsonResponse({"error": "forbidden"}, status=403)
 
@@ -104,7 +104,6 @@ def brands_with_models_api(request):
     if not StationStaff.objects.filter(user=request.user, is_active=True).exists():
         return JsonResponse({"error": "forbidden"}, status=403)
 
-    from booking.models import Brand
     result = []
     for brand in Brand.objects.prefetch_related("models").order_by("name"):
         result.append({
