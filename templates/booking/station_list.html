@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Выберите станцию ТО{% endblock %}
+{% block content %}
+
+<div class="page-title">Выберите станцию ТО</div>
+<div class="page-subtitle">Выберите удобную станцию на карте или из списка ниже и запишитесь онлайн за пару минут</div>
+
+<div class="map-container" id="map"></div>
+
+<div class="station-grid">
+{% for station in stations %}
+  <a href="{% url 'book_station' station.id %}" class="station-card">
+    <div>
+      <div class="station-name">{{ station.name }}</div>
+      <div class="station-address">📍 {{ station.address|default:"Адрес не указан" }}</div>
+    </div>
+    <div class="station-card-footer">
+      <span>Записаться онлайн</span>
+      <span class="station-card-arrow">→</span>
+    </div>
+  </a>
+{% empty %}
+  <div class="empty-state" style="grid-column: 1 / -1">
+    <div class="empty-state-icon">🏢</div>
+    <div class="empty-state-title">Станций пока нет</div>
+    <div class="empty-state-text">Администратор ещё не добавил активные станции</div>
+  </div>
+{% endfor %}
+</div>
+
+<script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU"></script>
+<script>
+ymaps.ready(() => {
+  const map = new ymaps.Map("map", { center: [55.751574, 37.573856], zoom: 10, controls: ['zoomControl', 'geolocationControl'] });
+  fetch("/api/stations/").then(r => r.json()).then(stations => {
+    if (!stations.length) return;
+    const bounds = [];
+    stations.forEach(s => {
+      if (!s.lat || !s.lng) return;
+      bounds.push([s.lat, s.lng]);
+      const pm = new ymaps.Placemark([s.lat, s.lng], {
+        balloonContentHeader: s.name,
+        balloonContentBody: s.address || '',
+        balloonContentFooter: '<a href="/station/' + s.id + '/book/" style="color:#2563eb;font-weight:600">Записаться →</a>'
+      }, { preset: 'islands#blueCircleDotIcon' });
+      map.geoObjects.add(pm);
+    });
+    if (bounds.length) map.setBounds(bounds, { checkZoomRange: true, zoomMargin: 40 });
+  });
+});
+</script>
+{% endblock %}

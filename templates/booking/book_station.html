@@ -1,1 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Запись: {{ station.name }}{% endblock %}
+{% block content %}
 
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:6px">
+  <a href="/" style="color:var(--text-muted); text-decoration:none; font-size:14px">← Назад</a>
+</div>
+
+<div class="page-title">{{ station.name }}</div>
+<div class="page-subtitle">📍 {{ station.address }}</div>
+
+<div class="map-container" id="map"></div>
+
+<div class="card">
+  <h3 style="margin-bottom:16px">Выберите дату и время</h3>
+
+  <div class="form-group">
+    <label>Дата визита</label>
+    <input type="date" id="date" min="{{ today|date:'Y-m-d' }}" value="{{ today|date:'Y-m-d' }}"
+           style="max-width:220px">
+  </div>
+
+  <div>
+    <label>Доступное время</label>
+    <div class="slots-grid" id="slots">
+      <span style="color:var(--text-muted); font-size:14px">Загрузка...</span>
+    </div>
+  </div>
+</div>
+
+<div id="booking-form-anchor"></div>
+
+<form method="post" enctype="multipart/form-data" id="booking-form" style="display:none;">
+  {% csrf_token %}
+  <input type="hidden" name="start" id="start">
+  <input type="hidden" name="end" id="end">
+
+  <div class="card" style="border-color:var(--brand); border-width:2px">
+    <h3 style="color:var(--brand); margin-bottom:20px">🗓 Оформить запись</h3>
+
+    <div style="background:var(--brand-bg); border-radius:var(--radius-sm); padding:14px 18px; margin-bottom:20px; display:none" id="selected-slot-info">
+      <span style="font-weight:700; color:var(--brand)">Выбранное время: </span>
+      <span id="slot-display" style="font-family:var(--font-head); font-weight:800; color:var(--brand)"></span>
+    </div>
+
+    <div class="form-group">
+      <label>Автомобиль</label>
+      <select name="car" id="car-select" required>
+        <option value="">— Выберите автомобиль —</option>
+        {% for car in cars %}
+        <option value="{{ car.id }}">{{ car.model.brand.name }} {{ car.model.name }} — {{ car.plate_number }}</option>
+        {% endfor %}
+      </select>
+      {% if not cars %}<p style="color:var(--danger); font-size:13px; margin-top:8px">
+        ⚠ У вас нет добавленных автомобилей. <a href="{% url 'cabinet_cars' %}">Добавить →</a>
+      </p>{% endif %}
+    </div>
+
+    <div id="truck-warning" class="alert alert-info" style="display:none; margin-bottom:16px">
+      🚛 Грузовой автомобиль занимает 2 слота подряд
+    </div>
+
+    <div class="form-group">
+      <label>Фотографии (до 5 шт, макс 5 МБ каждое)</label>
+      <input type="file" name="photos" id="photo-input" multiple accept="image/*">
+      <div id="preview" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px"></div>
+    </div>
+
+    <button type="submit" id="submit-btn" class="btn btn-primary" disabled style="margin-top:8px">
+      Подтвердить запись →
+    </button>
+  </div>
+</form>
+
+<script>
+  var STATION_LAT = parseFloat("{{ station.latitude|default:'55.75' }}".replace(',', '.')) || 55.75;
+  var STATION_LNG = parseFloat("{{ station.longitude|default:'37.61' }}".replace(',', '.')) || 37.61;
+  var STATION_ID = parseInt("{{ station.id }}") || 1;
+</script>
+<script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU"></script>
+{% verbatim %}
+<script>
+ymaps.ready(function() {
+  const map = new ymaps.Map("map", { center: [STATION_LAT, STATION_LNG], zoom: 15 });
+  map.geoObjects.add(new ymaps.Placemark([STATION_LAT, STATION_LNG], {}, { preset: 'islands#blueDotIcon' }));
+});
+
+const dateInput = document.getElementById("date");
+const slotsDiv = document.getElementById("slots");
+const carSelect = document.getElementById("car-select");
+const submitBtn = document.getElementById("submit-btn");
+
+function updateSubmit() {
+  submitBtn.disabled = !(document.getElementById("start").value && carSelect.value);
+}
+
+function fmtTime(iso) {
+  return iso.slice(11,16);
+}
+
+let selectedSlot = null;
+
+function loadSlots() {
+  if (!dateInput.value) return;
+  slotsDiv.innerHTML = '<span style="color:var(--text-muted);font-size:14px">Загрузка...</span>';
+  const carParam = carSelect.value ? `&car=${carSelect.value}` : "";
+  fetch(`/api/station/${STATION_ID}/slots/?date=${dateInput.value}${carParam}`)
+    .then(r => r.json()).then(data => {
+      slotsDiv.innerHTML = "";
+      if (!data.slots.length) {
+        slotsDiv.innerHTML = '<span style="color:var(--text-muted);font-size:14px">На эту дату нет свободных слотов</span>';
+        return;
+      }
+      data.slots.forEach(slot => {
+        const div = document.createElement("div");
+        div.className = "slot";
+        div.textContent = fmtTime(slot.start);
+        if (selectedSlot && selectedSlot.start === slot.start) {
+          div.classList.add("slot-selected");
+        }
+        div.onclick = () => {
+          document.querySelectorAll(".slot-selected").forEach(el => el.classList.remove("slot-selected"));
+          div.classList.add("slot-selected");
+          selectedSlot = slot;
+          document.getElementById("start").value = slot.start;
+          document.getElementById("end").value = slot.end;
+          document.getElementById("booking-form").style.display = "block";
+          document.getElementById("selected-slot-info").style.display = "block";
+          document.getElementById("slot-display").textContent =
+            new Date(slot.start).toLocaleDateString("ru-RU", {weekday:"long", day:"numeric", month:"long"}) + ", " + fmtTime(slot.start) + " – " + fmtTime(slot.end);
+          document.getElementById("booking-form-anchor").scrollIntoView({ behavior:"smooth" });
+          updateSubmit();
+        };
+        slotsDiv.appendChild(div);
+      });
+	   // Восстанавливаем форму если слот уже был выбран
+      if (selectedSlot) {
+        document.getElementById("start").value = selectedSlot.start;
+        document.getElementById("end").value = selectedSlot.end;
+        document.getElementById("booking-form").style.display = "block";
+        document.getElementById("selected-slot-info").style.display = "block";
+        updateSubmit();
+      }
+    });
+}
+
+dateInput.addEventListener("change", () => { selectedSlot = null; loadSlots(); });
+carSelect.addEventListener("change", () => {
+  updateSubmit();
+  if (!carSelect.value) { 
+    document.getElementById("truck-warning").style.display="none"; 
+    return; 
+  }
+  fetch(`/api/cars/${carSelect.value}/`).then(r=>r.json()).then(data => {
+    document.getElementById("truck-warning").style.display = data.vehicle_type === "TRUCK" ? "flex" : "none";
+    loadSlots();
+  });
+});
+loadSlots();
+
+document.getElementById("photo-input").addEventListener("change", function() {
+  const preview = document.getElementById("preview");
+  preview.innerHTML = "";
+  [...this.files].slice(0,5).forEach(f => {
+    const img = document.createElement("img");
+    img.src = URL.createObjectURL(f);
+    img.style = "height:80px;width:80px;object-fit:cover;border-radius:8px;border:2px solid var(--border)";
+    preview.appendChild(img);
+  });
+});
+</script>
+{% endverbatim %}
+
+{% endblock %}
