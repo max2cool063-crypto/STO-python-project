@@ -21,8 +21,8 @@ class Station(models.Model):
     email = models.EmailField("Email", blank=True, default="")
 
     slot_duration = models.PositiveIntegerField(
-        "Длительность слота (мин)",
-        default=60
+        "Длительность базового слота (мин)",
+        default=30
     )
 
     is_active = models.BooleanField("Активна для записи", default=True)
