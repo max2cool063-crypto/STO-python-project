@@ -53,10 +53,11 @@ class BookingCoreTests(TestCase):
             plate_number="B222BB",
         )
         self.station = Station.objects.create(name="Test Station")
+        self.other_station = Station.objects.create(name="Other Station")
 
-    def add_weekday_schedule(self, target_date, start="09:00", end="18:00"):
+    def add_weekday_schedule(self, target_date, start="09:00", end="18:00", station=None):
         StationWeeklySchedule.objects.create(
-            station=self.station,
+            station=station or self.station,
             weekday=target_date.weekday(),
             work_start=time.fromisoformat(start),
             work_end=time.fromisoformat(end),
@@ -146,16 +147,7 @@ class BookingCoreTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_car_by_plate_api_forbids_regular_client(self):
-        self.client.login(username="client@example.com", password="test-password")
-
-        url = reverse("car_by_plate_api")
-        response = self.client.get(url, {"plate": self.car.plate_number})
-
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["error"], "forbidden")
-
-    def test_car_by_plate_api_allows_station_staff(self):
+    def test_car_by_plate_api_requires_station_id(self):
         StationStaff.objects.create(
             station=self.station,
             user=self.other_user,
@@ -167,11 +159,108 @@ class BookingCoreTests(TestCase):
         url = reverse("car_by_plate_api")
         response = self.client.get(url, {"plate": self.car.plate_number})
 
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "plate and station_id required")
+
+    def test_car_by_plate_api_forbids_regular_client(self):
+        self.client.login(username="client@example.com", password="test-password")
+
+        url = reverse("car_by_plate_api")
+        response = self.client.get(
+            url,
+            {"plate": self.car.plate_number, "station_id": self.station.id},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["error"], "forbidden")
+
+    def test_car_by_plate_api_allows_station_staff_for_station_client(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        target = date(2099, 2, 3)
+        self.add_weekday_schedule(target)
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
+        Appointment.objects.create(
+            user=self.user,
+            car=self.car,
+            station=self.station,
+            start=start,
+            end=start + timedelta(minutes=30),
+            name="Client",
+            phone="123",
+        )
+
+        self.client.login(username="other@example.com", password="test-password")
+        url = reverse("car_by_plate_api")
+        response = self.client.get(
+            url,
+            {
+                "plate": self.car.plate_number,
+                "station_id": self.station.id,
+            },
+        )
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["id"], self.car.id)
         self.assertEqual(data["brand"], "Test")
         self.assertEqual(data["model"], "Passenger")
+
+    def test_car_by_plate_api_blocks_car_from_another_station(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        target = date(2099, 2, 3)
+        self.add_weekday_schedule(target, station=self.other_station)
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
+        Appointment.objects.create(
+            user=self.user,
+            car=self.car,
+            station=self.other_station,
+            start=start,
+            end=start + timedelta(minutes=30),
+            name="Client",
+            phone="123",
+        )
+
+        self.client.login(username="other@example.com", password="test-password")
+        url = reverse("car_by_plate_api")
+        response = self.client.get(
+            url,
+            {
+                "plate": self.car.plate_number,
+                "station_id": self.station.id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_car_by_plate_api_blocks_staff_of_another_station(self):
+        StationStaff.objects.create(
+            station=self.other_station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        self.client.login(username="other@example.com", password="test-password")
+
+        url = reverse("car_by_plate_api")
+        response = self.client.get(
+            url,
+            {
+                "plate": self.car.plate_number,
+                "station_id": self.station.id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
 
     @patch("booking.views.station_appointment_create.notify_client_booked")
     @patch("booking.views.station_appointment_create.notify_station_staff_booked")
