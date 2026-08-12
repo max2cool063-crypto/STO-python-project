@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.test import Client, TestCase
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -65,7 +65,7 @@ class BookingCoreTests(TestCase):
         )
 
     def test_truck_requires_two_slots(self):
-        target = date(2099, 1, 5)
+        target = date(2099, 2, 3)
         self.add_weekday_schedule(target, "09:00", "13:00")
 
         slots = self.station.get_available_slots(target, vehicle_type="TRUCK")
@@ -112,7 +112,7 @@ class BookingCoreTests(TestCase):
 
     def test_station_slots_api_rejects_foreign_car(self):
         self.client.login(username="client@example.com", password="test-password")
-        target = date(2099, 1, 5)
+        target = date(2099, 2, 3)
         self.add_weekday_schedule(target)
 
         url = reverse("station_slots_api", kwargs={"station_id": self.station.id})
@@ -121,9 +121,9 @@ class BookingCoreTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_appointment_rejects_conflicting_time(self):
-        target = date(2099, 1, 5)
+        target = date(2099, 2, 3)
         self.add_weekday_schedule(target)
-        start = timezone.make_aware(timezone.datetime(2099, 1, 5, 10, 0))
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
 
         Appointment.objects.create(
             user=self.user,
@@ -149,14 +149,14 @@ class BookingCoreTests(TestCase):
             conflicting.full_clean()
 
     def test_appointment_save_recalculates_end_for_truck(self):
-        target = date(2099, 1, 5)
+        target = date(2099, 2, 3)
         self.add_weekday_schedule(target, "09:00", "18:00")
         truck = Car.objects.create(
             owner=self.user,
             model=self.truck_model,
             plate_number="C333CC",
         )
-        start = timezone.make_aware(timezone.datetime(2099, 1, 5, 10, 0))
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
 
         appointment = Appointment.objects.create(
             user=self.user,
@@ -171,9 +171,9 @@ class BookingCoreTests(TestCase):
         self.assertEqual(appointment.end, start + timedelta(hours=2))
 
     def test_cancelled_appointment_does_not_block_slot(self):
-        target = date(2099, 1, 5)
+        target = date(2099, 2, 3)
         self.add_weekday_schedule(target)
-        start = timezone.make_aware(timezone.datetime(2099, 1, 5, 10, 0))
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
 
         Appointment.objects.create(
             user=self.user,
