@@ -1,1 +1,179 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
 
+{% block title %}Импорт станций из РСА{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="/admin/">Главная</a> › 
+  <a href="/admin/booking/station/">Станции ТО</a> › 
+  Импорт из РСА
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>🗂 Импорт станций ТО из реестра РСА</h1>
+
+<div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:20px;margin-bottom:24px;max-width:600px">
+  <p style="color:#555;margin-bottom:16px;font-size:14px">
+    Загружает действующие ПТО из реестра РСА по поисковому запросу.<br>
+    Импортируются: название, адрес, координаты, телефон, email.<br>
+    Уже существующие станции не дублируются.
+  </p>
+
+  <div id="form-block">
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-weight:bold;margin-bottom:6px">Поиск по адресу (город, регион):</label>
+      <input type="text" id="address-input" value="{{ query|default:'' }}"
+             placeholder="например: Москва"
+             style="width:100%;max-width:400px;padding:8px 12px;border:1px solid #ccc;border-radius:4px;font-size:14px">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="display:block;font-weight:bold;margin-bottom:6px">Страниц (30 станций на странице):</label>
+      <input type="number" id="pages-input" value="3" min="1" max="128"
+             style="width:80px;padding:8px 12px;border:1px solid #ccc;border-radius:4px;font-size:14px">
+      <span style="color:#888;font-size:13px;margin-left:8px">128 страниц = весь реестр (~3800 станций)</span>
+    </div>
+    <button id="start-btn" onclick="startImport()"
+            style="background:#417690;color:white;padding:10px 24px;border:none;cursor:pointer;border-radius:4px;font-size:14px;font-weight:bold">
+      🔄 Начать импорт
+    </button>
+    <a href="/admin/booking/station/"
+       style="margin-left:12px;color:#417690;text-decoration:none;font-size:14px">← Отмена</a>
+  </div>
+</div>
+
+<!-- Прогресс-бар -->
+<div id="progress-block" style="display:none;max-width:700px;margin-bottom:24px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:14px">
+    <span id="progress-label">Подготовка...</span>
+    <span id="progress-percent" style="font-weight:bold;color:#417690">0%</span>
+  </div>
+  <div style="background:#e9ecef;border-radius:8px;height:22px;overflow:hidden">
+    <div id="progress-bar"
+         style="background:linear-gradient(90deg,#417690,#5ba0c0);height:100%;width:0%;transition:width 0.4s ease;border-radius:8px"></div>
+  </div>
+  <div style="margin-top:10px;font-size:13px;color:#666">
+    <span id="stats-created" style="color:#4ec94e;font-weight:bold">✅ 0</span> создано &nbsp;&nbsp;
+    <span id="stats-skipped" style="color:#888;font-weight:bold">⏭ 0</span> пропущено &nbsp;&nbsp;
+    <span id="stats-errors" style="color:#f48771;font-weight:bold">⚠️ 0</span> ошибок
+  </div>
+</div>
+
+<!-- Лог -->
+<div id="log-block" style="display:none">
+  <h3 style="margin-bottom:12px">Лог импорта:</h3>
+  <div id="log-container"
+       style="background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:16px;max-height:500px;overflow-y:auto;font-family:monospace;font-size:13px;line-height:1.7">
+  </div>
+  <div id="done-block" style="display:none;margin-top:16px">
+    <a href="/admin/booking/station/"
+       style="background:#417690;color:white;padding:8px 20px;border-radius:4px;text-decoration:none;font-size:14px">
+      → К списку станций
+    </a>
+    <button onclick="resetForm()"
+            style="margin-left:12px;background:#6c757d;color:white;padding:8px 20px;border:none;border-radius:4px;font-size:14px;cursor:pointer">
+      🔄 Новый импорт
+    </button>
+  </div>
+</div>
+
+<script>
+let eventSource = null;
+let statsCreated = 0, statsSkipped = 0, statsErrors = 0;
+
+function startImport() {
+  const address = document.getElementById('address-input').value.trim();
+  const pages = document.getElementById('pages-input').value;
+
+  document.getElementById('progress-block').style.display = 'block';
+  document.getElementById('log-block').style.display = 'block';
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('start-btn').textContent = '⏳ Идёт импорт...';
+  document.getElementById('address-input').disabled = true;
+  document.getElementById('pages-input').disabled = true;
+
+  statsCreated = 0; statsSkipped = 0; statsErrors = 0;
+  updateStats();
+
+  const url = `/admin/booking/station/import-rsa-stream/?address=${encodeURIComponent(address)}&pages=${encodeURIComponent(pages)}`;
+  eventSource = new EventSource(url);
+
+  eventSource.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    if (data.type === 'progress') {
+      const pct = Math.round((data.page / data.total_pages) * 100);
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-percent').textContent = pct + '%';
+      document.getElementById('progress-label').textContent = `Страница ${data.page} из ${data.total_pages}...`;
+    }
+
+    if (data.type === 'log') {
+      appendLog(data.message);
+      if (data.message.startsWith('✅')) statsCreated++;
+      else if (data.message.startsWith('⏭')) statsSkipped++;
+      else if (data.message.startsWith('⚠️') || data.message.startsWith('❌')) statsErrors++;
+      updateStats();
+    }
+
+    if (data.type === 'done') {
+      document.getElementById('progress-bar').style.width = '100%';
+      document.getElementById('progress-percent').textContent = '100%';
+      document.getElementById('progress-label').textContent = '✅ Импорт завершён!';
+      document.getElementById('done-block').style.display = 'block';
+      appendLog('\n🏁 ' + data.message);
+      eventSource.close();
+    }
+  };
+
+  eventSource.onerror = function() {
+    appendLog('❌ Соединение прервано');
+    document.getElementById('progress-label').textContent = 'Ошибка соединения';
+    document.getElementById('done-block').style.display = 'block';
+    if (eventSource) eventSource.close();
+  };
+}
+
+function appendLog(message) {
+  const container = document.getElementById('log-container');
+  const div = document.createElement('div');
+  let color = '#d4d4d4';
+  if (message.startsWith('✅')) color = '#4ec94e';
+  else if (message.startsWith('⏭')) color = '#888';
+  else if (message.startsWith('⚠️') || message.startsWith('❌')) color = '#f48771';
+  else if (message.startsWith('📄') || message.startsWith('🏁')) {
+    color = '#569cd6';
+    div.style.fontWeight = 'bold';
+    div.style.marginTop = '8px';
+  }
+  div.style.color = color;
+  div.textContent = message;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function updateStats() {
+  document.getElementById('stats-created').textContent = `✅ ${statsCreated}`;
+  document.getElementById('stats-skipped').textContent = `⏭ ${statsSkipped}`;
+  document.getElementById('stats-errors').textContent = `⚠️ ${statsErrors}`;
+}
+
+function resetForm() {
+  if (eventSource) eventSource.close();
+  document.getElementById('progress-block').style.display = 'none';
+  document.getElementById('log-block').style.display = 'none';
+  document.getElementById('done-block').style.display = 'none';
+  document.getElementById('log-container').innerHTML = '';
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('start-btn').textContent = '🔄 Начать импорт';
+  document.getElementById('address-input').disabled = false;
+  document.getElementById('pages-input').disabled = false;
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-percent').textContent = '0%';
+  document.getElementById('progress-label').textContent = 'Подготовка...';
+  statsCreated = 0; statsSkipped = 0; statsErrors = 0;
+  updateStats();
+}
+</script>
+{% endblock %}
