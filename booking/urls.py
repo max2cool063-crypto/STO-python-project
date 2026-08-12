@@ -2,6 +2,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
 from booking.views.api import brands_api, models_api, station_slots_api, car_api, car_by_plate_api, brands_with_models_api
+from booking.views.station_appointment_create import station_appointment_create
 
 urlpatterns = [
     # ПУБЛИЧНЫЙ ФРОНТ
@@ -42,7 +43,7 @@ urlpatterns = [
     path("station/", views.station_select, name="station_select"),
     path("station/<int:station_id>/", views.station_dashboard, name="station_dashboard"),
     path("station/<int:station_id>/appointments/", views.station_appointments, name="station_appointments"),
-    path("station/<int:station_id>/appointments/create/", views.station_appointment_create, name="station_appointment_create"),
+    path("station/<int:station_id>/appointments/create/", station_appointment_create, name="station_appointment_create"),
     path("station/<int:station_id>/appointments/<int:pk>/status/", views.station_appointment_status, name="station_appointment_status"),
     path("station/<int:station_id>/appointments/<int:pk>/", views.station_appointment_detail, name="station_appointment_detail"),
     path("station/<int:station_id>/appointments/csv/", views.station_appointments_csv, name="station_appointments_csv"),
