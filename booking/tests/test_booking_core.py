@@ -14,6 +14,7 @@ from booking.models import (
     CarModel,
     Station,
     StationSchedule,
+    StationStaff,
     StationWeeklySchedule,
 )
 
@@ -144,6 +145,72 @@ class BookingCoreTests(TestCase):
         response = self.client.get(url, {"date": target.isoformat(), "car": self.other_car.id})
 
         self.assertEqual(response.status_code, 404)
+
+    def test_car_by_plate_api_forbids_regular_client(self):
+        self.client.login(username="client@example.com", password="test-password")
+
+        url = reverse("car_by_plate_api")
+        response = self.client.get(url, {"plate": self.car.plate_number})
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["error"], "forbidden")
+
+    def test_car_by_plate_api_allows_station_staff(self):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        self.client.login(username="other@example.com", password="test-password")
+
+        url = reverse("car_by_plate_api")
+        response = self.client.get(url, {"plate": self.car.plate_number})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["id"], self.car.id)
+        self.assertEqual(data["brand"], "Test")
+        self.assertEqual(data["model"], "Passenger")
+
+    @patch("booking.views.station_appointment_create.notify_client_booked")
+    @patch("booking.views.station_appointment_create.notify_station_staff_booked")
+    def test_station_staff_can_create_manual_appointment(self, notify_staff, notify_client):
+        StationStaff.objects.create(
+            station=self.station,
+            user=self.other_user,
+            role=StationStaff.ROLE_OPERATOR,
+            is_active=True,
+        )
+        self.client.login(username="other@example.com", password="test-password")
+        target = date(2099, 2, 3)
+        self.add_weekday_schedule(target, "09:00", "18:00")
+
+        url = reverse(
+            "station_appointment_create",
+            kwargs={"station_id": self.station.id},
+        )
+        response = self.client.post(
+            url,
+            {
+                "car_id": str(self.car.id),
+                "start": "2099-02-03T10:00",
+                "client_name": "Test Client",
+                "client_phone": "+79990000000",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("station_appointments", kwargs={"station_id": self.station.id}),
+        )
+        appointment = Appointment.objects.get(station=self.station, car=self.car)
+        self.assertEqual(appointment.user, self.car.owner)
+        self.assertEqual(appointment.name, "Test Client")
+        self.assertEqual(appointment.start, timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0)))
+        self.assertEqual(appointment.end, appointment.start + timedelta(minutes=30))
+        notify_staff.assert_called_once_with(appointment)
+        notify_client.assert_called_once_with(appointment)
 
     def test_appointment_rejects_conflicting_time(self):
         target = date(2099, 2, 3)
