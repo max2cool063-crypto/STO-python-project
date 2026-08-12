@@ -1,0 +1,65 @@
+{% extends "booking/station/base.html" %}
+{% block station_content %}
+<h2>{{ station.name }}</h2>
+
+{% if staff.role == 'OWNER' %}
+<div class="st-stats">
+  <div class="st-stat">
+    <div class="st-stat__num">{{ stats.total }}</div>
+    <div class="st-stat__label">Всего за 30 дн.</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num" style="color:#15803d">{{ stats.done }}</div>
+    <div class="st-stat__label">Выполнено</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num" style="color:#dc2626">{{ stats.cancelled }}</div>
+    <div class="st-stat__label">Отменено</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num" style="color:#a16207">{{ stats.no_show }}</div>
+    <div class="st-stat__label">Не явился</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num" style="color:#1d4ed8">{{ stats.today }}</div>
+    <div class="st-stat__label">Сегодня</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num">{{ stats.upcoming }}</div>
+    <div class="st-stat__label">Предстоит</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="st-card">
+  <div class="st-card__header">
+    Ближайшие записи
+    <a href="{% url 'station_appointment_create' station.pk %}" class="st-btn st-btn--primary st-btn--sm">+ Записать клиента</a>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="st-table">
+      <thead><tr>
+        <th>Время</th><th>Клиент</th><th>Телефон</th><th>Автомобиль</th><th>Тип</th>
+      </tr></thead>
+      <tbody>
+        {% for a in upcoming %}
+        <tr>
+          <td style="white-space:nowrap">{{ a.start|date:"d.m H:i" }}</td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.phone|default:"—" }}</td>
+          <td>{{ a.car }}</td>
+          <td>{{ a.car.model.get_vehicle_type_display }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:24px">Нет предстоящих записей</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if upcoming %}
+  <div style="padding:12px 20px;border-top:1px solid #e5e7eb">
+    <a href="{% url 'station_appointments' station.pk %}" style="font-size:14px;color:#1d4ed8">Все записи →</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "booking/station/base.html" %}
+{% block station_content %}
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+  <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary st-btn--sm">← Назад</a>
+  <h2 style="margin:0">Запись #{{ appointment.pk }}</h2>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+  <!-- Детали записи -->
+  <div class="st-card">
+    <div class="st-card__header">Информация о записи</div>
+    <div class="st-card__body">
+      <table style="width:100%;font-size:14px;border-collapse:collapse">
+        <tr><td style="color:#6b7280;padding:6px 0;width:40%">Дата и время</td><td style="font-weight:500">{{ appointment.start|date:"d.m.Y H:i" }} — {{ appointment.end|date:"H:i" }}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0">Клиент</td><td>{{ appointment.name }}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0">Телефон</td><td>{{ appointment.phone|default:"—" }}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0">Автомобиль</td><td>{{ appointment.car }}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0">VIN</td><td>{{ appointment.vin|default:"—" }}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0">Статус</td>
+          <td>
+            {% if appointment.status == 'BOOKED' %}<span class="st-badge st-badge--booked">{{ appointment.get_status_display }}</span>
+            {% elif appointment.status == 'DONE' %}<span class="st-badge st-badge--done">{{ appointment.get_status_display }}</span>
+            {% elif appointment.status == 'CANCELLED' %}<span class="st-badge st-badge--cancelled">{{ appointment.get_status_display }}</span>
+            {% elif appointment.status == 'NO_SHOW' %}<span class="st-badge st-badge--noshow">{{ appointment.get_status_display }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% if appointment.notes %}
+        <tr><td style="color:#6b7280;padding:6px 0;vertical-align:top">Комментарий</td>
+          <td style="white-space:pre-line">{{ appointment.notes }}</td></tr>
+        {% endif %}
+      </table>
+
+      <!-- Быстрая смена статуса -->
+      <form method="post" action="{% url 'station_appointment_status' station.pk appointment.pk %}"
+            style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb">
+        {% csrf_token %}
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="st-form-group">
+            <label>Изменить статус</label>
+            <select name="status" class="st-select">
+              {% for val, label in status_choices %}
+              <option value="{{ val }}" {% if appointment.status == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="st-form-group" style="flex:1;min-width:200px">
+            <label>Комментарий</label>
+            <input type="text" name="comment" class="st-input" placeholder="Что выявили, что сделали...">
+          </div>
+          <button type="submit" class="st-btn st-btn--primary">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- История изменений -->
+  <div class="st-card">
+    <div class="st-card__header">История изменений</div>
+    <div class="st-card__body" style="padding:0">
+      {% if logs %}
+      <table class="st-table">
+        <thead><tr><th>Время</th><th>Кто</th><th>Изменение</th><th>Комментарий</th></tr></thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td style="font-size:12px;white-space:nowrap">{{ log.created_at|date:"d.m H:i" }}</td>
+            <td style="font-size:13px">{{ log.changed_by|default:"система" }}</td>
+            <td style="font-size:13px">
+              {% if log.old_status %}{{ log.old_status }} → {% endif %}{{ log.new_status }}
+            </td>
+            <td style="font-size:13px;color:#6b7280">{{ log.comment|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="padding:20px;color:#6b7280;font-size:14px">История пока пуста</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

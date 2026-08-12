@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="st-layout">
+  <!-- Боковое меню -->
+  <aside class="st-sidebar">
+    <div class="st-sidebar__name">{{ station.name }}</div>
+    <nav class="st-sidebar__nav">
+      <a href="{% url 'station_dashboard' station.pk %}"
+         class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}">
+        Главная
+      </a>
+      <a href="{% url 'station_appointments' station.pk %}"
+         class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}">
+        Записи
+      </a>
+      <a href="{% url 'station_schedule' station.pk %}"
+         class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}">
+        Расписание
+      </a>
+      <a href="{% url 'station_slot_blocks' station.pk %}"
+         class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}">
+        Блокировки
+      </a>
+      {% if staff.role == 'OWNER' %}
+      <a href="{% url 'station_clients' station.pk %}"
+         class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}">
+        Клиенты
+      </a>
+      {% endif %}
+      <a href="{% url 'station_staff' station.pk %}"
+         class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}">
+        Сотрудники
+      </a>
+    </nav>
+    <a href="{% url 'station_select' %}" class="st-sidebar__back">← Все станции</a>
+  </aside>
+
+  <!-- Основной контент -->
+  <main class="st-main">
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags|default:'info' }}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% block station_content %}{% endblock %}
+  </main>
+</div>
+
+<style>
+.st-layout { display: flex; gap: 0; min-height: calc(100vh - 60px); }
+.st-sidebar {
+  width: 200px; flex-shrink: 0;
+  background: #fff; border-right: 1px solid #e5e7eb;
+  padding: 20px 0; display: flex; flex-direction: column;
+}
+.st-sidebar__name {
+  font-size: 13px; font-weight: 600; color: #374151;
+  padding: 0 20px 16px; border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 8px; word-break: break-word;
+}
+.st-sidebar__nav { display: flex; flex-direction: column; flex: 1; }
+.st-nav-link {
+  display: block; padding: 9px 20px;
+  color: #4b5563; text-decoration: none; font-size: 14px;
+  border-left: 3px solid transparent; transition: all .15s;
+}
+.st-nav-link:hover { background: #f3f4f6; color: #111; }
+.st-nav-link--active { background: #eff6ff; color: #1d4ed8; border-left-color: #1d4ed8; font-weight: 500; }
+.st-sidebar__back {
+  display: block; padding: 12px 20px;
+  color: #6b7280; text-decoration: none; font-size: 13px;
+  border-top: 1px solid #e5e7eb; margin-top: auto;
+}
+.st-sidebar__back:hover { color: #111; }
+.st-main { flex: 1; padding: 28px 32px; overflow-x: auto; }
+.st-main h2 { font-size: 18px; font-weight: 600; margin: 0 0 20px; color: #111827; }
+
+/* Карточки */
+.st-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 20px; }
+.st-card__header {
+  padding: 14px 20px; border-bottom: 1px solid #e5e7eb;
+  font-weight: 600; font-size: 14px; color: #374151;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.st-card__body { padding: 20px; }
+
+/* Таблицы */
+.st-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.st-table th { padding: 10px 14px; text-align: left; font-weight: 500; color: #6b7280; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+.st-table td { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+.st-table tr:last-child td { border-bottom: none; }
+.st-table tr:hover td { background: #f9fafb; }
+
+/* Форма */
+.st-form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+.st-form-group { display: flex; flex-direction: column; gap: 5px; }
+.st-form-group label { font-size: 12px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: .03em; }
+.st-input, .st-select {
+  padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 14px; color: #111; background: #fff; outline: none;
+}
+.st-input:focus, .st-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+
+/* Кнопки */
+.st-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; transition: all .15s; }
+.st-btn--primary { background: #1d4ed8; color: #fff; }
+.st-btn--primary:hover { background: #1e40af; color: #fff; }
+.st-btn--secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.st-btn--secondary:hover { background: #e5e7eb; }
+.st-btn--danger { background: #fff; color: #dc2626; border: 1px solid #fca5a5; }
+.st-btn--danger:hover { background: #fef2f2; }
+.st-btn--sm { padding: 5px 10px; font-size: 13px; }
+
+/* Бейджи статусов */
+.st-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+.st-badge--booked   { background: #dbeafe; color: #1d4ed8; }
+.st-badge--done     { background: #dcfce7; color: #15803d; }
+.st-badge--cancelled{ background: #f3f4f6; color: #6b7280; }
+.st-badge--noshow   { background: #fef9c3; color: #a16207; }
+
+/* Статистика */
+.st-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.st-stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; text-align: center; }
+.st-stat__num { font-size: 28px; font-weight: 700; color: #111827; line-height: 1; }
+.st-stat__label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+@media (max-width: 700px) {
+  .st-layout { flex-direction: column; }
+  .st-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; }
+  .st-sidebar__nav { flex-direction: row; flex-wrap: wrap; }
+  .st-nav-link { border-left: none; border-bottom: 3px solid transparent; }
+  .st-nav-link--active { border-bottom-color: #1d4ed8; border-left: none; }
+  .st-main { padding: 16px; }
+}
+</style>
+{% endblock %}

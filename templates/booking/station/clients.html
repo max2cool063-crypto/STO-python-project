@@ -1,0 +1,39 @@
+{% extends "booking/station/base.html" %}
+{% block station_content %}
+<h2>Клиенты — {{ station.name }}</h2>
+
+<form method="get" style="display:flex;gap:8px;margin-bottom:16px">
+  <input type="text" name="q" value="{{ search }}" class="st-input" style="width:260px"
+         placeholder="Имя, телефон, email">
+  <button type="submit" class="st-btn st-btn--secondary">Найти</button>
+  {% if search %}<a href="{% url 'station_clients' station.pk %}" class="st-btn st-btn--secondary">Сброс</a>{% endif %}
+</form>
+
+<div class="st-card">
+  <div style="overflow-x:auto">
+    <table class="st-table">
+      <thead><tr>
+        <th>Клиент</th><th>Логин</th><th>Email</th><th>Телефон</th><th>Выполненных визитов</th>
+      </tr></thead>
+      <tbody>
+        {% for client in clients %}
+        <tr>
+          <td>
+            {% with p=client.profile %}
+              {% if p.last_name or p.first_name %}{{ p.last_name }} {{ p.first_name }}
+              {% else %}—{% endif %}
+            {% endwith %}
+          </td>
+          <td style="font-size:13px;color:#6b7280">{{ client.username }}</td>
+          <td style="font-size:13px">{{ client.email|default:"—" }}</td>
+          <td style="font-size:13px">{{ client.profile.phone|default:"—" }}</td>
+          <td><span class="st-badge st-badge--done">{{ client.visit_count }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:24px">Клиентов не найдено</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

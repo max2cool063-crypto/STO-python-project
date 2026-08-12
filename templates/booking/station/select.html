@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load l10n %}
+{% block content %}
+<div style="max-width:900px;margin:32px auto;padding:0 16px">
+  <h2 style="margin-bottom:20px">Мои станции</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+
+    <div>
+      {% for s in stations %}
+      <a href="{% url 'station_dashboard' s.pk %}" style="text-decoration:none;display:block;margin-bottom:12px">
+        <div class="st-select-card"
+             data-lat="{{ s.latitude|unlocalize }}"
+             data-lng="{{ s.longitude|unlocalize }}"
+             data-name="{{ s.name|force_escape }}"
+             data-address="{{ s.address|force_escape }}"
+             data-url="{% url 'station_dashboard' s.pk %}">
+          <div style="font-weight:600;color:#111827">{{ s.name }}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px">{{ s.address|default:"Адрес не указан" }}</div>
+          <div style="margin-top:8px;font-size:13px;color:#1d4ed8">Открыть кабинет &rarr;</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+
+    <div>
+      <div id="stations-map" style="height:360px;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+.st-select-card {
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+  padding:16px; transition:all .15s;
+}
+.st-select-card:hover { border-color:#3b82f6; box-shadow:0 4px 12px rgba(59,130,246,.12); }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+window._stationData = { withCoords: [], withoutCoords: [] };
+document.querySelectorAll('.st-select-card').forEach(function(el) {
+  var lat = parseFloat((el.dataset.lat || '').replace(',', '.'));
+  var lng = parseFloat((el.dataset.lng || '').replace(',', '.'));
+  var name = el.dataset.name;
+  var url = el.dataset.url;
+  var addr = el.dataset.address;
+  var valid = !isNaN(lat) && !isNaN(lng) && lat > 41 && lat < 82 && lng > 19 && lng < 190;
+  if (valid) {
+    window._stationData.withCoords.push({lat:lat, lng:lng, name:name, url:url});
+  } else if (addr) {
+    window._stationData.withoutCoords.push({name:name, address:addr, url:url});
+  }
+});
+
+function initStationMap() {
+  var data = window._stationData;
+  var map = new ymaps.Map('stations-map', {
+    center: [53.195878, 50.100202],
+    zoom: 11,
+    controls: ['zoomControl', 'fullscreenControl']
+  });
+
+  function addPin(lat, lng, name, url) {
+    map.geoObjects.add(new ymaps.Placemark([lat, lng], {
+      balloonContentHeader: name,
+      balloonContentFooter: '<a href="' + url + '" style="color:#1d4ed8;font-weight:600">Открыть кабинет</a>'
+    }, { preset: 'islands#blueDotIcon' }));
+  }
+
+  function fitBounds() {
+    var bounds = map.geoObjects.getBounds();
+    if (bounds) {
+      map.setBounds(bounds, {checkZoomRange:true, zoomMargin:60});
+    }
+  }
+
+  data.withCoords.forEach(function(s) {
+    addPin(s.lat, s.lng, s.name, s.url);
+  });
+
+  var total = data.withoutCoords.length;
+  var done = 0;
+
+  if (total === 0) {
+    setTimeout(fitBounds, 300);
+  } else {
+    data.withoutCoords.forEach(function(s) {
+      ymaps.geocode(s.address, {results:1}).then(function(res) {
+        var obj = res.geoObjects.get(0);
+        if (obj) {
+          var c = obj.geometry.getCoordinates();
+          addPin(c[0], c[1], s.name, s.url);
+        }
+        done++;
+        if (done >= total) { setTimeout(fitBounds, 200); }
+      }, function() {
+        done++;
+        if (done >= total) { setTimeout(fitBounds, 200); }
+      });
+    });
+  }
+}
+</script>
+<script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU&onload=initStationMap"></script>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "booking/station/base.html" %}
+{% block station_content %}
+<h2>Сотрудники — {{ station.name }}</h2>
+
+<div class="st-card" style="max-width:520px;margin-bottom:24px">
+  <div class="st-card__header">Добавить оператора</div>
+  <div class="st-card__body">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_operator">
+      <div class="st-form-group" style="margin-bottom:14px">
+        <label>Логин *</label>
+        <input type="text" name="login" class="st-input" placeholder="ivanov_op" required>
+      </div>
+      <div class="st-form-group" style="margin-bottom:14px">
+        <label>Пароль *</label>
+        <input type="text" name="password" class="st-input" placeholder="минимум 8 символов" required minlength="8">
+      </div>
+      <div class="st-form-group" style="margin-bottom:14px">
+        <label>Email</label>
+        <input type="email" name="email" class="st-input" placeholder="operator@example.com">
+        <div style="font-size:12px;color:#6b7280;margin-top:3px">Необязательно — оператор получит письмо с данными для входа</div>
+      </div>
+      <button type="submit" class="st-btn st-btn--primary">Добавить оператора</button>
+    </form>
+  </div>
+</div>
+
+<div class="st-card">
+  <div class="st-card__header">Список сотрудников</div>
+  <div style="overflow-x:auto">
+    <table class="st-table">
+      <thead><tr>
+        <th>Логин</th><th>ФИО</th><th>Email</th><th>Роль</th>
+        <th>Добавил</th><th>Дата</th><th>Статус</th>
+        {% if staff.role == 'OWNER' %}<th></th>{% endif %}
+      </tr></thead>
+      <tbody>
+        {% for member in staff_list %}
+        <tr {% if not member.is_active %}style="opacity:.5"{% endif %}>
+          <td style="font-weight:500">{{ member.user.username }}</td>
+          <td>
+            {% with p=member.user.profile %}
+              {% if p.last_name or p.first_name %}{{ p.last_name }} {{ p.first_name }}
+              {% else %}<span style="color:#9ca3af">—</span>{% endif %}
+            {% endwith %}
+          </td>
+          <td style="font-size:13px;color:#6b7280">{{ member.user.email|default:"—" }}</td>
+          <td>
+            {% if member.role == 'OWNER' %}<span class="st-badge st-badge--booked">Владелец</span>
+            {% else %}<span class="st-badge st-badge--cancelled">Оператор</span>{% endif %}
+          </td>
+          <td style="font-size:13px;color:#6b7280">{{ member.created_by|default:"—" }}</td>
+          <td style="font-size:13px;white-space:nowrap">{{ member.created_at|date:"d.m.Y" }}</td>
+          <td>
+            {% if member.is_active %}<span class="st-badge st-badge--done">Активен</span>
+            {% else %}<span style="font-size:12px;color:#dc2626;font-weight:500">Деактивирован</span>{% endif %}
+          </td>
+          {% if staff.role == 'OWNER' %}
+          <td>
+            {% if member.user != request.user %}
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <!-- Деактивировать/активировать -->
+              <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_active">
+                <input type="hidden" name="member_id" value="{{ member.pk }}">
+                <button type="submit" class="st-btn st-btn--sm {% if member.is_active %}st-btn--danger{% else %}st-btn--secondary{% endif %}">
+                  {% if member.is_active %}Деактивировать{% else %}Активировать{% endif %}
+                </button>
+              </form>
+              <!-- Сброс пароля -->
+              {% if member.is_active %}
+              <button type="button" class="st-btn st-btn--secondary st-btn--sm"
+                      onclick="showResetForm({{ member.pk }}, '{{ member.user.username }}')">
+                Сменить пароль
+              </button>
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;color:#6b7280;padding:24px">Сотрудников нет</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Модальная форма сброса пароля -->
+<div id="reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:360px;max-width:90vw">
+    <div style="font-weight:600;font-size:15px;margin-bottom:16px">Сменить пароль: <span id="reset-username"></span></div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reset_password">
+      <input type="hidden" name="member_id" id="reset-member-id">
+      <div class="st-form-group" style="margin-bottom:16px">
+        <label>Новый пароль *</label>
+        <input type="text" name="new_password" id="reset-password" class="st-input" placeholder="минимум 8 символов" required minlength="8">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="submit" class="st-btn st-btn--primary">Сохранить</button>
+        <button type="button" class="st-btn st-btn--secondary" onclick="hideResetForm()">Отмена</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showResetForm(memberId, username) {
+  document.getElementById('reset-member-id').value = memberId;
+  document.getElementById('reset-username').textContent = username;
+  document.getElementById('reset-password').value = '';
+  const modal = document.getElementById('reset-modal');
+  modal.style.display = 'flex';
+}
+function hideResetForm() {
+  document.getElementById('reset-modal').style.display = 'none';
+}
+document.getElementById('reset-modal').addEventListener('click', function(e) {
+  if (e.target === this) hideResetForm();
+});
+</script>
+{% endblock %}
