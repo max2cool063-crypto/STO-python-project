@@ -51,10 +51,7 @@ class BookingCoreTests(TestCase):
             model=self.car_model,
             plate_number="B222BB",
         )
-        self.station = Station.objects.create(
-            name="Test Station",
-            slot_duration=60,
-        )
+        self.station = Station.objects.create(name="Test Station")
 
     def add_weekday_schedule(self, target_date, start="09:00", end="18:00"):
         StationWeeklySchedule.objects.create(
@@ -64,19 +61,44 @@ class BookingCoreTests(TestCase):
             work_end=time.fromisoformat(end),
         )
 
-    def test_truck_requires_two_slots(self):
+    def test_station_default_slot_duration_is_30_minutes(self):
+        self.assertEqual(self.station.slot_duration, 30)
+
+    def test_passenger_appointment_duration_is_30_minutes(self):
+        target = date(2099, 2, 3)
+        self.add_weekday_schedule(target, "09:00", "18:00")
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
+
+        appointment = Appointment.objects.create(
+            user=self.user,
+            car=self.car,
+            station=self.station,
+            start=start,
+            end=start + timedelta(hours=1),
+            name="Client",
+            phone="123",
+        )
+
+        self.assertEqual(appointment.end, start + timedelta(minutes=30))
+
+    def test_truck_requires_60_minutes_and_starts_every_30_minutes(self):
         target = date(2099, 2, 3)
         self.add_weekday_schedule(target, "09:00", "13:00")
 
         slots = self.station.get_available_slots(target, vehicle_type="TRUCK")
 
-        # A 4-hour working window with 60-minute start increments allows
-        # three valid 2-hour appointments: 09:00-11:00, 10:00-12:00,
-        # and 11:00-13:00.
-        self.assertEqual(len(slots), 3)
+        expected = [
+            ("09:00", "10:00"),
+            ("09:30", "10:30"),
+            ("10:00", "11:00"),
+            ("10:30", "11:30"),
+            ("11:00", "12:00"),
+            ("11:30", "12:30"),
+            ("12:00", "13:00"),
+        ]
         self.assertEqual(
             [(slot["start"][11:16], slot["end"][11:16]) for slot in slots],
-            [("09:00", "11:00"), ("10:00", "12:00"), ("11:00", "13:00")],
+            expected,
         )
 
     def test_holiday_without_explicit_schedule_is_closed(self):
@@ -142,7 +164,7 @@ class BookingCoreTests(TestCase):
             user=self.user,
             car=self.car,
             station=self.station,
-            start=start + timedelta(minutes=30),
+            start=start + timedelta(minutes=15),
             end=start + timedelta(minutes=90),
             name="Client",
             phone="123",
@@ -171,7 +193,7 @@ class BookingCoreTests(TestCase):
             phone="123",
         )
 
-        self.assertEqual(appointment.end, start + timedelta(hours=2))
+        self.assertEqual(appointment.end, start + timedelta(hours=1))
 
     def test_cancelled_appointment_does_not_block_slot(self):
         target = date(2099, 2, 3)
