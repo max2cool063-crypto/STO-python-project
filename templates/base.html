@@ -3,19 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#155eef">
   <title>{% block title %}СТО Онлайн-запись{% endblock %}</title>
   {% load static %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="{% static 'booking/css/site.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/css/ui-v3.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
 
 <header class="site-header">
   <div class="header-inner">
-    <a href="/" class="logo-wrap">
-      <img src="{% static 'booking/img/logo.png' %}" alt="ТО" class="logo-img">
+    <a href="/" class="logo-wrap" aria-label="СТО Онлайн-запись — главная">
+      <img src="{% static 'booking/img/logo.png' %}" alt="СТО" class="logo-img">
       <div class="logo-text">
         Технический Осмотр
         <span>онлайн запись</span>
@@ -23,7 +25,7 @@
     </a>
 
     {% if user.is_authenticated %}
-    <nav class="header-nav">
+    <nav class="header-nav" aria-label="Основная навигация">
       {% if user.station_roles.exists %}
         <a href="{% url 'station_select' %}" class="nav-link nav-link--accent">Кабинет станции</a>
       {% else %}
@@ -48,20 +50,20 @@
   </div>
 </header>
 
-<div class="page-wrap">
+<main class="page-wrap">
   {% if messages %}
-  <div class="messages">
+  <div class="messages" aria-live="polite">
     {% for message in messages %}
     <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'success' %}success{% else %}info{% endif %}">
       {% if message.tags == 'error' %}⚠️{% elif message.tags == 'success' %}✅{% else %}ℹ️{% endif %}
-      {{ message }}
+      <span>{{ message }}</span>
     </div>
     {% endfor %}
   </div>
   {% endif %}
 
   {% block content %}{% endblock %}
-</div>
+</main>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
