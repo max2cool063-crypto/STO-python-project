@@ -33,9 +33,16 @@ class IdorRegressionTests(TestCase):
         StationWeeklySchedule.objects.create(
             station=self.other_station, weekday=self.TEST_DATE.weekday(), work_start="09:00", work_end="18:00"
         )
-        StationStaff.objects.create(station=self.station, user=self.operator, role=StationStaff.ROLE_OPERATOR, is_active=True)
-        self.car = Car.objects.create(owner=self.user, model=self.model, plate_number="A111AA", vin="VIN1", is_active=True)
-        self.other_car = Car.objects.create(owner=self.other_user, model=self.model, plate_number="B222BB", vin="VIN2", is_active=True)
+        StationStaff.objects.create(
+            station=self.station, user=self.operator,
+            role=StationStaff.ROLE_OPERATOR, is_active=True,
+        )
+        self.car = Car.objects.create(
+            owner=self.user, model=self.model, plate_number="A111AA", vin="VIN1", is_active=True
+        )
+        self.other_car = Car.objects.create(
+            owner=self.other_user, model=self.model, plate_number="B222BB", vin="VIN2", is_active=True
+        )
 
     def _appointment(self, user, car, station):
         start = timezone.make_aware(datetime(2099, 3, 3, 10, 0))
@@ -59,8 +66,10 @@ class IdorRegressionTests(TestCase):
         appointment = self._appointment(self.user, self.car, self.other_station)
         client = Client()
         client.login(username="op@example.com", password="pass")
-        response = client.get(reverse("station_appointment_detail", kwargs={"station_id": self.station.id, "pk": appointment.id}))
-        self.assertEqual(response.status_code, 302)
+        response = client.get(
+            reverse("station_appointment_detail", kwargs={"station_id": self.station.id, "pk": appointment.id})
+        )
+        self.assertEqual(response.status_code, 404)
 
     def test_operator_cannot_change_foreign_station_appointment_status(self):
         appointment = self._appointment(self.user, self.car, self.other_station)
@@ -70,7 +79,7 @@ class IdorRegressionTests(TestCase):
             reverse("station_appointment_status", kwargs={"station_id": self.station.id, "pk": appointment.id}),
             {"status": "DONE"},
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 404)
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, "BOOKED")
 
