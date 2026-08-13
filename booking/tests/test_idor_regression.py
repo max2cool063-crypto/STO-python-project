@@ -49,7 +49,7 @@ class IdorRegressionTests(TestCase):
         appointment = self._appointment(self.user, self.car, self.other_station)
         client = Client()
         client.login(username="op@example.com", password="pass")
-        response = client.post(reverse("station_appointment_status", kwargs={"station_id": self.station.id, "pk": appointment.id}), {"status": Appointment.STATUS_CONFIRMED})
+        response = client.post(reverse("station_appointment_status", kwargs={"station_id": self.station.id, "pk": appointment.id}), {"status": Appointment.STATUS_DONE})
         self.assertIn(response.status_code, (403, 404))
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, Appointment.STATUS_BOOKED)
