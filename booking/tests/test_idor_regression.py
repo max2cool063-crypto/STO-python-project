@@ -5,10 +5,20 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff
+from booking.models import (
+    Appointment,
+    Brand,
+    Car,
+    CarModel,
+    Station,
+    StationStaff,
+    StationWeeklySchedule,
+)
 
 
 class IdorRegressionTests(TestCase):
+    TEST_DATE = datetime(2099, 3, 3).date()
+
     def setUp(self):
         self.user = User.objects.create_user(username="u1@example.com", password="pass")
         self.other_user = User.objects.create_user(username="u2@example.com", password="pass")
@@ -17,6 +27,12 @@ class IdorRegressionTests(TestCase):
         self.model = CarModel.objects.create(brand=self.brand, name="Model", vehicle_type="CAR")
         self.station = Station.objects.create(name="A", address="A")
         self.other_station = Station.objects.create(name="B", address="B")
+        StationWeeklySchedule.objects.create(
+            station=self.station, weekday=self.TEST_DATE.weekday(), work_start="09:00", work_end="18:00"
+        )
+        StationWeeklySchedule.objects.create(
+            station=self.other_station, weekday=self.TEST_DATE.weekday(), work_start="09:00", work_end="18:00"
+        )
         StationStaff.objects.create(station=self.station, user=self.operator, role=StationStaff.ROLE_OPERATOR, is_active=True)
         self.car = Car.objects.create(owner=self.user, model=self.model, plate_number="A111AA", vin="VIN1", is_active=True)
         self.other_car = Car.objects.create(owner=self.other_user, model=self.model, plate_number="B222BB", vin="VIN2", is_active=True)
