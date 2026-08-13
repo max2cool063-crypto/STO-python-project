@@ -2,10 +2,12 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from booking.models import Brand, Car, CarModel, Station, StationStaff
+from booking.models import Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule
 
 
 class SecurityCompletionTests(TestCase):
+    TEST_DATE = "2099-03-03"
+
     def setUp(self):
         self.user = User.objects.create_user(username="owner@example.com", password="pass")
         self.other_user = User.objects.create_user(username="other@example.com", password="pass")
@@ -15,6 +17,9 @@ class SecurityCompletionTests(TestCase):
         self.model = CarModel.objects.create(brand=self.brand, name="Test Model", vehicle_type="CAR")
         self.other_model = CarModel.objects.create(brand=self.other_brand, name="Other Model", vehicle_type="CAR")
         self.station = Station.objects.create(name="Station A", address="A")
+        StationWeeklySchedule.objects.create(
+            station=self.station, weekday=2, work_start="09:00", work_end="18:00"
+        )
         StationStaff.objects.create(
             station=self.station, user=self.staff_user,
             role=StationStaff.ROLE_OPERATOR, is_active=True,
@@ -47,7 +52,7 @@ class SecurityCompletionTests(TestCase):
         client.login(username="owner@example.com", password="pass")
         response = client.get(
             reverse("station_slots_api", kwargs={"station_id": self.station.id}),
-            {"date": "2099-03-03", "car_id": self.inactive_car.id},
+            {"date": self.TEST_DATE, "car": self.inactive_car.id},
         )
         self.assertEqual(response.status_code, 404)
 
@@ -56,7 +61,7 @@ class SecurityCompletionTests(TestCase):
         client.login(username="owner@example.com", password="pass")
         response = client.get(
             reverse("station_slots_api", kwargs={"station_id": self.station.id}),
-            {"date": "2099-03-03", "car_id": self.other_car.id},
+            {"date": self.TEST_DATE, "car": self.other_car.id},
         )
         self.assertEqual(response.status_code, 404)
 
