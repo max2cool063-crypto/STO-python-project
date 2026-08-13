@@ -1,0 +1,87 @@
+/* Public discovery page refinements. Works with the existing station_list.html. */
+
+body:has(.station-grid) .page-wrap {
+  padding-top: 34px;
+}
+
+body:has(.station-grid) .page-title {
+  max-width: 760px;
+  margin-bottom: 10px;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.05;
+  letter-spacing: -1.4px;
+}
+
+body:has(.station-grid) .page-title::before {
+  content: "ОНЛАЙН-ЗАПИСЬ";
+  display: block;
+  margin-bottom: 12px;
+  color: #155eef;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+body:has(.station-grid) .page-subtitle {
+  max-width: 680px;
+  font-size: 16px;
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+body:has(.station-grid) .map-container {
+  position: relative;
+  min-height: 430px;
+  margin-bottom: 28px;
+  border: 1px solid #dfe5ef;
+  border-radius: 24px;
+  box-shadow: 0 18px 45px rgba(16,24,40,.09);
+}
+
+body:has(.station-grid) .map-container::after {
+  content: "Станции на карте";
+  position: absolute;
+  z-index: 5;
+  left: 18px;
+  top: 18px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255,255,255,.75);
+  border-radius: 12px;
+  background: rgba(255,255,255,.88);
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(16,24,40,.08);
+  pointer-events: none;
+}
+
+body:has(.station-grid) .station-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+body:has(.station-grid) .station-card {
+  min-height: 172px;
+  position: relative;
+  overflow: hidden;
+}
+
+body:has(.station-grid) .station-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #155eef, #67a3ff);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+body:has(.station-grid) .station-card:hover::before { opacity: 1; }
+
+@media (max-width: 720px) {
+  body:has(.station-grid) .page-title { font-size: 2.15rem; }
+  body:has(.station-grid) .page-subtitle { font-size: 14px; }
+  body:has(.station-grid) .map-container { min-height: 340px; }
+}
