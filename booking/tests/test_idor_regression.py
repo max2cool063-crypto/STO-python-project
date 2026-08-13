@@ -26,7 +26,8 @@ class IdorRegressionTests(TestCase):
         return Appointment.objects.create(
             user=user, station=station, car=car,
             start=start, end=start + timedelta(minutes=30),
-            status=Appointment.STATUS_BOOKED,
+            name="Test User", phone="+70000000000",
+            status="BOOKED",
         )
 
     def test_client_cannot_cancel_foreign_appointment(self):
@@ -36,41 +37,44 @@ class IdorRegressionTests(TestCase):
         response = client.post(reverse("cabinet_cancel_appointment", kwargs={"pk": appointment.id}))
         self.assertEqual(response.status_code, 404)
         appointment.refresh_from_db()
-        self.assertEqual(appointment.status, Appointment.STATUS_BOOKED)
+        self.assertEqual(appointment.status, "BOOKED")
 
     def test_operator_cannot_open_foreign_station_appointment_detail(self):
         appointment = self._appointment(self.user, self.car, self.other_station)
         client = Client()
         client.login(username="op@example.com", password="pass")
         response = client.get(reverse("station_appointment_detail", kwargs={"station_id": self.station.id, "pk": appointment.id}))
-        self.assertIn(response.status_code, (403, 404))
+        self.assertEqual(response.status_code, 302)
 
     def test_operator_cannot_change_foreign_station_appointment_status(self):
         appointment = self._appointment(self.user, self.car, self.other_station)
         client = Client()
         client.login(username="op@example.com", password="pass")
-        response = client.post(reverse("station_appointment_status", kwargs={"station_id": self.station.id, "pk": appointment.id}), {"status": Appointment.STATUS_DONE})
-        self.assertIn(response.status_code, (403, 404))
+        response = client.post(
+            reverse("station_appointment_status", kwargs={"station_id": self.station.id, "pk": appointment.id}),
+            {"status": "DONE"},
+        )
+        self.assertEqual(response.status_code, 302)
         appointment.refresh_from_db()
-        self.assertEqual(appointment.status, Appointment.STATUS_BOOKED)
+        self.assertEqual(appointment.status, "BOOKED")
 
     def test_operator_cannot_export_foreign_station_csv(self):
         client = Client()
         client.login(username="op@example.com", password="pass")
         response = client.get(reverse("station_appointments_csv", kwargs={"station_id": self.other_station.id}))
-        self.assertIn(response.status_code, (403, 404))
+        self.assertEqual(response.status_code, 302)
 
     def test_operator_cannot_access_foreign_station_slot_blocks(self):
         client = Client()
         client.login(username="op@example.com", password="pass")
         response = client.get(reverse("station_slot_blocks", kwargs={"station_id": self.other_station.id}))
-        self.assertIn(response.status_code, (403, 404))
+        self.assertEqual(response.status_code, 302)
 
     def test_operator_cannot_access_foreign_station_schedule(self):
         client = Client()
         client.login(username="op@example.com", password="pass")
         response = client.get(reverse("station_schedule", kwargs={"station_id": self.other_station.id}))
-        self.assertIn(response.status_code, (403, 404))
+        self.assertEqual(response.status_code, 302)
 
     def test_car_api_does_not_expose_foreign_car(self):
         client = Client()
