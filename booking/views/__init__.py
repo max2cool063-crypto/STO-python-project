@@ -13,8 +13,8 @@ from .cabinet import (
     protected_media,
 )
 
+from .station_appointment_detail import station_appointment_detail
 from .station_cabinet import (
-    station_appointment_detail,
     station_select,
     station_dashboard,
     station_appointments,
