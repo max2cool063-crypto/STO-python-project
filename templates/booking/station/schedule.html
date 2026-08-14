@@ -1,48 +1,73 @@
 {% extends "booking/station/base.html" %}
 {% block station_content %}
-<h2>Расписание — {{ station.name }}</h2>
+<div class="st-page-head">
+  <div>
+    <div class="st-page-head__eyebrow">Рабочее время</div>
+    <h1>Расписание станции</h1>
+    <div class="st-page-head__meta">Настройте недельный график и отдельные дни без изменения логики записи.</div>
+  </div>
+  <div class="st-page-head__actions">
+    <a href="{% url 'station_dashboard' station.id %}" class="st-btn st-btn--secondary">← Обзор</a>
+  </div>
+</div>
 
-<div class="st-card" style="margin-bottom:24px">
-  <div class="st-card__header">Недельный график</div>
-  <div class="st-card__body">
+<div class="st-schedule-note">
+  <div class="st-schedule-note__icon">◷</div>
+  <div>
+    <strong>Базовый график станции</strong>
+    <span>Оставьте день без времени, если станция не работает. Исключение на конкретную дату имеет приоритет над недельным графиком.</span>
+  </div>
+</div>
+
+<div class="st-card">
+  <div class="st-card__header">
+    <div>
+      <div class="st-card__title">Недельный график</div>
+      <div class="st-card__subtitle">Время работы по дням недели</div>
+    </div>
+    <span class="st-badge st-badge--info">Шаг слотов 30 мин</span>
+  </div>
+  <div class="st-card__body st-card__body--flush">
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="save_weekly">
-      <table class="st-table">
-        <thead><tr>
-          <th style="width:130px">День</th>
-          <th>Начало работы</th>
-          <th>Конец работы</th>
-          <th style="color:#9ca3af;font-weight:400;font-size:12px">Оставьте пустым — выходной</th>
-        </tr></thead>
-        <tbody>
-          {% for row in weekday_rows %}
-          <tr>
-            <td style="font-weight:500">{{ row.name }}</td>
-            <td>
-              <select name="work_start_{{ row.num }}" class="st-select" style="width:110px">
-                <option value="">— выходной —</option>
+      <div class="st-week-grid">
+        {% for row in weekday_rows %}
+        <div class="st-week-day {% if row.work_start %}st-week-day--open{% else %}st-week-day--closed{% endif %}">
+          <div class="st-week-day__head">
+            <span class="st-week-day__name">{{ row.name }}</span>
+            {% if row.work_start %}<span class="st-status-dot st-status-dot--open">Работает</span>{% else %}<span class="st-status-dot st-status-dot--closed">Выходной</span>{% endif %}
+          </div>
+          <div class="st-week-day__times">
+            <label>
+              <span>Начало</span>
+              <select name="work_start_{{ row.num }}" class="st-select">
+                <option value="">Выходной</option>
                 {% for val, label in time_choices %}
                 <option value="{{ val }}" {% if row.work_start == val %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
-            </td>
-            <td>
-              <select name="work_end_{{ row.num }}" class="st-select" style="width:110px">
+            </label>
+            <label>
+              <span>Конец</span>
+              <select name="work_end_{{ row.num }}" class="st-select">
                 <option value="">—</option>
                 {% for val, label in time_choices %}
                 <option value="{{ val }}" {% if row.work_end == val %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
-            </td>
-            <td style="color:#9ca3af;font-size:13px">
-              {% if row.work_start %}{{ row.work_start }} — {{ row.work_end }}{% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      <div style="margin-top:16px">
+            </label>
+          </div>
+          {% if row.work_start %}
+          <div class="st-week-day__summary">{{ row.work_start }} — {{ row.work_end }}</div>
+          {% else %}
+          <div class="st-week-day__summary st-week-day__summary--muted">Станция закрыта</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="st-form-footer">
+        <span>Изменения применяются к будущим записям.</span>
         <button type="submit" class="st-btn st-btn--primary">Сохранить расписание</button>
       </div>
     </form>
@@ -51,94 +76,78 @@
 
 <div class="st-card">
   <div class="st-card__header">
-    Исключения на конкретные даты
-    <div style="display:flex;gap:8px;align-items:center">
-      <form method="post" style="display:flex;gap:6px;align-items:center">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="fill_holidays">
-        <select name="year" class="st-select" style="width:90px;padding:4px 8px;font-size:13px">
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
-          <option value="2027">2027</option>
-        </select>
-        <button type="submit" class="st-btn st-btn--secondary st-btn--sm">🗓 Загрузить праздники</button>
-      </form>
+    <div>
+      <div class="st-card__title">Исключения на конкретные даты</div>
+      <div class="st-card__subtitle">Праздники, сокращённые дни и дополнительные выходные</div>
     </div>
+    <form method="post" class="st-inline-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="fill_holidays">
+      <select name="year" class="st-select st-select--compact" aria-label="Год">
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+        <option value="2027">2027</option>
+      </select>
+      <button type="submit" class="st-btn st-btn--secondary st-btn--sm">Загрузить праздники</button>
+    </form>
   </div>
   <div class="st-card__body">
-    <p style="font-size:13px;color:#6b7280;margin:0 0 16px">
-      Праздники и сокращённые дни. Чтобы сделать день выходным — выберите 00:00 для начала и конца.
-    </p>
-    <form method="post" style="margin-bottom:20px">
+    <div class="st-exception-form">
+      <div class="st-form-group">
+        <label>Дата</label>
+        <input type="date" name="date" form="exception-form" class="st-input" required>
+      </div>
+      <div class="st-form-group">
+        <label>Начало</label>
+        <select name="work_start" form="exception-form" class="st-select">
+          {% for val, label in time_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="st-form-group">
+        <label>Конец</label>
+        <select name="work_end" form="exception-form" class="st-select">
+          {% for val, label in time_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="st-form-group st-form-group--action">
+        <label>&nbsp;</label>
+        <button type="submit" form="exception-form" class="st-btn st-btn--primary">Добавить дату</button>
+      </div>
+    </div>
+    <form method="post" id="exception-form">
       {% csrf_token %}
       <input type="hidden" name="action" value="add_exception">
-      <div class="st-form-row">
-        <div class="st-form-group">
-          <label>Дата</label>
-          <input type="date" name="date" class="st-input" required>
-        </div>
-        <div class="st-form-group">
-          <label>Начало</label>
-          <select name="work_start" class="st-select">
-            {% for val, label in time_choices %}
-            <option value="{{ val }}">{{ label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="st-form-group">
-          <label>Конец</label>
-          <select name="work_end" class="st-select">
-            {% for val, label in time_choices %}
-            <option value="{{ val }}">{{ label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="st-form-group">
-          <label>&nbsp;</label>
-          <button type="submit" class="st-btn st-btn--primary">Добавить</button>
-        </div>
-      </div>
     </form>
 
     {% if schedules %}
-    <table class="st-table">
-      <thead><tr><th>Дата</th><th>Начало</th><th>Конец</th><th></th></tr></thead>
-      <tbody>
-        {% for s in schedules %}
-        <tr>
-          <td>{{ s.date|date:"d.m.Y, D" }}</td>
-          <td>{{ s.work_start|time:"H:i" }}</td>
-          <td>{{ s.work_end|time:"H:i" }}</td>
-          <td>
-            <form method="post" style="display:inline">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="delete_exception">
-              <input type="hidden" name="exception_id" value="{{ s.pk }}">
-              <button type="submit" class="st-btn st-btn--danger st-btn--sm"
-                      onclick="return confirm('Удалить исключение на {{ s.date }}?')">Удалить</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="st-exception-list">
+      {% for s in schedules %}
+      <div class="st-exception-row">
+        <div class="st-exception-date">
+          <strong>{{ s.date|date:"d.m" }}</strong>
+          <span>{{ s.date|date:"Y" }}</span>
+        </div>
+        <div class="st-exception-info">
+          <strong>{{ s.date|date:"D" }}</strong>
+          <span>{% if s.work_start == s.work_end %}Выходной{% else %}{{ s.work_start|time:"H:i" }} — {{ s.work_end|time:"H:i" }}{% endif %}</span>
+        </div>
+        <div class="st-exception-kind">Особый график</div>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_exception">
+          <input type="hidden" name="exception_id" value="{{ s.pk }}">
+          <button type="submit" class="st-btn st-btn--danger st-btn--sm" onclick="return confirm('Удалить исключение на {{ s.date }}?')">Удалить</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
     {% else %}
-    <p style="color:#6b7280;font-size:14px">Исключений нет</p>
+    <div class="st-empty st-empty--compact">
+      <div class="st-empty__icon">✓</div>
+      <strong>Особых дней пока нет</strong>
+      <p>Добавьте дату, если график должен отличаться от обычного.</p>
+    </div>
     {% endif %}
   </div>
 </div>
-
-<script>
-// Шаблонный фильтр split недоступен — делаем select годов через JS
-document.querySelectorAll('select[name="year"]').forEach(sel => {
-  sel.innerHTML = '';
-  [2025, 2026, 2027].forEach(y => {
-    const opt = document.createElement('option');
-    opt.value = y; opt.textContent = y;
-    if (y === new Date().getFullYear()) opt.selected = true;
-    sel.appendChild(opt);
-  });
-});
-</script>
-
 {% endblock %}
