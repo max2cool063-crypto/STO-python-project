@@ -1,28 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Регистрация{% endblock %}
+{% load static %}
+{% block title %}Регистрация — СТО Онлайн-запись{% endblock %}
 {% block content %}
 
-<div class="auth-wrap">
-  <div class="auth-card">
-    <div class="auth-icon">✨</div>
-    <div class="auth-title">Регистрация</div>
-    <div class="auth-subtitle">Пароль будет отправлен на ваш email</div>
-
-    <form method="post">
-      {% csrf_token %}
-      <div class="form-group">
-        <label>Email-адрес</label>
-        <input type="email" name="email" required placeholder="you@example.com" autocomplete="email">
+<section class="auth-page" aria-labelledby="register-title">
+  <div class="auth-visual">
+    <div class="auth-visual-content">
+      <div class="auth-brand">
+        <img src="{% static 'booking/img/logo.png' %}" alt="СТО">
+        <div>
+          <strong>Технический Осмотр</strong>
+          <span>онлайн запись</span>
+        </div>
       </div>
-      <button type="submit" class="btn btn-primary btn-block btn-lg">
-        Создать аккаунт →
-      </button>
-    </form>
 
-    <div class="auth-footer">
-      Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a>
+      <h1>Ваш автомобиль и записи — в одном месте.</h1>
+      <p>Создайте аккаунт один раз, сохраните автомобили в профиле и записывайтесь на техосмотр в несколько шагов.</p>
+
+      <div class="auth-benefits" aria-label="Преимущества">
+        <span class="auth-benefit">✓ Быстрая запись</span>
+        <span class="auth-benefit">✓ История записей</span>
+        <span class="auth-benefit">✓ Несколько автомобилей</span>
+      </div>
     </div>
   </div>
-</div>
+
+  <div class="auth-panel">
+    <div class="auth-card-v2">
+      <div class="auth-kicker">Новый аккаунт</div>
+      <h2 id="register-title">Создайте аккаунт</h2>
+      <p class="auth-description">Укажите email — данные для входа будут отправлены на него.</p>
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label for="register-email">Email-адрес</label>
+          <input
+            id="register-email"
+            type="email"
+            name="email"
+            required
+            placeholder="you@example.com"
+            autocomplete="email"
+            inputmode="email"
+          >
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg">
+          Создать аккаунт <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <div class="auth-note">
+        <span aria-hidden="true">✉</span>
+        <span>Проверьте папку «Спам», если письмо с данными для входа не появится во входящих.</span>
+      </div>
+
+      <div class="auth-footer">
+        Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a>
+      </div>
+    </div>
+  </div>
+</section>
 
 {% endblock %}
