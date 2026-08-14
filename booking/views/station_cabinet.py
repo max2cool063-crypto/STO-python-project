@@ -49,12 +49,6 @@ def station_dashboard(request, station_id, staff=None):
     station = staff.station
     now = timezone.now()
     today = now.date()
-    selected_date_raw = request.GET.get("date", "").strip()
-    try:
-        selected_date = timezone.datetime.strptime(selected_date_raw, "%Y-%m-%d").date() if selected_date_raw else today
-    except ValueError:
-        selected_date = today
-
     since = now - timedelta(days=30)
     appts = Appointment.objects.filter(station=station, start__gte=since)
 
@@ -78,71 +72,12 @@ def station_dashboard(request, station_id, staff=None):
         .order_by("start")[:5]
     )
 
-    # Операционный календарь дня: шаг равен базовой длительности слота станции.
-    work_start, work_end = station.get_working_hours(selected_date)
-    day_appointments = list(
-        Appointment.objects
-        .filter(station=station, start__date=selected_date)
-        .exclude(status="CANCELLED")
-        .select_related("car__model__brand")
-        .order_by("start")
-    )
-    day_blocks = list(
-        SlotBlock.objects.filter(
-            station=station,
-            start__date=selected_date,
-        ).order_by("start")
-    )
-
-    calendar_slots = []
-    if work_start and work_end and work_start < work_end:
-        start_dt = timezone.make_aware(timezone.datetime.combine(selected_date, work_start))
-        end_dt = timezone.make_aware(timezone.datetime.combine(selected_date, work_end))
-        step = timedelta(minutes=station.slot_duration)
-        cursor = start_dt
-        while cursor + step <= end_dt:
-            slot_end = cursor + step
-            appointment = next(
-                (a for a in day_appointments if a.start < slot_end and a.end > cursor),
-                None,
-            )
-            block = next(
-                (b for b in day_blocks if b.start < slot_end and b.end > cursor),
-                None,
-            )
-            if appointment:
-                state = "appointment"
-            elif block:
-                state = "blocked"
-            elif cursor <= now:
-                state = "past"
-            else:
-                state = "free"
-
-            calendar_slots.append({
-                "start": cursor,
-                "end": slot_end,
-                "state": state,
-                "appointment": appointment,
-                "block": block,
-            })
-            cursor += step
-
-    previous_date = selected_date - timedelta(days=1)
-    next_date = selected_date + timedelta(days=1)
     return render(request, "booking/station/dashboard.html", {
         "station": station,
         "staff": staff,
         "stats": stats,
         "upcoming": upcoming,
         "now": now,
-        "selected_date": selected_date,
-        "selected_date_iso": selected_date.isoformat(),
-        "previous_date": previous_date,
-        "next_date": next_date,
-        "work_start": work_start,
-        "work_end": work_end,
-        "calendar_slots": calendar_slots,
     })
 
 
@@ -480,7 +415,158 @@ def station_slot_blocks(request, station_id, staff=None):
 
         return redirect("station_slot_blocks", station_id=station_id)
 
+    TIME_CHOICES = [
+        (f"{h:02d}:{m:02d}", f"{h:02d}:{m:02d}")
+        for h in range(0, 24) for m in (0, 30)
+    ]
     return render(request, "booking/station/slot_blocks.html", {
         "station": station, "staff": staff, "blocks": blocks,
-        "now": timezone.now(),
+        "now": timezone.now(), "time_choices": TIME_CHOICES,
+    })
+
+
+# ─── Клиенты (только владелец) ────────────────────────────────────────────────
+
+@login_required
+@require_station_access(role=StationStaff.ROLE_OWNER)
+def station_clients(request, station_id, staff=None):
+    station = staff.station
+    search = request.GET.get("q", "").strip()
+
+    users_qs = (
+        User.objects
+        .filter(appointments__station=station)
+        .distinct()
+        .select_related("profile")
+        .prefetch_related("appointments")
+    )
+
+    if search:
+        users_qs = users_qs.filter(
+            Q(profile__first_name__icontains=search) |
+            Q(profile__last_name__icontains=search) |
+            Q(profile__phone__icontains=search) |
+            Q(email__icontains=search)
+        )
+
+    users_qs = users_qs.annotate(
+        visit_count=Count(
+            "appointments",
+            filter=Q(appointments__station=station, appointments__status="DONE")
+        )
+    ).order_by("-visit_count")
+
+    return render(request, "booking/station/clients.html", {
+        "station": station, "staff": staff, "clients": users_qs, "search": search,
+    })
+
+
+# ─── Персонал ─────────────────────────────────────────────────────────────────
+
+@login_required
+@require_station_access(role=StationStaff.ROLE_OWNER)
+def station_staff(request, station_id, staff=None):
+    """Управление сотрудниками станции доступно только владельцу."""
+    station = staff.station
+    staff_list = (
+        StationStaff.objects
+        .filter(station=station)
+        .select_related("user__profile", "created_by")
+        .order_by("role", "-is_active", "created_at")
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "create_operator":
+            login = request.POST.get("login", "").strip()
+            password = request.POST.get("password", "").strip()
+            email = request.POST.get("email", "").strip().lower()
+
+            if not login:
+                messages.error(request, "Укажите логин для оператора")
+                return redirect(request.path)
+
+            if len(password) < 8:
+                messages.error(request, "Пароль должен быть не менее 8 символов")
+                return redirect(request.path)
+
+            if User.objects.filter(username=login).exists():
+                messages.error(request, f"Логин «{login}» уже занят, выберите другой")
+                return redirect(request.path)
+
+            if email and StationStaff.objects.filter(station=station, user__email=email).exists():
+                messages.error(request, "Пользователь с таким email уже является сотрудником станции")
+                return redirect(request.path)
+
+            new_user = User.objects.create_user(
+                username=login,
+                email=email if email else "",
+                password=password,
+            )
+
+            if email and "@" in email:
+                try:
+                    send_mail(
+                        "Доступ к кабинету станции СТО",
+                        f"Вас добавили как оператора станции «{station.name}».\n"
+                        f"Логин: {login}\nПароль: {password}\n\n"
+                        f"Рекомендуем сменить пароль после первого входа.",
+                        None, [email], fail_silently=True,
+                    )
+                except Exception:
+                    pass
+
+            StationStaff.objects.create(
+                station=station,
+                user=new_user,
+                role=StationStaff.ROLE_OPERATOR,
+                created_by=request.user,
+            )
+            messages.success(request, f"Оператор «{login}» создан")
+
+        elif action == "toggle_active":
+            member_id = request.POST.get("member_id")
+            member = get_object_or_404(StationStaff, pk=member_id, station=station)
+            if member.user == request.user:
+                messages.error(request, "Нельзя деактивировать себя")
+            else:
+                member.is_active = not member.is_active
+                member.save()
+                status_str = "активирован" if member.is_active else "деактивирован"
+                messages.success(request, f"Сотрудник {status_str}")
+
+        elif action == "reset_password":
+            member_id = request.POST.get("member_id")
+            new_password = request.POST.get("new_password", "").strip()
+            member = get_object_or_404(StationStaff, pk=member_id, station=station)
+            if len(new_password) < 8:
+                messages.error(request, "Пароль должен быть не менее 8 символов")
+            elif member.user == request.user:
+                messages.error(request, "Для смены своего пароля используйте раздел профиля")
+            else:
+                member.user.set_password(new_password)
+                member.user.save()
+                messages.success(request, f"Пароль сотрудника «{member.user.username}» изменён")
+
+        return redirect("station_staff", station_id=station_id)
+
+    return render(request, "booking/station/staff.html", {
+        "station": station, "staff": staff, "staff_list": staff_list,
+    })
+
+
+# ─── Детальная страница записи ────────────────────────────────────────────────
+
+@login_required
+@require_station_access()
+def station_appointment_detail(request, station_id, pk, staff=None):
+    station = staff.station
+    appointment = get_object_or_404(Appointment, pk=pk, station=station)
+    logs = appointment.logs.select_related("changed_by").order_by("created_at")
+    return render(request, "booking/station/appointment_detail.html", {
+        "station": station,
+        "staff": staff,
+        "appointment": appointment,
+        "logs": logs,
     })

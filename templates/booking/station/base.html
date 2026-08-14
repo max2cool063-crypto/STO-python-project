@@ -3,6 +3,7 @@
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-v1.css' %}">
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-components-v1.css' %}">
+<link rel="stylesheet" href="{% static 'booking/css/ui-station-calendar-v1.css' %}">
 {% endblock %}
 {% block content %}
 <div class="st-layout">
@@ -20,6 +21,7 @@
 
     <nav class="st-sidebar__nav" aria-label="Навигация станции">
       <a href="{% url 'station_dashboard' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}">Обзор</a>
+      <a href="{% url 'station_day_calendar' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_day_calendar' %}st-nav-link--active{% endif %}">Календарь дня</a>
       <a href="{% url 'station_appointments' station.pk %}" class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}">Записи</a>
       <a href="{% url 'station_schedule' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}">Расписание</a>
       <a href="{% url 'station_slot_blocks' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}">Блокировки</a>

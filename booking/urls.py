@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth_views
 from . import views
 from booking.views.api import brands_api, models_api, station_slots_api, car_api, car_by_plate_api, brands_with_models_api
 from booking.views.station_appointment_create import station_appointment_create
+from booking.views.station_calendar import station_day_calendar
 
 urlpatterns = [
     # ПУБЛИЧНЫЙ ФРОНТ
@@ -29,7 +30,6 @@ urlpatterns = [
     path("cabinet/appointments/<int:pk>/cancel/", views.cabinet_cancel_appointment, name="cabinet_cancel_appointment"),
     path("cabinet/appointments/<int:pk>/photos.zip/", views.appointment_photos_zip, name="appointment_photos_zip"),
 
-    # FIX: защищённая отдача фото записей — только для владельца
     path("media/appointments/<path:path>", views.protected_media, name="protected_media"),
 
     # AUTH
@@ -42,6 +42,7 @@ urlpatterns = [
     # КАБИНЕТ СТАНЦИИ
     path("station/", views.station_select, name="station_select"),
     path("station/<int:station_id>/", views.station_dashboard, name="station_dashboard"),
+    path("station/<int:station_id>/calendar/", station_day_calendar, name="station_day_calendar"),
     path("station/<int:station_id>/appointments/", views.station_appointments, name="station_appointments"),
     path("station/<int:station_id>/appointments/create/", station_appointment_create, name="station_appointment_create"),
     path("station/<int:station_id>/appointments/<int:pk>/status/", views.station_appointment_status, name="station_appointment_status"),
