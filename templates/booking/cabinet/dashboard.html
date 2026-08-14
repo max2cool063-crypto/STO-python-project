@@ -1,58 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Личный кабинет{% endblock %}
 {% block content %}
+<div class="cabinet-shell">
+  <section class="cabinet-hero">
+    <div>
+      <div class="cabinet-eyebrow">Личный кабинет</div>
+      <h1>Ваше обслуживание — под рукой</h1>
+      <p>Управляйте автомобилями, записями и личными данными в одном месте.</p>
+    </div>
+    <div class="cabinet-hero__icon" aria-hidden="true">🚗</div>
+  </section>
 
-<div class="page-title">Личный кабинет</div>
-<div class="page-subtitle">Управляйте профилем, автомобилями и записями на технический осмотр</div>
+  <div class="cabinet-layout">
+    <section class="cabinet-section">
+      <div class="cabinet-section__head">
+        <div>
+          <h2>Личные данные</h2>
+          <p>Эти данные используются при оформлении записи.</p>
+        </div>
+        <span class="cabinet-shortcut__icon" aria-hidden="true">👤</span>
+      </div>
 
-<div style="display:grid; grid-template-columns: minmax(280px, 380px) 1fr; gap:24px; align-items:start">
+      <form method="post">
+        {% csrf_token %}
+        <div class="cabinet-profile">
+          <div class="form-group">
+            <label>Имя</label>
+            {{ form.first_name }}
+          </div>
+          <div class="form-group">
+            <label>Фамилия</label>
+            {{ form.last_name }}
+          </div>
+          <div class="form-group">
+            <label>Телефон</label>
+            {{ form.phone }}
+          </div>
+        </div>
+        {% if form.errors %}<p class="form-error">Проверьте введённые данные</p>{% endif %}
+        <div class="cabinet-actions">
+          <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+        </div>
+      </form>
+    </section>
 
-  <div class="card card-accent">
-    <h3 style="margin-bottom:18px">Личные данные</h3>
-    <form method="post">
-      {% csrf_token %}
-      <div class="form-group">
-        <label>Имя</label>
-        {{ form.first_name }}
+    <aside class="cabinet-section">
+      <div class="cabinet-section__head">
+        <div>
+          <h2>Быстрый доступ</h2>
+          <p>Основные действия</p>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Фамилия</label>
-        {{ form.last_name }}
+      <div class="cabinet-shortcuts">
+        <a href="/" class="cabinet-shortcut">
+          <span class="cabinet-shortcut__icon">＋</span><span><strong>Записаться на ТО</strong><small>Выбрать станцию и время</small></span><span class="cabinet-shortcut__arrow">›</span>
+        </a>
+        <a href="{% url 'cabinet_appointments' %}" class="cabinet-shortcut">
+          <span class="cabinet-shortcut__icon">▣</span><span><strong>Мои записи</strong><small>Предстоящие и завершённые визиты</small></span><span class="cabinet-shortcut__arrow">›</span>
+        </a>
+        <a href="{% url 'cabinet_cars' %}" class="cabinet-shortcut">
+          <span class="cabinet-shortcut__icon">🚘</span><span><strong>Мои автомобили</strong><small>Автомобили для записи</small></span><span class="cabinet-shortcut__arrow">›</span>
+        </a>
+        <a href="{% url 'change_password' %}" class="cabinet-shortcut">
+          <span class="cabinet-shortcut__icon">⌘</span><span><strong>Безопасность</strong><small>Сменить пароль</small></span><span class="cabinet-shortcut__arrow">›</span>
+        </a>
       </div>
-      <div class="form-group">
-        <label>Телефон</label>
-        {{ form.phone }}
-      </div>
-      {% if form.errors %}
-        <p class="form-error">Проверьте введённые данные</p>
-      {% endif %}
-      <button type="submit" class="btn btn-primary">Сохранить</button>
-    </form>
+      <div class="cabinet-security-note"><strong>Ваши данные защищены.</strong><br>Доступ к автомобилям и записям ограничен вашей учётной записью.</div>
+    </aside>
   </div>
-
-  <div class="dash-grid">
-    <a href="{% url 'cabinet_cars' %}" class="dash-tile">
-      <div class="dash-tile-icon">🚗</div>
-      <div class="dash-tile-title">Мои автомобили</div>
-      <div class="dash-tile-desc">Управление транспортными средствами</div>
-    </a>
-    <a href="{% url 'cabinet_appointments' %}" class="dash-tile">
-      <div class="dash-tile-icon">📅</div>
-      <div class="dash-tile-title">Мои записи</div>
-      <div class="dash-tile-desc">История и предстоящие визиты</div>
-    </a>
-    <a href="/" class="dash-tile">
-      <div class="dash-tile-icon">🗓</div>
-      <div class="dash-tile-title">Записаться на ТО</div>
-      <div class="dash-tile-desc">Выбрать станцию и время</div>
-    </a>
-    <a href="{% url 'change_password' %}" class="dash-tile">
-      <div class="dash-tile-icon">🔑</div>
-      <div class="dash-tile-title">Сменить пароль</div>
-      <div class="dash-tile-desc">Изменить пароль от кабинета</div>
-    </a>
-  </div>
-
 </div>
-
 {% endblock %}
