@@ -1,92 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Мои автомобили{% endblock %}
 {% block content %}
-
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px">
-  <div>
-    <div class="page-title">🚗 Мои автомобили</div>
-    <div class="page-subtitle">Управление транспортными средствами</div>
+<div class="cabinet-shell">
+  <div class="cabinet-page-head">
+    <div><h1>Мои автомобили</h1><p>Сохраните автомобили, чтобы записываться на ТО быстрее.</p></div>
+    <a href="/" class="btn btn-secondary">← К станциям</a>
   </div>
-</div>
 
-<div class="card card-accent" style="margin-bottom:28px">
-  <h3 style="margin-bottom:18px">Добавить автомобиль</h3>
-  <form method="post">
-    {% csrf_token %}
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px; align-items:end">
-      <div class="form-group" style="margin:0">
-        <label>Марка</label>
-        <select id="brand-select">
-          <option value="">Выберите марку</option>
-          {% for brand in brands %}
-            <option value="{{ brand.id }}">{{ brand.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group" style="margin:0">
-        <label>Модель</label>
-        <select id="model-select" name="model" required>
-          <option value="">Выберите марку</option>
-        </select>
-      </div>
-      <div class="form-group" style="margin:0">
-        <label>Госномер</label>
-        <input type="text" name="plate" required maxlength="20" placeholder="А123БВ77"
-               style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
-      </div>
-      <div class="form-group" style="margin:0">
-        <label>VIN (необязательно)</label>
-        <input type="text" name="vin" maxlength="32" placeholder="17 символов">
-      </div>
+  <section class="cabinet-form-card">
+    <div class="cabinet-section__head">
+      <div><h2>Добавить автомобиль</h2><p>Укажите данные один раз — они будут доступны при следующей записи.</p></div>
     </div>
-    <button type="submit" class="btn btn-primary" style="margin-top:16px">+ Добавить</button>
-  </form>
-</div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="cabinet-form-grid">
+        <div class="form-group">
+          <label>Марка</label>
+          <select id="brand-select">
+            <option value="">Выберите марку</option>
+            {% for brand in brands %}<option value="{{ brand.id }}">{{ brand.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Модель</label>
+          <select id="model-select" name="model" required disabled>
+            <option value="">Сначала выберите марку</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Госномер</label>
+          <input type="text" name="plate" required maxlength="20" placeholder="А123БВ77" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="form-group">
+          <label>VIN <span class="form-hint">необязательно</span></label>
+          <input type="text" name="vin" maxlength="32" placeholder="17 символов">
+        </div>
+      </div>
+      <div class="cabinet-form-footer"><button type="submit" class="btn btn-primary">Добавить автомобиль</button></div>
+    </form>
+  </section>
 
-<div class="car-grid">
-{% for car in cars %}
-  <div class="car-card">
-    <div class="car-icon">{% if car.model.vehicle_type == "TRUCK" %}🚛{% else %}🚗{% endif %}</div>
-    <div class="car-name">{{ car.model.brand.name }} {{ car.model.name }}</div>
-    <div style="font-size:12px; color:var(--text-muted); margin-top:2px">{{ car.model.get_vehicle_type_display }}</div>
-    <div class="car-plate">{{ car.plate_number }}</div>
-    {% if car.vin %}
-    <div style="font-size:12px; color:var(--text-muted); margin-top:6px">VIN: {{ car.vin }}</div>
-    {% endif %}
-    <div style="display:flex; gap:8px; margin-top:14px">
-      <a href="{% url 'cabinet_car_edit' car.id %}" class="btn btn-secondary btn-sm">✏️ Изменить</a>
-      <a href="{% url 'cabinet_car_delete' car.id %}"
-         onclick="return confirm('Удалить {{ car.plate_number }}?')"
-         class="btn btn-danger btn-sm">🗑</a>
+  <div class="car-grid-modern">
+  {% for car in cars %}
+    <article class="car-card-modern">
+      <div class="car-card-modern__top">
+        <div class="car-card-modern__icon">{% if car.model.vehicle_type == "TRUCK" %}🚛{% else %}🚗{% endif %}</div>
+        <span class="car-card-modern__type">{{ car.model.get_vehicle_type_display }}</span>
+      </div>
+      <h3>{{ car.model.brand.name }} {{ car.model.name }}</h3>
+      <div class="car-card-modern__model">Транспортное средство</div>
+      <div class="car-plate-modern">{{ car.plate_number }}</div>
+      {% if car.vin %}<div class="car-meta-modern">VIN: {{ car.vin }}</div>{% else %}<div class="car-meta-modern">VIN не указан</div>{% endif %}
+      <div class="car-actions-modern">
+        <a href="{% url 'cabinet_car_edit' car.id %}" class="btn btn-secondary btn-sm">Изменить</a>
+        <a href="{% url 'cabinet_car_delete' car.id %}" onclick="return confirm('Удалить {{ car.plate_number }}?')" class="btn btn-danger btn-sm">Удалить</a>
+      </div>
+    </article>
+  {% empty %}
+    <div class="cabinet-empty">
+      <div class="cabinet-empty__icon">🚘</div><h3>Автомобилей пока нет</h3>
+      <p>Добавьте первый автомобиль — при записи он появится в списке автоматически.</p>
     </div>
+  {% endfor %}
   </div>
-{% empty %}
-  <div class="card" style="grid-column:1/-1; text-align:center; padding:40px">
-    <div style="font-size:3rem; margin-bottom:12px">🚗</div>
-    <div style="font-family:var(--font-head); font-weight:700; margin-bottom:8px">Нет добавленных автомобилей</div>
-    <div style="color:var(--text-muted)">Добавьте автомобиль с помощью формы выше</div>
-  </div>
-{% endfor %}
 </div>
 
 <script>
-const brandSelect = document.getElementById("brand-select");
-const modelSelect = document.getElementById("model-select");
-brandSelect.addEventListener("change", () => {
-  modelSelect.disabled = true;
-  modelSelect.innerHTML = "<option>Загрузка...</option>";
-  fetch(`/api/models/${brandSelect.value}/`)
-    .then(r => r.json())
-    .then(models => {
-      modelSelect.innerHTML = '<option value="">Выберите модель</option>';
-      models.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m.id; opt.textContent = m.name;
-        modelSelect.appendChild(opt);
-      });
-      modelSelect.disabled = false;
-    });
-});
+const brandSelect=document.getElementById("brand-select"),modelSelect=document.getElementById("model-select");
+brandSelect.addEventListener("change",()=>{modelSelect.disabled=true;modelSelect.innerHTML="<option>Загрузка...</option>";if(!brandSelect.value){modelSelect.innerHTML='<option value="">Сначала выберите марку</option>';return;}fetch(`/api/models/${brandSelect.value}/`).then(r=>r.json()).then(models=>{modelSelect.innerHTML='<option value="">Выберите модель</option>';models.forEach(m=>{const opt=document.createElement("option");opt.value=m.id;opt.textContent=m.name;modelSelect.appendChild(opt)});modelSelect.disabled=false}).catch(()=>{modelSelect.innerHTML='<option value="">Не удалось загрузить модели</option>'})});
 </script>
-
 {% endblock %}
