@@ -1,104 +1,128 @@
 {% extends "booking/station/base.html" %}
 {% block station_content %}
-<h2>Блокировки слотов — {{ station.name }}</h2>
-<p style="font-size:14px;color:#6b7280;margin-bottom:20px">
-  Заблокированные периоды не будут доступны для онлайн-записи клиентов.
-</p>
+<div class="st-page-head">
+  <div>
+    <div class="st-page-head__eyebrow">Управление доступностью</div>
+    <h1>Блокировки слотов</h1>
+    <div class="st-page-head__meta">Временно закройте время для онлайн-записи — например, для обслуживания оборудования или перерыва.</div>
+  </div>
+  <div class="st-page-head__actions">
+    <a href="{% url 'station_schedule' station.id %}" class="st-btn st-btn--secondary">Расписание</a>
+  </div>
+</div>
 
-<div class="st-card" style="max-width:560px;margin-bottom:24px">
-  <div class="st-card__header">Заблокировать время</div>
-  <div class="st-card__body">
-    <form method="post" id="block-form">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="add">
-      <input type="hidden" name="start" id="start-hidden">
-      <input type="hidden" name="end" id="end-hidden">
+<div class="st-block-layout">
+  <div class="st-card st-block-create">
+    <div class="st-card__header">
+      <div>
+        <div class="st-card__title">Новая блокировка</div>
+        <div class="st-card__subtitle">Выберите период, который станет недоступен клиентам</div>
+      </div>
+      <span class="st-badge st-badge--warning">Не влияет на прошлые записи</span>
+    </div>
+    <div class="st-card__body">
+      <form method="post" id="block-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add">
+        <input type="hidden" name="start" id="start-hidden">
+        <input type="hidden" name="end" id="end-hidden">
 
-      <div class="st-form-row" style="margin-bottom:14px">
-        <div class="st-form-group">
-          <label>Дата *</label>
-          <input type="date" id="block-date" class="st-input" style="width:160px" required>
+        <div class="st-block-date">
+          <div class="st-form-group">
+            <label for="block-date">Дата</label>
+            <input type="date" id="block-date" class="st-input" required>
+          </div>
         </div>
-        <div class="st-form-group">
-          <label>Начало *</label>
-          <select id="block-start-sel" class="st-select" style="width:110px">
-            {% for val, label in time_choices %}
-            <option value="{{ val }}">{{ label }}</option>
-            {% endfor %}
-          </select>
+        <div class="st-block-time-grid">
+          <div class="st-form-group">
+            <label for="block-start-sel">Начало</label>
+            <select id="block-start-sel" class="st-select">
+              {% for val, label in time_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="st-block-arrow">→</div>
+          <div class="st-form-group">
+            <label for="block-end-sel">Конец</label>
+            <select id="block-end-sel" class="st-select">
+              {% for val, label in time_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
         </div>
-        <div class="st-form-group">
-          <label>Конец *</label>
-          <select id="block-end-sel" class="st-select" style="width:110px">
-            {% for val, label in time_choices %}
-            <option value="{{ val }}">{{ label }}</option>
-            {% endfor %}
-          </select>
+        <div class="st-form-group st-block-reason">
+          <label for="block-reason">Причина <span>необязательно</span></label>
+          <input id="block-reason" type="text" name="reason" class="st-input" placeholder="Техническое обслуживание, обед, ремонт...">
         </div>
-      </div>
-      <div class="st-form-group" style="margin-bottom:16px">
-        <label>Причина</label>
-        <input type="text" name="reason" class="st-input"
-               placeholder="Техническое обслуживание, корпоратив...">
-      </div>
-      <button type="submit" class="st-btn st-btn--primary">Заблокировать</button>
-    </form>
+        <button type="submit" class="st-btn st-btn--primary st-block-submit">Заблокировать время</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="st-block-info">
+    <div class="st-info-mini">
+      <span class="st-info-mini__icon">i</span>
+      <div><strong>Что увидит клиент</strong><p>Заблокированный период просто исчезнет из списка доступных временных слотов.</p></div>
+    </div>
+    <div class="st-info-mini">
+      <span class="st-info-mini__icon">30</span>
+      <div><strong>Шаг времени</strong><p>Блокировку можно создавать с тем же 30-минутным шагом, что используется в расписании.</p></div>
+    </div>
   </div>
 </div>
 
 <div class="st-card">
-  <div class="st-card__header">Список блокировок</div>
-  <div style="overflow-x:auto">
-    <table class="st-table">
-      <thead><tr>
-        <th>Начало</th><th>Конец</th><th>Причина</th><th>Кто</th><th></th>
-      </tr></thead>
-      <tbody>
-        {% for b in blocks %}
-        <tr {% if b.end < now %}style="opacity:.45"{% endif %}>
-          <td style="white-space:nowrap">{{ b.start|date:"d.m.Y H:i" }}</td>
-          <td style="white-space:nowrap">{{ b.end|date:"d.m.Y H:i" }}</td>
-          <td>{{ b.reason|default:"—" }}</td>
-          <td style="font-size:13px;color:#6b7280">{{ b.created_by|default:"—" }}</td>
-          <td>
-            {% if b.end >= now %}
-            <form method="post" style="display:inline">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="delete">
-              <input type="hidden" name="block_id" value="{{ b.pk }}">
-              <button type="submit" class="st-btn st-btn--danger st-btn--sm"
-                      onclick="return confirm('Снять блокировку?')">Снять</button>
-            </form>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:24px">Блокировок нет</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="st-card__header">
+    <div>
+      <div class="st-card__title">Активные и прошлые блокировки</div>
+      <div class="st-card__subtitle">История помогает видеть, почему время было недоступно</div>
+    </div>
+  </div>
+  <div class="st-card__body st-card__body--flush">
+    <div class="st-block-list">
+      {% for b in blocks %}
+      <div class="st-block-row {% if b.end < now %}st-block-row--past{% endif %}">
+        <div class="st-block-calendar">
+          <span>{{ b.start|date:"d" }}</span>
+          <small>{{ b.start|date:"M" }}</small>
+        </div>
+        <div class="st-block-main">
+          <div class="st-block-period">{{ b.start|date:"d.m.Y" }} · {{ b.start|date:"H:i" }} — {{ b.end|date:"H:i" }}</div>
+          <div class="st-block-reason-text">{{ b.reason|default:"Без указания причины" }}</div>
+          <div class="st-block-meta">Создал: {{ b.created_by|default:"—" }}</div>
+        </div>
+        <div class="st-block-status">
+          {% if b.end < now %}<span class="st-status-pill st-status-pill--muted">Завершена</span>{% else %}<span class="st-status-pill st-status-pill--danger">Активна</span>{% endif %}
+        </div>
+        <div>
+          {% if b.end >= now %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="block_id" value="{{ b.pk }}">
+            <button type="submit" class="st-btn st-btn--danger st-btn--sm" onclick="return confirm('Снять блокировку?')">Снять</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <div class="st-empty">
+        <div class="st-empty__icon">⌁</div>
+        <strong>Блокировок пока нет</strong>
+        <p>Когда понадобится закрыть время, создайте первую блокировку выше.</p>
+      </div>
+      {% endfor %}
+    </div>
   </div>
 </div>
 
 <script>
 document.getElementById('block-form').addEventListener('submit', function(e) {
-  const date  = document.getElementById('block-date').value;
+  const date = document.getElementById('block-date').value;
   const start = document.getElementById('block-start-sel').value;
-  const end   = document.getElementById('block-end-sel').value;
-
-  if (!date) {
-    e.preventDefault();
-    alert('Выберите дату');
-    return;
-  }
-  if (start >= end) {
-    e.preventDefault();
-    alert('Время конца должно быть позже времени начала');
-    return;
-  }
-  // Формируем naive datetime — Django сам добавит timezone (make_aware в view)
+  const end = document.getElementById('block-end-sel').value;
+  if (!date) { e.preventDefault(); alert('Выберите дату'); return; }
+  if (start >= end) { e.preventDefault(); alert('Время конца должно быть позже времени начала'); return; }
   document.getElementById('start-hidden').value = date + 'T' + start + ':00';
-  document.getElementById('end-hidden').value   = date + 'T' + end   + ':00';
+  document.getElementById('end-hidden').value = date + 'T' + end + ':00';
 });
 </script>
 {% endblock %}
