@@ -1,32 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Выберите станцию ТО{% endblock %}
+{% block title %}Станции техосмотра{% endblock %}
+{% load static %}
 {% block content %}
-
-<div class="page-title">Выберите станцию ТО</div>
-<div class="page-subtitle">Выберите удобную станцию на карте или из списка ниже и запишитесь онлайн за пару минут</div>
-
-<div class="map-container" id="map"></div>
-
-<div class="station-grid">
-{% for station in stations %}
-  <a href="{% url 'book_station' station.id %}" class="station-card">
-    <div>
-      <div class="station-name">{{ station.name }}</div>
-      <div class="station-address">📍 {{ station.address|default:"Адрес не указан" }}</div>
+<section class="discovery-hero" aria-labelledby="discovery-title">
+  <div class="discovery-hero__content">
+    <span class="discovery-hero__eyebrow">Онлайн-запись</span>
+    <h1 id="discovery-title">Запишитесь на техосмотр<br><span>без очередей</span></h1>
+    <p>Выберите станцию, дату и удобное время. Запись занимает всего несколько минут — без звонков и ожидания.</p>
+    <div class="discovery-hero__actions">
+      <a href="#stations" class="btn btn-primary">Найти станцию <span aria-hidden="true">→</span></a>
+      {% if not user.is_authenticated %}<a href="{% url 'register' %}" class="btn btn-outline">Создать аккаунт</a>{% endif %}
     </div>
-    <div class="station-card-footer">
-      <span>Записаться онлайн</span>
-      <span class="station-card-arrow">→</span>
+    <div class="hero-benefits" aria-label="Преимущества онлайн-записи">
+      <div><span class="hero-benefit-icon">✓</span><strong>Без очередей</strong><small>Запись онлайн</small></div>
+      <div><span class="hero-benefit-icon">◷</span><strong>Удобное время</strong><small>Выбираете сами</small></div>
+      <div><span class="hero-benefit-icon">⌂</span><strong>Рядом с вами</strong><small>Станции на карте</small></div>
     </div>
-  </a>
-{% empty %}
-  <div class="empty-state" style="grid-column: 1 / -1">
-    <div class="empty-state-icon">🏢</div>
-    <div class="empty-state-title">Станций пока нет</div>
-    <div class="empty-state-text">Администратор ещё не добавил активные станции</div>
   </div>
-{% endfor %}
-</div>
+  <div class="discovery-hero__visual" aria-hidden="true">
+    <div class="hero-visual-card hero-visual-card--photo" style="background-image:url('{% static 'booking/img/hero-service.svg' %}');">
+      <div class="hero-photo-overlay"></div>
+      <div class="hero-stat"><span>Онлайн-запись</span><strong>24/7</strong></div>
+    </div>
+  </div>
+</section>
+
+<section id="stations" class="discovery-stations" aria-labelledby="stations-title">
+  <div class="discovery-section-head">
+    <div>
+      <div class="section-kicker">Станции</div>
+      <h2 id="stations-title" class="page-title">Выберите станцию</h2>
+      <p class="page-subtitle">Найдите удобную станцию на карте или воспользуйтесь поиском по списку.</p>
+    </div>
+    <div class="station-count"><strong>{{ stations|length }}</strong> станций</div>
+  </div>
+  <div class="discovery-toolbar">
+    <label class="discovery-search-wrap" for="station-search"><span aria-hidden="true">⌕</span><input id="station-search" class="discovery-search" type="search" placeholder="Поиск по названию или адресу…" autocomplete="off"></label>
+    <a href="#map" class="btn btn-secondary discovery-map-link">Показать на карте</a>
+  </div>
+  <div class="map-container" id="map"></div>
+  <div class="station-grid" id="station-list">
+  {% for station in stations %}
+    <a href="{% url 'book_station' station.id %}" class="station-card" data-station-search="{{ station.name|lower }} {{ station.address|default:''|lower }}">
+      <div class="station-card-top"><span class="station-status"><i></i> Доступна для записи</span><span class="station-card-icon" aria-hidden="true">⌂</span></div>
+      <div><div class="station-name">{{ station.name }}</div><div class="station-address"><span aria-hidden="true">⌖</span> {{ station.address|default:"Адрес не указан" }}</div></div>
+      <div class="station-card-footer"><span>Выбрать станцию</span><span class="station-card-arrow" aria-hidden="true">→</span></div>
+    </a>
+  {% empty %}
+    <div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">⌂</div><div class="empty-state-title">Станций пока нет</div><div class="empty-state-text">Администратор ещё не добавил активные станции</div></div>
+  {% endfor %}
+  </div>
+  <div id="station-no-results" class="empty-state" style="display:none"><div class="empty-state-icon">⌕</div><div class="empty-state-title">Ничего не найдено</div><div class="empty-state-text">Попробуйте изменить название или адрес.</div></div>
+</section>
 
 <script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU"></script>
 <script>
@@ -38,15 +63,23 @@ ymaps.ready(() => {
     stations.forEach(s => {
       if (!s.lat || !s.lng) return;
       bounds.push([s.lat, s.lng]);
-      const pm = new ymaps.Placemark([s.lat, s.lng], {
+      map.geoObjects.add(new ymaps.Placemark([s.lat, s.lng], {
         balloonContentHeader: s.name,
         balloonContentBody: s.address || '',
-        balloonContentFooter: '<a href="/station/' + s.id + '/book/" style="color:#2563eb;font-weight:600">Записаться →</a>'
-      }, { preset: 'islands#blueCircleDotIcon' });
-      map.geoObjects.add(pm);
+        balloonContentFooter: '<a href="/station/' + s.id + '/book/" style="color:#155eef;font-weight:700">Записаться →</a>'
+      }, { preset: 'islands#blueCircleDotIcon' }));
     });
     if (bounds.length) map.setBounds(bounds, { checkZoomRange: true, zoomMargin: 40 });
   });
+});
+const stationSearch = document.getElementById('station-search');
+const stationCards = [...document.querySelectorAll('.station-card[data-station-search]')];
+const noResults = document.getElementById('station-no-results');
+stationSearch?.addEventListener('input', () => {
+  const query = stationSearch.value.trim().toLowerCase();
+  let visible = 0;
+  stationCards.forEach(card => { const match = !query || card.dataset.stationSearch.includes(query); card.hidden = !match; if (match) visible += 1; });
+  if (noResults) noResults.style.display = visible ? 'none' : 'block';
 });
 </script>
 {% endblock %}
