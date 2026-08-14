@@ -1,12 +1,38 @@
 {% extends "booking/station/base.html" %}
 {% block station_content %}
-<h2>{{ station.name }}</h2>
+<div class="st-page-head">
+  <div>
+    <div class="st-page-head__eyebrow">Панель станции</div>
+    <h1>{{ station.name }}</h1>
+    <div class="st-page-head__meta">Операционная сводка · {{ now|date:"d.m.Y" }}</div>
+  </div>
+  <div class="st-page-head__actions">
+    <a href="{% url 'station_appointment_create' station.pk %}" class="st-btn st-btn--primary">+ Новая запись</a>
+    <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary">Все записи</a>
+  </div>
+</div>
 
-{% if staff.role == 'OWNER' %}
+<div class="st-hero">
+  <div class="st-hero__content">
+    <div class="st-hero__kicker">Рабочий день</div>
+    <h1>Все ключевые операции станции — в одном месте</h1>
+    <p>Следите за ближайшими записями, быстро создавайте запись клиента и переходите к расписанию или блокировкам без лишних действий.</p>
+  </div>
+</div>
+
 <div class="st-stats">
   <div class="st-stat">
+    <div class="st-stat__num">{{ stats.today }}</div>
+    <div class="st-stat__label">Записей сегодня</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num">{{ stats.upcoming }}</div>
+    <div class="st-stat__label">Предстоит</div>
+  </div>
+  {% if staff.role == 'OWNER' %}
+  <div class="st-stat">
     <div class="st-stat__num">{{ stats.total }}</div>
-    <div class="st-stat__label">Всего за 30 дн.</div>
+    <div class="st-stat__label">За последние 30 дней</div>
   </div>
   <div class="st-stat">
     <div class="st-stat__num" style="color:#15803d">{{ stats.done }}</div>
@@ -18,48 +44,75 @@
   </div>
   <div class="st-stat">
     <div class="st-stat__num" style="color:#a16207">{{ stats.no_show }}</div>
-    <div class="st-stat__label">Не явился</div>
+    <div class="st-stat__label">Не явились</div>
   </div>
-  <div class="st-stat">
-    <div class="st-stat__num" style="color:#1d4ed8">{{ stats.today }}</div>
-    <div class="st-stat__label">Сегодня</div>
-  </div>
-  <div class="st-stat">
-    <div class="st-stat__num">{{ stats.upcoming }}</div>
-    <div class="st-stat__label">Предстоит</div>
-  </div>
+  {% endif %}
 </div>
-{% endif %}
+
+<div class="st-quick-actions">
+  <a href="{% url 'station_appointment_create' station.pk %}" class="st-quick-action">
+    <div class="st-quick-action__title">Записать клиента</div>
+    <div class="st-quick-action__text">Создать ручную запись на свободное время</div>
+  </a>
+  <a href="{% url 'station_schedule' station.pk %}" class="st-quick-action">
+    <div class="st-quick-action__title">Расписание станции</div>
+    <div class="st-quick-action__text">Рабочие часы, исключения и праздничные дни</div>
+  </a>
+  <a href="{% url 'station_slot_blocks' station.pk %}" class="st-quick-action">
+    <div class="st-quick-action__title">Заблокировать время</div>
+    <div class="st-quick-action__text">Закрыть слот для ремонта или технических работ</div>
+  </a>
+</div>
 
 <div class="st-card">
   <div class="st-card__header">
-    Ближайшие записи
-    <a href="{% url 'station_appointment_create' station.pk %}" class="st-btn st-btn--primary st-btn--sm">+ Записать клиента</a>
+    <span>Ближайшие записи</span>
+    <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary st-btn--sm">Открыть журнал →</a>
   </div>
+
   <div style="overflow-x:auto">
     <table class="st-table">
-      <thead><tr>
-        <th>Время</th><th>Клиент</th><th>Телефон</th><th>Автомобиль</th><th>Тип</th>
-      </tr></thead>
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Клиент</th>
+          <th>Телефон</th>
+          <th>Автомобиль</th>
+          <th>Тип</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         {% for a in upcoming %}
         <tr>
-          <td style="white-space:nowrap">{{ a.start|date:"d.m H:i" }}</td>
-          <td>{{ a.name }}</td>
+          <td><span class="st-appointment-time">{{ a.start|date:"d.m H:i" }}</span></td>
+          <td>
+            <span class="st-appointment-client">{{ a.name }}</span>
+            {% if a.vin %}<span class="st-appointment-sub">VIN: {{ a.vin }}</span>{% endif %}
+          </td>
           <td>{{ a.phone|default:"—" }}</td>
-          <td>{{ a.car }}</td>
+          <td>
+            <span class="st-appointment-client">{{ a.car }}</span>
+            <span class="st-appointment-sub">{{ a.car.model }}</span>
+          </td>
           <td>{{ a.car.model.get_vehicle_type_display }}</td>
+          <td>
+            <a href="{% url 'station_appointment_detail' station.pk a.pk %}" class="st-btn st-btn--secondary st-btn--sm">Подробнее</a>
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:24px">Нет предстоящих записей</td></tr>
+        <tr>
+          <td colspan="6">
+            <div class="st-empty">
+              <div class="st-empty__icon">✓</div>
+              <strong>Ближайших записей нет</strong>
+              <p>Когда появится новая запись, она будет отображена здесь.</p>
+            </div>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% if upcoming %}
-  <div style="padding:12px 20px;border-top:1px solid #e5e7eb">
-    <a href="{% url 'station_appointments' station.pk %}" style="font-size:14px;color:#1d4ed8">Все записи →</a>
-  </div>
-  {% endif %}
 </div>
 {% endblock %}
