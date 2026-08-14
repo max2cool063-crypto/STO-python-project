@@ -2,6 +2,7 @@
 {% load static %}
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-v1.css' %}">
+<link rel="stylesheet" href="{% static 'booking/css/ui-station-components-v1.css' %}">
 {% endblock %}
 {% block content %}
 <div class="st-layout">
@@ -18,32 +19,14 @@
     <div class="st-sidebar__label">Рабочая область</div>
 
     <nav class="st-sidebar__nav" aria-label="Навигация станции">
-      <a href="{% url 'station_dashboard' station.pk %}"
-         class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}">
-        Обзор
-      </a>
-      <a href="{% url 'station_appointments' station.pk %}"
-         class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}">
-        Записи
-      </a>
-      <a href="{% url 'station_schedule' station.pk %}"
-         class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}">
-        Расписание
-      </a>
-      <a href="{% url 'station_slot_blocks' station.pk %}"
-         class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}">
-        Блокировки
-      </a>
+      <a href="{% url 'station_dashboard' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}">Обзор</a>
+      <a href="{% url 'station_appointments' station.pk %}" class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}">Записи</a>
+      <a href="{% url 'station_schedule' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}">Расписание</a>
+      <a href="{% url 'station_slot_blocks' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}">Блокировки</a>
       {% if staff.role == 'OWNER' %}
-      <a href="{% url 'station_clients' station.pk %}"
-         class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}">
-        Клиенты
-      </a>
+      <a href="{% url 'station_clients' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}">Клиенты</a>
       {% endif %}
-      <a href="{% url 'station_staff' station.pk %}"
-         class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}">
-        Сотрудники
-      </a>
+      <a href="{% url 'station_staff' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}">Сотрудники</a>
     </nav>
 
     <a href="{% url 'station_select' %}" class="st-sidebar__back">← Все станции</a>
@@ -52,9 +35,7 @@
   <main class="st-main">
     {% if messages %}
       {% for msg in messages %}
-        <div class="alert alert-{{ msg.tags|default:'info' }}">
-          {{ msg }}
-        </div>
+        <div class="alert alert-{{ msg.tags|default:'info' }}">{{ msg }}</div>
       {% endfor %}
     {% endif %}
     {% block station_content %}{% endblock %}
