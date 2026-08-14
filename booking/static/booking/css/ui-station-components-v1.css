@@ -1,0 +1,62 @@
+/* Shared controls used by station pages. */
+.st-input,
+.st-select {
+  min-height: 38px;
+  box-sizing: border-box;
+  padding: 0 11px;
+  border: 1px solid #dbe2ea;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.st-input::placeholder { color: #94a3b8; }
+.st-input:focus,
+.st-select:focus {
+  border-color: #8aaef6;
+  box-shadow: 0 0 0 3px rgba(21,94,239,.09);
+}
+
+.st-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.st-badge--booked { background: #e8f0ff; color: #155eef; }
+.st-badge--done { background: #eaf8ef; color: #137333; }
+.st-badge--cancelled { background: #f1f5f9; color: #64748b; }
+.st-badge--noshow { background: #fff4d6; color: #9a6700; }
+
+.st-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 18px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 15px rgba(15,23,42,.03);
+}
+.st-filter-field { display: flex; flex-direction: column; gap: 5px; }
+.st-filter-field label { color: #64748b; font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+.st-filter-field--search { min-width: min(320px, 100%); flex: 1; }
+
+.st-inline-form { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.st-table-action { display: inline-flex; align-items: center; gap: 6px; }
+
+@media (max-width: 760px) {
+  .st-filter-bar { align-items: stretch; }
+  .st-filter-field, .st-filter-field--search { width: 100%; min-width: 0; }
+  .st-filter-bar .st-btn { width: 100%; }
+}
