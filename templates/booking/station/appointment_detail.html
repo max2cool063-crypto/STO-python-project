@@ -1,85 +1,459 @@
 {% extends "booking/station/base.html" %}
+
 {% block station_content %}
-<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-  <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary st-btn--sm">← Назад</a>
-  <h2 style="margin:0">Запись #{{ appointment.pk }}</h2>
+<div class="st-page-head st-appointment-head">
+  <div>
+    <a href="{% url 'station_appointments' station.pk %}" class="st-back-link">← Все записи</a>
+    <div class="st-page-title-row">
+      <h1 class="st-page-title">Запись #{{ appointment.pk }}</h1>
+      {% if appointment.status == 'BOOKED' %}
+        <span class="st-badge st-badge--booked">{{ appointment.get_status_display }}</span>
+      {% elif appointment.status == 'DONE' %}
+        <span class="st-badge st-badge--done">{{ appointment.get_status_display }}</span>
+      {% elif appointment.status == 'CANCELLED' %}
+        <span class="st-badge st-badge--cancelled">{{ appointment.get_status_display }}</span>
+      {% elif appointment.status == 'NO_SHOW' %}
+        <span class="st-badge st-badge--noshow">{{ appointment.get_status_display }}</span>
+      {% endif %}
+    </div>
+    <p class="st-page-subtitle">Подробная информация о записи и история изменений</p>
+  </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+<div class="st-appointment-layout">
+  <section class="st-card st-appointment-main">
+    <div class="st-card__header st-card__header--large">
+      <div>
+        <span class="st-section-eyebrow">Запись на техосмотр</span>
+        <h2>{{ appointment.start|date:"d.m.Y" }}</h2>
+      </div>
+      <div class="st-appointment-time">
+        <strong>{{ appointment.start|date:"H:i" }}</strong>
+        <span>до {{ appointment.end|date:"H:i" }}</span>
+      </div>
+    </div>
 
-  <!-- Детали записи -->
-  <div class="st-card">
-    <div class="st-card__header">Информация о записи</div>
     <div class="st-card__body">
-      <table style="width:100%;font-size:14px;border-collapse:collapse">
-        <tr><td style="color:#6b7280;padding:6px 0;width:40%">Дата и время</td><td style="font-weight:500">{{ appointment.start|date:"d.m.Y H:i" }} — {{ appointment.end|date:"H:i" }}</td></tr>
-        <tr><td style="color:#6b7280;padding:6px 0">Клиент</td><td>{{ appointment.name }}</td></tr>
-        <tr><td style="color:#6b7280;padding:6px 0">Телефон</td><td>{{ appointment.phone|default:"—" }}</td></tr>
-        <tr><td style="color:#6b7280;padding:6px 0">Автомобиль</td><td>{{ appointment.car }}</td></tr>
-        <tr><td style="color:#6b7280;padding:6px 0">VIN</td><td>{{ appointment.vin|default:"—" }}</td></tr>
-        <tr><td style="color:#6b7280;padding:6px 0">Статус</td>
-          <td>
-            {% if appointment.status == 'BOOKED' %}<span class="st-badge st-badge--booked">{{ appointment.get_status_display }}</span>
-            {% elif appointment.status == 'DONE' %}<span class="st-badge st-badge--done">{{ appointment.get_status_display }}</span>
-            {% elif appointment.status == 'CANCELLED' %}<span class="st-badge st-badge--cancelled">{{ appointment.get_status_display }}</span>
-            {% elif appointment.status == 'NO_SHOW' %}<span class="st-badge st-badge--noshow">{{ appointment.get_status_display }}</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% if appointment.notes %}
-        <tr><td style="color:#6b7280;padding:6px 0;vertical-align:top">Комментарий</td>
-          <td style="white-space:pre-line">{{ appointment.notes }}</td></tr>
-        {% endif %}
-      </table>
+      <div class="st-info-grid">
+        <div class="st-info-item st-info-item--wide">
+          <span class="st-info-label">Клиент</span>
+          <strong class="st-info-value">{{ appointment.name }}</strong>
+          {% if appointment.phone %}
+            <a class="st-info-link" href="tel:{{ appointment.phone }}">{{ appointment.phone }}</a>
+          {% else %}
+            <span class="st-info-muted">Телефон не указан</span>
+          {% endif %}
+        </div>
 
-      <!-- Быстрая смена статуса -->
-      <form method="post" action="{% url 'station_appointment_status' station.pk appointment.pk %}"
-            style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb">
-        {% csrf_token %}
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="st-info-item st-info-item--wide">
+          <span class="st-info-label">Автомобиль</span>
+          <strong class="st-info-value">{{ appointment.car }}</strong>
+          {% if appointment.vin %}
+            <span class="st-info-muted">VIN: {{ appointment.vin }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if appointment.notes %}
+      <div class="st-note-box">
+        <span class="st-info-label">Комментарий клиента</span>
+        <div class="st-note-text">{{ appointment.notes }}</div>
+      </div>
+      {% endif %}
+
+      <div class="st-status-panel">
+        <div>
+          <span class="st-section-eyebrow">Управление записью</span>
+          <h3>Изменить статус</h3>
+        </div>
+        <form method="post" action="{% url 'station_appointment_status' station.pk appointment.pk %}" class="st-status-form">
+          {% csrf_token %}
           <div class="st-form-group">
-            <label>Изменить статус</label>
-            <select name="status" class="st-select">
+            <label for="appointment-status">Статус</label>
+            <select id="appointment-status" name="status" class="st-select">
               {% for val, label in status_choices %}
-              <option value="{{ val }}" {% if appointment.status == val %}selected{% endif %}>{{ label }}</option>
+                <option value="{{ val }}" {% if appointment.status == val %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="st-form-group" style="flex:1;min-width:200px">
-            <label>Комментарий</label>
-            <input type="text" name="comment" class="st-input" placeholder="Что выявили, что сделали...">
+          <div class="st-form-group st-status-comment">
+            <label for="appointment-comment">Комментарий</label>
+            <input id="appointment-comment" type="text" name="comment" class="st-input" placeholder="Например: клиент перенёс запись">
           </div>
           <button type="submit" class="st-btn st-btn--primary">Сохранить</button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- История изменений -->
-  <div class="st-card">
-    <div class="st-card__header">История изменений</div>
-    <div class="st-card__body" style="padding:0">
+  <aside class="st-card st-history-card">
+    <div class="st-card__header">
+      <div>
+        <span class="st-section-eyebrow">Timeline</span>
+        <h2>История изменений</h2>
+      </div>
+    </div>
+
+    <div class="st-card__body">
       {% if logs %}
-      <table class="st-table">
-        <thead><tr><th>Время</th><th>Кто</th><th>Изменение</th><th>Комментарий</th></tr></thead>
-        <tbody>
+        <div class="st-timeline">
           {% for log in logs %}
-          <tr>
-            <td style="font-size:12px;white-space:nowrap">{{ log.created_at|date:"d.m H:i" }}</td>
-            <td style="font-size:13px">{{ log.changed_by|default:"система" }}</td>
-            <td style="font-size:13px">
-              {% if log.old_status %}{{ log.old_status }} → {% endif %}{{ log.new_status }}
-            </td>
-            <td style="font-size:13px;color:#6b7280">{{ log.comment|default:"—" }}</td>
-          </tr>
+          <div class="st-timeline-item">
+            <div class="st-timeline-marker"></div>
+            <div class="st-timeline-content">
+              <div class="st-timeline-top">
+                <strong>{{ log.created_at|date:"d.m.Y H:i" }}</strong>
+                <span>{{ log.changed_by|default:"Система" }}</span>
+              </div>
+              <div class="st-timeline-change">
+                {% if log.old_status %}
+                  {{ log.old_status }} <span>→</span>
+                {% endif %}
+                {{ log.new_status }}
+              </div>
+              {% if log.comment %}
+                <div class="st-timeline-comment">{{ log.comment }}</div>
+              {% endif %}
+            </div>
+          </div>
           {% endfor %}
-        </tbody>
-      </table>
+        </div>
       {% else %}
-      <div style="padding:20px;color:#6b7280;font-size:14px">История пока пуста</div>
+        <div class="st-empty-state">
+          <div class="st-empty-state__icon">↺</div>
+          <strong>История пока пуста</strong>
+          <span>Изменения статуса появятся здесь.</span>
+        </div>
       {% endif %}
     </div>
-  </div>
-
+  </aside>
 </div>
+
+<style>
+  .st-appointment-head {
+    margin-bottom: 24px;
+  }
+
+  .st-back-link {
+    display: inline-flex;
+    margin-bottom: 10px;
+    color: #64748b;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .st-back-link:hover {
+    color: #0f172a;
+  }
+
+  .st-page-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .st-page-title {
+    margin: 0;
+  }
+
+  .st-page-subtitle {
+    margin: 6px 0 0;
+    color: #64748b;
+  }
+
+  .st-appointment-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(320px, .9fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .st-card {
+    overflow: hidden;
+  }
+
+  .st-card__header--large {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 24px;
+  }
+
+  .st-card__header--large h2,
+  .st-history-card .st-card__header h2 {
+    margin: 3px 0 0;
+  }
+
+  .st-section-eyebrow {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .st-appointment-time {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .st-appointment-time strong {
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  .st-appointment-time span {
+    color: #64748b;
+    font-size: 14px;
+  }
+
+  .st-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .st-info-item {
+    padding: 17px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #f8fafc;
+    min-width: 0;
+  }
+
+  .st-info-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .st-info-value {
+    display: block;
+    color: #0f172a;
+    font-size: 16px;
+    overflow-wrap: anywhere;
+  }
+
+  .st-info-link,
+  .st-info-muted {
+    display: block;
+    margin-top: 5px;
+    font-size: 13px;
+  }
+
+  .st-info-link {
+    color: #2563eb;
+    text-decoration: none;
+  }
+
+  .st-info-muted {
+    color: #64748b;
+  }
+
+  .st-note-box {
+    margin-top: 14px;
+    padding: 17px;
+    border-left: 3px solid #94a3b8;
+    border-radius: 0 12px 12px 0;
+    background: #f8fafc;
+  }
+
+  .st-note-text {
+    white-space: pre-line;
+    color: #334155;
+    line-height: 1.55;
+  }
+
+  .st-status-panel {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .st-status-panel h3 {
+    margin: 3px 0 16px;
+    font-size: 17px;
+  }
+
+  .st-status-form {
+    display: grid;
+    grid-template-columns: minmax(160px, .6fr) minmax(220px, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+  }
+
+  .st-form-group {
+    min-width: 0;
+  }
+
+  .st-form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .st-select,
+  .st-input {
+    width: 100%;
+    min-height: 42px;
+    box-sizing: border-box;
+  }
+
+  .st-timeline {
+    position: relative;
+    margin-left: 5px;
+  }
+
+  .st-timeline::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 5px;
+    width: 1px;
+    background: #e2e8f0;
+  }
+
+  .st-timeline-item {
+    position: relative;
+    display: flex;
+    gap: 15px;
+    padding-bottom: 22px;
+  }
+
+  .st-timeline-item:last-child {
+    padding-bottom: 0;
+  }
+
+  .st-timeline-marker {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 11px;
+    width: 11px;
+    height: 11px;
+    margin-top: 4px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #2563eb;
+    box-shadow: 0 0 0 1px #bfdbfe;
+  }
+
+  .st-timeline-content {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .st-timeline-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .st-timeline-top strong {
+    color: #334155;
+  }
+
+  .st-timeline-top span {
+    color: #94a3b8;
+    text-align: right;
+  }
+
+  .st-timeline-change {
+    margin-top: 5px;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .st-timeline-change span {
+    padding: 0 4px;
+    color: #94a3b8;
+  }
+
+  .st-timeline-comment {
+    margin-top: 7px;
+    padding: 9px 11px;
+    border-radius: 9px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .st-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    gap: 5px;
+    color: #64748b;
+    text-align: center;
+  }
+
+  .st-empty-state__icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    margin-bottom: 6px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 20px;
+  }
+
+  .st-empty-state strong {
+    color: #334155;
+  }
+
+  @media (max-width: 900px) {
+    .st-appointment-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .st-status-form {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .st-status-form .st-btn {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .st-card__header--large {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .st-info-grid,
+    .st-status-form {
+      grid-template-columns: 1fr;
+    }
+
+    .st-status-form .st-btn {
+      grid-column: auto;
+      width: 100%;
+    }
+
+    .st-appointment-time strong {
+      font-size: 26px;
+    }
+  }
+</style>
 {% endblock %}
