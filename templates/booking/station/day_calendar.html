@@ -22,7 +22,7 @@
       <span>Станция не работает</span>
     {% endif %}
   </div>
-  <a href="{% url 'station_appointment_create' station.pk %}" class="st-btn st-btn--primary">+ Записать клиента</a>
+  <a href="{% url 'station_appointment_create' station.pk %}?date={{ selected_date|date:'Y-m-d' }}" class="st-btn st-btn--primary">+ Записать клиента</a>
 </div>
 
 <div class="st-calendar-legend">
@@ -49,7 +49,7 @@
         <div class="st-day-slot__title">Прошедшее время</div>
       {% else %}
         <div class="st-day-slot__title">Свободно</div>
-        <a href="{% url 'station_appointment_create' station.pk %}?start={{ slot.start|date:'Y-m-d\\TH:i' }}" class="st-btn st-btn--primary st-btn--sm">Записать</a>
+        <button type="button" class="st-btn st-btn--primary st-btn--sm" onclick="openQuickAppointment('{{ slot.start|date:'Y-m-d\\TH:i' }}','{{ slot.start|date:'H:i' }}','{{ slot.end|date:'H:i' }}')">Записать</button>
       {% endif %}
     </div>
   </div>
@@ -62,4 +62,34 @@
     </div>
   {% endfor %}
 </div>
+
+<div id="quick-appointment-modal" class="st-quick-modal" hidden aria-hidden="true">
+  <div class="st-quick-modal__backdrop" onclick="closeQuickAppointment()"></div>
+  <section class="st-quick-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="quick-appointment-title">
+    <button type="button" class="st-quick-modal__close" onclick="closeQuickAppointment()" aria-label="Закрыть">×</button>
+    <div class="st-page-head__eyebrow">Новая запись</div>
+    <h2 id="quick-appointment-title">Записать клиента</h2>
+    <div class="st-quick-modal__slot">
+      <strong id="quick-slot-time">—</strong>
+      <span>{{ selected_date|date:"d.m.Y" }} · {{ station.name }}</span>
+    </div>
+    <a id="quick-appointment-link" href="#" class="st-btn st-btn--primary st-btn--wide">Перейти к записи</a>
+    <button type="button" class="st-btn st-btn--secondary st-btn--wide" onclick="closeQuickAppointment()">Отмена</button>
+  </section>
+</div>
+
+<style>
+.st-quick-modal[hidden]{display:none}.st-quick-modal{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px}.st-quick-modal__backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(3px)}.st-quick-modal__dialog{position:relative;width:min(440px,100%);padding:28px;background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.2)}.st-quick-modal__dialog h2{margin:4px 0 18px}.st-quick-modal__close{position:absolute;right:14px;top:12px;border:0;background:transparent;font-size:28px;line-height:1;color:#64748b;cursor:pointer}.st-quick-modal__slot{display:flex;flex-direction:column;gap:5px;padding:16px;margin-bottom:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px}.st-quick-modal__slot strong{font-size:22px;font-variant-numeric:tabular-nums}.st-quick-modal__slot span{font-size:13px;color:#64748b}.st-btn--wide{width:100%;justify-content:center;margin-top:8px}
+</style>
+<script>
+function openQuickAppointment(start,timeStart,timeEnd){
+  const modal=document.getElementById('quick-appointment-modal');
+  document.getElementById('quick-slot-time').textContent=timeStart+' — '+timeEnd;
+  document.getElementById('quick-appointment-link').href="{% url 'station_appointment_create' station.pk %}?start="+encodeURIComponent(start)+"&date={{ selected_date|date:'Y-m-d' }}";
+  modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+  setTimeout(()=>document.getElementById('quick-appointment-link').focus(),0);
+}
+function closeQuickAppointment(){const modal=document.getElementById('quick-appointment-modal');modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.style.overflow='';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeQuickAppointment();});
+</script>
 {% endblock %}
