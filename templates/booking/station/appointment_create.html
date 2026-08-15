@@ -1,223 +1,99 @@
 {% extends "booking/station/base.html" %}
 {% block station_content %}
-<h2>Создать запись — {{ station.name }}</h2>
-
-<div class="st-card" style="max-width:600px">
-  <div class="st-card__body">
-    <form method="post" id="appt-form">
-      {% csrf_token %}
-      <input type="hidden" name="car_id" id="car-id-input" value="">
-
-      <!-- Поиск авто -->
-      <div class="st-form-group" style="margin-bottom:20px">
-        <label>Госномер автомобиля *</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" name="plate" id="plate-input" class="st-input"
-                 style="text-transform:uppercase;width:180px"
-                 oninput="this.value=this.value.toUpperCase()"
-                 placeholder="А123БВ77" required>
-          <button type="button" class="st-btn st-btn--secondary" onclick="lookupCar()">Найти в системе</button>
-        </div>
-        <div id="car-info" style="margin-top:8px;font-size:13px"></div>
-      </div>
-
-      <!-- Блок нового авто -->
-      <div id="new-car-block" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px">
-        <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:12px">
-          Автомобиль не найден — заполните данные для регистрации
-        </div>
-        <div class="st-form-group" style="margin-bottom:12px">
-          <label>Email клиента *</label>
-          <input type="email" name="new_user_email" id="new-email" class="st-input" placeholder="client@example.com">
-          <div style="font-size:12px;color:#6b7280;margin-top:3px">Клиенту придёт письмо с доступом в личный кабинет</div>
-        </div>
-        <div class="st-form-row">
-          <div class="st-form-group">
-            <label>Марка *</label>
-            <select id="brand-select" class="st-select" style="min-width:160px" onchange="updateModels()">
-              <option value="">— выберите —</option>
-            </select>
-          </div>
-          <div class="st-form-group">
-            <label>Модель *</label>
-            <select name="new_model_id" id="model-select" class="st-select" style="min-width:180px">
-              <option value="">— сначала марку —</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Данные клиента -->
-      <div class="st-form-group" style="margin-bottom:14px">
-        <label>Имя клиента *</label>
-        <input type="text" name="client_name" id="client-name" class="st-input" required placeholder="Иванов Иван Иванович">
-      </div>
-      <div class="st-form-group" style="margin-bottom:20px">
-        <label>Телефон клиента</label>
-        <input type="text" name="client_phone" id="client-phone" class="st-input" placeholder="+7 900 000 00 00">
-      </div>
-
-      <!-- Дата — нативный date picker -->
-      <div class="st-form-group" style="margin-bottom:14px">
-        <label>Дата *</label>
-        <input type="date" id="date-input" class="st-input" style="width:200px"
-               min="{{ today }}" onchange="loadSlots(this.value)" required>
-      </div>
-
-      <!-- Слоты -->
-      <div class="st-form-group" style="margin-bottom:24px">
-        <label>Время (свободные слоты) *</label>
-        <select name="start" id="slots-select" class="st-select" required style="width:220px">
-          <option value="">— сначала выберите дату —</option>
-        </select>
-        <div id="slots-hint" style="font-size:12px;color:#6b7280;margin-top:4px"></div>
-      </div>
-
-      <div style="display:flex;gap:10px">
-        <button type="submit" class="st-btn st-btn--primary">Создать запись</button>
-        <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary">Отмена</a>
-      </div>
-    </form>
+<div class="st-appt-page">
+  <div class="st-page-head st-appt-head">
+    <div>
+      <div class="st-page-head__eyebrow">Новая запись</div>
+      <h1>Запись клиента</h1>
+      <div class="st-page-head__meta">{{ station.name }}</div>
+    </div>
+    <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary">← К записям</a>
   </div>
+
+  <form method="post" id="appt-form" class="st-appt-layout">
+    {% csrf_token %}
+    <input type="hidden" name="car_id" id="car-id-input" value="">
+
+    <main class="st-appt-main">
+      <section class="st-appt-card">
+        <div class="st-appt-card__head"><span class="st-appt-step">1</span><div><h2>Автомобиль</h2><p>Найдите автомобиль по госномеру</p></div></div>
+        <div class="st-form-group">
+          <label for="plate-input">Госномер <b>*</b></label>
+          <div class="st-appt-search">
+            <input type="text" name="plate" id="plate-input" class="st-input" maxlength="20" style="text-transform:uppercase" placeholder="А123БВ77" autocomplete="off" required>
+            <button type="button" id="lookup-btn" class="st-btn st-btn--secondary">Найти</button>
+          </div>
+          <div id="car-info" class="st-appt-feedback" aria-live="polite"></div>
+        </div>
+
+        <div id="new-car-block" class="st-new-car" hidden>
+          <div class="st-new-car__title">Автомобиль не найден</div>
+          <p>Можно зарегистрировать его прямо во время записи.</p>
+          <div class="st-form-group"><label for="new-email">Email клиента <b>*</b></label><input type="email" name="new_user_email" id="new-email" class="st-input" placeholder="client@example.com"><small>На этот адрес можно отправить доступ к кабинету.</small></div>
+          <div class="st-form-row">
+            <div class="st-form-group"><label for="brand-select">Марка <b>*</b></label><select id="brand-select" class="st-select"><option value="">Выберите марку</option></select></div>
+            <div class="st-form-group"><label for="model-select">Модель <b>*</b></label><select name="new_model_id" id="model-select" class="st-select"><option value="">Сначала марка</option></select></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="st-appt-card">
+        <div class="st-appt-card__head"><span class="st-appt-step">2</span><div><h2>Клиент</h2><p>Контактные данные подтянутся автоматически</p></div></div>
+        <div class="st-form-row">
+          <div class="st-form-group"><label for="client-name">Имя клиента <b>*</b></label><input type="text" name="client_name" id="client-name" class="st-input" required placeholder="Иванов Иван Иванович"></div>
+          <div class="st-form-group"><label for="client-phone">Телефон</label><input type="text" name="client_phone" id="client-phone" class="st-input" placeholder="+7 900 000 00 00"></div>
+        </div>
+      </section>
+
+      <section class="st-appt-card">
+        <div class="st-appt-card__head"><span class="st-appt-step">3</span><div><h2>Дата и время</h2><p>Выберите день и свободный интервал</p></div></div>
+        <div class="st-form-group">
+          <label for="date-input">Дата <b>*</b></label>
+          <input type="date" id="date-input" class="st-input st-date-input" min="{{ today }}" required>
+        </div>
+        <div class="st-form-group st-slot-group">
+          <div class="st-slot-label"><label for="slots-select">Свободное время <b>*</b></label><span id="slots-count"></span></div>
+          <div id="slot-chips" class="st-slot-chips"><div class="st-slot-placeholder">Сначала выберите дату</div></div>
+          <select name="start" id="slots-select" class="st-select st-slot-native" required><option value="">Выберите время</option></select>
+          <div id="slots-hint" class="st-appt-hint"></div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="st-appt-side">
+      <div class="st-appt-summary">
+        <div class="st-appt-summary__eyebrow">Проверка записи</div>
+        <h2>Новая запись</h2>
+        <div class="st-summary-item"><span>🚗</span><div><small>Автомобиль</small><strong id="summary-car">Не выбран</strong></div></div>
+        <div class="st-summary-item"><span>👤</span><div><small>Клиент</small><strong id="summary-client">Не указан</strong></div></div>
+        <div class="st-summary-item"><span>📅</span><div><small>Дата</small><strong id="summary-date">Не выбрана</strong></div></div>
+        <div class="st-summary-item"><span>🕐</span><div><small>Время</small><strong id="summary-time">Не выбрано</strong></div></div>
+        <div id="summary-type" class="st-summary-duration"><span>⏱</span><strong>Продолжительность определится по автомобилю</strong></div>
+        <button type="submit" class="st-btn st-btn--primary st-btn--wide" id="submit-btn">Создать запись</button>
+        <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary st-btn--wide">Отмена</a>
+      </div>
+    </aside>
+  </form>
 </div>
 
+<style>
+.st-appt-layout{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:22px;align-items:start}.st-appt-main{display:grid;gap:16px}.st-appt-card,.st-appt-summary{background:#fff;border:1px solid #e5e7eb;border-radius:18px;box-shadow:0 5px 20px rgba(15,23,42,.045)}.st-appt-card{padding:24px}.st-appt-card__head{display:flex;gap:13px;align-items:flex-start;margin-bottom:22px}.st-appt-card__head h2{font-size:18px;margin:0}.st-appt-card__head p{font-size:13px;color:#64748b;margin:4px 0 0}.st-appt-step{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border-radius:10px;background:#eff6ff;color:#2563eb;font-weight:800}.st-appt-search{display:flex;gap:10px}.st-appt-search .st-input{max-width:260px;font-weight:650;letter-spacing:.04em}.st-appt-feedback{min-height:22px;margin-top:8px;font-size:13px}.st-new-car{padding:16px;margin-top:16px;background:#fffaf0;border:1px solid #fed7aa;border-radius:14px}.st-new-car__title{font-weight:750}.st-new-car p,.st-new-car small{color:#64748b;font-size:12px}.st-new-car p{margin:3px 0 14px}.st-slot-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.st-slot-label label{margin-bottom:0}.st-slot-label span{font-size:12px;color:#64748b}.st-slot-chips{display:flex;flex-wrap:wrap;gap:8px;min-height:42px}.st-slot-chip{border:1px solid #dbe3ee;background:#fff;border-radius:10px;padding:10px 13px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;transition:.15s}.st-slot-chip:hover{border-color:#60a5fa;background:#eff6ff}.st-slot-chip.is-selected{background:#2563eb;border-color:#2563eb;color:#fff}.st-slot-placeholder{display:flex;align-items:center;color:#94a3b8;font-size:13px}.st-slot-native{display:none}.st-appt-hint{margin-top:8px;color:#64748b;font-size:12px}.st-appt-summary{position:sticky;top:20px;padding:22px}.st-appt-summary h2{margin:3px 0 18px;font-size:21px}.st-appt-summary__eyebrow,.st-page-head__eyebrow{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#2563eb}.st-summary-item{display:flex;gap:11px;padding:12px 0;border-bottom:1px solid #eef2f7}.st-summary-item>span{width:30px;text-align:center}.st-summary-item div{min-width:0}.st-summary-item small{display:block;color:#94a3b8;font-size:11px}.st-summary-item strong{display:block;margin-top:2px;font-size:14px;overflow:hidden;text-overflow:ellipsis}.st-summary-duration{display:flex;gap:10px;margin:15px 0;padding:12px;background:#f8fafc;border-radius:12px;font-size:13px}.st-summary-duration span{font-size:16px}.st-btn--wide{width:100%;justify-content:center;margin-top:8px}.st-date-input{max-width:210px}.st-appt-page .st-form-group label{font-weight:650}.st-appt-page .st-form-group label b{color:#2563eb}.st-appt-page .st-page-head{margin-bottom:20px}@media(max-width:900px){.st-appt-layout{grid-template-columns:1fr}.st-appt-summary{position:static}.st-appt-summary .st-btn--primary{order:0}.st-appt-card{padding:18px}}@media(max-width:600px){.st-appt-head{align-items:flex-start;flex-direction:column}.st-appt-search{align-items:stretch}.st-appt-search .st-input{max-width:none;min-width:0}.st-appt-search .st-btn{flex:0 0 auto}.st-form-row{grid-template-columns:1fr}.st-slot-chip{padding:9px 11px}}
+</style>
+
 <script>
-const STATION_ID = {{ station.pk }};
-let currentCarId = null;
-let allBrands = [];
-
-// Загрузка марок при старте страницы
-async function loadBrands() {
-  try {
-    const resp = await fetch('/api/brands-with-models/');
-    if (!resp.ok) return;
-    allBrands = await resp.json();
-    const sel = document.getElementById('brand-select');
-    allBrands.forEach(b => {
-      const opt = document.createElement('option');
-      opt.value = b.id;
-      opt.textContent = b.name;
-      sel.appendChild(opt);
-    });
-  } catch(e) {
-    console.error('Ошибка загрузки марок:', e);
-  }
-}
+const STATION_ID={{ station.pk }};let currentCarId=null;let allBrands=[];
+const $=id=>document.getElementById(id);
+function setText(id,value){$(id).textContent=value||''}
+async function loadBrands(){try{const r=await fetch('/api/brands-with-models/');if(!r.ok)return;allBrands=await r.json();const s=$('brand-select');allBrands.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;s.appendChild(o)})}catch(e){console.error(e)}}
+$('brand-select').addEventListener('change',()=>{const id=parseInt($('brand-select').value);const s=$('model-select');s.innerHTML='<option value="">Выберите модель</option>';const b=allBrands.find(x=>x.id===id);if(!b)return;b.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name+(m.vehicle_type==='TRUCK'?' · грузовой':'');s.appendChild(o)})});
+$('model-select').addEventListener('change',()=>{const o=$('model-select').selectedOptions[0];if(o&&o.value){setText('summary-car',o.textContent.replace(' · грузовой',''));updateDurationSummary($('model-select').value)}});
+async function lookupCar(){const plate=$('plate-input').value.trim();if(!plate){setText('car-info','Введите госномер');$('car-info').style.color='#dc2626';return}$('lookup-btn').disabled=true;setText('car-info','Поиск...');$('car-info').style.color='#64748b';try{const r=await fetch('/api/car-by-plate/?plate='+encodeURIComponent(plate));if(r.status===404)throw new Error('not_found');if(!r.ok)throw new Error('error');const d=await r.json();currentCarId=d.id;$('car-id-input').value=d.id;$('new-car-block').hidden=true;$('car-info').style.color='#15803d';setText('car-info','✓ '+d.brand+' '+d.model+' — '+d.owner_name);setText('summary-car',d.brand+' '+d.model);if(!$('client-name').value)$('client-name').value=d.owner_name||'';if(!$('client-phone').value)$('client-phone').value=d.owner_phone||'';updateClientSummary();updateDurationSummary(d.vehicle_type||d.model_vehicle_type);if($('date-input').value)loadSlots($('date-input').value)}catch(e){currentCarId=null;$('car-id-input').value='';$('new-car-block').hidden=false;$('car-info').style.color='#b45309';setText('car-info','⚠ Автомобиль не найден — заполните данные ниже');updateDurationSummary(null)}}finally{$('lookup-btn').disabled=false}}
+$('lookup-btn').addEventListener('click',lookupCar);$('plate-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lookupCar()}});
+async function loadSlots(date){const native=$('slots-select'),chips=$('slot-chips'),hint=$('slots-hint');if(!date)return;native.innerHTML='<option value="">Выберите время</option>';chips.innerHTML='<div class="st-slot-placeholder">Загрузка слотов…</div>';setText('slots-count','');hint.textContent='';let url='/api/station/'+STATION_ID+'/slots/?date='+encodeURIComponent(date);if(currentCarId)url+='&car='+currentCarId;try{const r=await fetch(url);const d=await r.json();native.innerHTML='<option value="">Выберите время</option>';chips.innerHTML='';if(!d.slots||!d.slots.length){chips.innerHTML='<div class="st-slot-placeholder">Нет свободных слотов на эту дату</div>';hint.textContent='Попробуйте выбрать другой день';hint.style.color='#dc2626';return}hint.style.color='#64748b';setText('slots-count','Найдено: '+d.slots.length);d.slots.forEach(slot=>{const start=slot.start,end=slot.end;const ts=start.substring(11,16),te=end.substring(11,16);const o=document.createElement('option');o.value=start;o.textContent=ts+' — '+te;native.appendChild(o);const b=document.createElement('button');b.type='button';b.className='st-slot-chip';b.textContent=ts+' — '+te;b.addEventListener('click',()=>{document.querySelectorAll('.st-slot-chip').forEach(x=>x.classList.remove('is-selected'));b.classList.add('is-selected');native.value=start;setText('summary-time',ts+' — '+te)});chips.appendChild(b)})}catch(e){chips.innerHTML='<div class="st-slot-placeholder">Не удалось загрузить слоты</div>';hint.textContent='Попробуйте ещё раз'}}
+$('date-input').addEventListener('change',()=>{setText('summary-date',$('date-input').value?new Date($('date-input').value+'T12:00:00').toLocaleDateString('ru-RU',{day:'2-digit',month:'long',year:'numeric'}):'Не выбрана');loadSlots($('date-input').value)});
+$('client-name').addEventListener('input',updateClientSummary);function updateClientSummary(){setText('summary-client',$('client-name').value.trim()||'Не указан')}
+function updateDurationSummary(type){const box=$('summary-type');const truck=type==='TRUCK'||(typeof type==='string'&&type.toLowerCase().includes('груз'));box.innerHTML=truck?'<span>🚛</span><strong>Грузовой · 60 минут · требуется 2 слота</strong>':'<span>⏱</span><strong>Легковой · 30 минут</strong>'}
+$('appt-form').addEventListener('submit',e=>{const carId=$('car-id-input').value;if(!carId&&!$('new-car-block').hidden){if(!$('new-email').value.trim()){e.preventDefault();alert('Укажите email клиента');return}if(!$('model-select').value){e.preventDefault();alert('Выберите модель автомобиля');return}}else if(!carId){e.preventDefault();$('car-info').style.color='#dc2626';setText('car-info','✗ Сначала найдите автомобиль или зарегистрируйте новый');$('plate-input').focus()}});
 loadBrands();
-
-function updateModels() {
-  const brandId = parseInt(document.getElementById('brand-select').value);
-  const sel = document.getElementById('model-select');
-  sel.innerHTML = '<option value="">— выберите —</option>';
-  const brand = allBrands.find(b => b.id === brandId);
-  if (!brand) return;
-  brand.models.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = m.name + (m.vehicle_type === 'TRUCK' ? ' (грузовой)' : '');
-    sel.appendChild(opt);
-  });
-}
-
-async function lookupCar() {
-  const plate = document.getElementById('plate-input').value.trim();
-  const info  = document.getElementById('car-info');
-  const newBlock = document.getElementById('new-car-block');
-  if (!plate) { info.textContent = 'Введите госномер'; info.style.color = '#dc2626'; return; }
-
-  info.style.color = '#6b7280';
-  info.textContent = 'Поиск...';
-
-  try {
-    const resp = await fetch('/api/car-by-plate/?plate=' + encodeURIComponent(plate));
-    if (resp.status === 404) throw new Error('not_found');
-    if (!resp.ok) throw new Error('error');
-    const data = await resp.json();
-
-    currentCarId = data.id;
-    document.getElementById('car-id-input').value = data.id;
-    newBlock.style.display = 'none';
-    info.style.color = '#15803d';
-    info.textContent = '✓ ' + data.brand + ' ' + data.model + ' — ' + data.owner_name;
-
-    if (!document.getElementById('client-name').value)
-      document.getElementById('client-name').value = data.owner_name || '';
-    if (!document.getElementById('client-phone').value)
-      document.getElementById('client-phone').value = data.owner_phone || '';
-
-    const date = document.getElementById('date-input').value;
-    if (date) loadSlots(date);
-
-  } catch(e) {
-    currentCarId = null;
-    document.getElementById('car-id-input').value = '';
-    newBlock.style.display = 'block';
-    info.style.color = '#d97706';
-    info.textContent = '⚠ Автомобиль не найден — заполните данные ниже для регистрации нового';
-  }
-}
-
-async function loadSlots(date) {
-  const select = document.getElementById('slots-select');
-  const hint   = document.getElementById('slots-hint');
-  if (!date) return;
-  select.innerHTML = '<option value="">Загрузка...</option>';
-  hint.textContent = '';
-
-  let url = '/api/station/' + STATION_ID + '/slots/?date=' + date;
-  if (currentCarId) url += '&car=' + currentCarId;
-
-  try {
-    const resp = await fetch(url);
-    const data = await resp.json();
-    select.innerHTML = '';
-    if (!data.slots || data.slots.length === 0) {
-      select.innerHTML = '<option value="">Нет свободных слотов</option>';
-      hint.textContent = 'Нет свободных слотов на эту дату';
-      hint.style.color = '#dc2626';
-      return;
-    }
-    hint.style.color = '#6b7280';
-    data.slots.forEach(slot => {
-      // Берём время напрямую из строки ISO без конвертации timezone браузером
-      // slot.start вида "2026-03-31T12:00:00+03:00"
-      const timeStart = slot.start.substring(11, 16);
-      const timeEnd   = slot.end.substring(11, 16);
-      const opt = document.createElement('option');
-      opt.value = slot.start;
-      opt.textContent = timeStart + ' — ' + timeEnd;
-      select.appendChild(opt);
-    });
-    hint.textContent = 'Найдено слотов: ' + data.slots.length;
-  } catch {
-    select.innerHTML = '<option value="">Ошибка загрузки слотов</option>';
-  }
-}
-
-document.getElementById('appt-form').addEventListener('submit', function(e) {
-  const carId    = document.getElementById('car-id-input').value;
-  const newBlock = document.getElementById('new-car-block');
-
-  if (!carId && newBlock.style.display !== 'none') {
-    const email   = document.getElementById('new-email').value.trim();
-    const modelId = document.getElementById('model-select').value;
-    if (!email) {
-      e.preventDefault();
-      alert('Укажите email клиента');
-      return;
-    }
-    if (!modelId) {
-      e.preventDefault();
-      alert('Выберите марку и модель автомобиля');
-      return;
-    }
-  } else if (!carId) {
-    e.preventDefault();
-    const info = document.getElementById('car-info');
-    info.style.color = '#dc2626';
-    info.textContent = '✗ Сначала найдите автомобиль по госномеру или заполните данные нового';
-    document.getElementById('plate-input').focus();
-  }
-});
 </script>
 {% endblock %}
