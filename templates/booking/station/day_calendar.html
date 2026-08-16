@@ -1,65 +1,85 @@
 {% extends "booking/station/base.html" %}
 {% block station_content %}
-<div class="st-page-head">
+<div class="st-calendar-head">
   <div>
-    <div class="st-page-head__eyebrow">Рабочее расписание</div>
+    <div class="st-page-head__eyebrow">РАБОЧИЙ ДЕНЬ</div>
     <h1>Календарь станции</h1>
-    <div class="st-page-head__meta">{{ station.name }} · {{ selected_date|date:"d.m.Y" }}</div>
+    <div class="st-page-head__meta">{{ station.name }}</div>
   </div>
-  <div class="st-page-head__actions">
-    <a href="?date={{ previous_date|date:'Y-m-d' }}" class="st-btn st-btn--secondary">← Предыдущий день</a>
-    <a href="?date={{ today|date:'Y-m-d' }}" class="st-btn st-btn--secondary">Сегодня</a>
-    <a href="?date={{ next_date|date:'Y-m-d' }}" class="st-btn st-btn--secondary">Следующий день →</a>
+  <div class="st-calendar-head__date">
+    <span>{{ selected_date|date:"l" }}</span>
+    <strong>{{ selected_date|date:"d" }}</strong>
+    <span>{{ selected_date|date:"E Y" }}</span>
   </div>
 </div>
 
-<div class="st-calendar-toolbar">
-  <div>
-    <strong>{{ selected_date|date:"l, d E" }}</strong>
-    {% if work_start and work_end %}
-      <span>Рабочее время: {{ work_start|time:"H:i" }}–{{ work_end|time:"H:i" }}</span>
-    {% else %}
-      <span>Станция не работает</span>
-    {% endif %}
-  </div>
-  <a href="{% url 'station_appointment_create' station.pk %}?date={{ selected_date|date:'Y-m-d' }}" class="st-btn st-btn--primary">+ Записать клиента</a>
+<div class="st-calendar-nav">
+  <a href="?date={{ previous_date|date:'Y-m-d' }}" class="st-calendar-nav__arrow" aria-label="Предыдущий день">‹</a>
+  <a href="?date={{ today|date:'Y-m-d' }}" class="st-btn st-btn--secondary">Сегодня</a>
+  <input type="date" value="{{ selected_date|date:'Y-m-d' }}" aria-label="Выбрать дату" onchange="window.location='?date='+this.value">
+  <a href="?date={{ next_date|date:'Y-m-d' }}" class="st-calendar-nav__arrow" aria-label="Следующий день">›</a>
+  <a href="{% url 'station_appointment_create' station.pk %}?date={{ selected_date|date:'Y-m-d' }}" class="st-btn st-btn--primary">+ Новая запись</a>
 </div>
 
-<div class="st-calendar-legend">
-  <span><i class="st-calendar-dot st-calendar-dot--free"></i> Свободно</span>
-  <span><i class="st-calendar-dot st-calendar-dot--appointment"></i> Запись</span>
-  <span><i class="st-calendar-dot st-calendar-dot--blocked"></i> Заблокировано</span>
-  <span><i class="st-calendar-dot st-calendar-dot--past"></i> Прошедшее</span>
+<div class="st-calendar-summary">
+  <div class="st-calendar-summary__main">
+    <span class="st-calendar-summary__label">Сегодня на станции</span>
+    <strong>{{ selected_date|date:"d.m.Y" }}</strong>
+  </div>
+  <div class="st-calendar-summary__hours">
+    <span>Рабочее время</span>
+    {% if work_start and work_end %}<strong>{{ work_start|time:"H:i" }} — {{ work_end|time:"H:i" }}</strong>{% else %}<strong>Выходной</strong>{% endif %}
+  </div>
+  <div class="st-calendar-summary__legend">
+    <span><i class="st-calendar-dot st-calendar-dot--free"></i> Свободно</span>
+    <span><i class="st-calendar-dot st-calendar-dot--appointment"></i> Запись</span>
+    <span><i class="st-calendar-dot st-calendar-dot--blocked"></i> Блокировка</span>
+  </div>
 </div>
 
 <div class="st-day-calendar">
   {% for slot in slots %}
   <div class="st-day-slot st-day-slot--{{ slot.state }}">
-    <div class="st-day-slot__time">{{ slot.start|date:"H:i" }}<span>–{{ slot.end|date:"H:i" }}</span></div>
+    <div class="st-day-slot__time">
+      <strong>{{ slot.start|date:"H:i" }}</strong>
+      <span>{{ slot.end|date:"H:i" }}</span>
+    </div>
+    <div class="st-day-slot__line"><i></i></div>
     <div class="st-day-slot__content">
       {% if slot.state == "appointment" %}
+        <div class="st-slot-card__top">
+          <span class="st-slot-card__label">ЗАПИСЬ</span>
+          <span class="st-badge st-badge--{{ slot.appointment.status|lower }}">{{ slot.appointment.get_status_display }}</span>
+        </div>
         <div class="st-day-slot__title">{{ slot.appointment.name }}</div>
-        <div class="st-day-slot__meta">{{ slot.appointment.car }} · {{ slot.appointment.car.model.get_vehicle_type_display }}</div>
-        {% if slot.appointment.phone %}<div class="st-day-slot__meta">{{ slot.appointment.phone }}</div>{% endif %}
-        <a href="{% url 'station_appointment_detail' station.pk slot.appointment.pk %}" class="st-btn st-btn--secondary st-btn--sm">Подробнее</a>
+        <div class="st-day-slot__details">
+          <span>{{ slot.appointment.car }}</span>
+          <span>{{ slot.appointment.car.model }}</span>
+          {% if slot.appointment.phone %}<a href="tel:{{ slot.appointment.phone }}">{{ slot.appointment.phone }}</a>{% endif %}
+        </div>
+        <a href="{% url 'station_appointment_detail' station.pk slot.appointment.pk %}" class="st-btn st-btn--secondary st-btn--sm">Открыть запись →</a>
       {% elif slot.state == "blocked" %}
+        <div class="st-slot-card__top"><span class="st-slot-card__label">НЕДОСТУПНО</span></div>
         <div class="st-day-slot__title">Время заблокировано</div>
-        <div class="st-day-slot__meta">{{ slot.block.reason|default:"Технические работы" }}</div>
+        <div class="st-day-slot__details"><span>{{ slot.block.reason|default:"Технические работы" }}</span></div>
       {% elif slot.state == "past" %}
+        <div class="st-slot-card__top"><span class="st-slot-card__label">ЗАВЕРШЕНО</span></div>
         <div class="st-day-slot__title">Прошедшее время</div>
       {% else %}
-        <div class="st-day-slot__title">Свободно</div>
-        <button type="button" class="st-btn st-btn--primary st-btn--sm" onclick="openQuickAppointment('{{ slot.start|date:'Y-m-d\\TH:i' }}','{{ slot.start|date:'H:i' }}','{{ slot.end|date:'H:i' }}')">Записать</button>
+        <div class="st-slot-card__top"><span class="st-slot-card__label">СВОБОДНО</span></div>
+        <div class="st-day-slot__title">Свободный слот</div>
+        <div class="st-day-slot__details"><span>Можно записать клиента на {{ slot.start|date:"H:i" }}</span></div>
+        <button type="button" class="st-btn st-btn--primary st-btn--sm" onclick="openQuickAppointment('{{ slot.start|date:'Y-m-d\\TH:i' }}','{{ slot.start|date:'H:i' }}','{{ slot.end|date:'H:i' }}')">Записать клиента</button>
       {% endif %}
     </div>
   </div>
   {% empty %}
-    <div class="st-empty">
-      <div class="st-empty__icon">—</div>
-      <strong>На этот день нет рабочего расписания</strong>
-      <p>Проверьте недельный график или исключения станции.</p>
-      <a href="{% url 'station_schedule' station.pk %}" class="st-btn st-btn--secondary">Открыть расписание</a>
-    </div>
+  <div class="st-empty">
+    <div class="st-empty__icon">—</div>
+    <strong>На этот день нет рабочего расписания</strong>
+    <p>Проверьте недельный график или исключения станции.</p>
+    <a href="{% url 'station_schedule' station.pk %}" class="st-btn st-btn--secondary">Открыть расписание</a>
+  </div>
   {% endfor %}
 </div>
 
@@ -67,29 +87,16 @@
   <div class="st-quick-modal__backdrop" onclick="closeQuickAppointment()"></div>
   <section class="st-quick-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="quick-appointment-title">
     <button type="button" class="st-quick-modal__close" onclick="closeQuickAppointment()" aria-label="Закрыть">×</button>
-    <div class="st-page-head__eyebrow">Новая запись</div>
+    <div class="st-page-head__eyebrow">НОВАЯ ЗАПИСЬ</div>
     <h2 id="quick-appointment-title">Записать клиента</h2>
-    <div class="st-quick-modal__slot">
-      <strong id="quick-slot-time">—</strong>
-      <span>{{ selected_date|date:"d.m.Y" }} · {{ station.name }}</span>
-    </div>
+    <div class="st-quick-modal__slot"><strong id="quick-slot-time">—</strong><span>{{ selected_date|date:"d.m.Y" }} · {{ station.name }}</span></div>
     <a id="quick-appointment-link" href="#" class="st-btn st-btn--primary st-btn--wide">Перейти к записи</a>
     <button type="button" class="st-btn st-btn--secondary st-btn--wide" onclick="closeQuickAppointment()">Отмена</button>
   </section>
 </div>
-
-<style>
-.st-quick-modal[hidden]{display:none}.st-quick-modal{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px}.st-quick-modal__backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(3px)}.st-quick-modal__dialog{position:relative;width:min(440px,100%);padding:28px;background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.2)}.st-quick-modal__dialog h2{margin:4px 0 18px}.st-quick-modal__close{position:absolute;right:14px;top:12px;border:0;background:transparent;font-size:28px;line-height:1;color:#64748b;cursor:pointer}.st-quick-modal__slot{display:flex;flex-direction:column;gap:5px;padding:16px;margin-bottom:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px}.st-quick-modal__slot strong{font-size:22px;font-variant-numeric:tabular-nums}.st-quick-modal__slot span{font-size:13px;color:#64748b}.st-btn--wide{width:100%;justify-content:center;margin-top:8px}
-</style>
 <script>
-function openQuickAppointment(start,timeStart,timeEnd){
-  const modal=document.getElementById('quick-appointment-modal');
-  document.getElementById('quick-slot-time').textContent=timeStart+' — '+timeEnd;
-  document.getElementById('quick-appointment-link').href="{% url 'station_appointment_create' station.pk %}?start="+encodeURIComponent(start)+"&date={{ selected_date|date:'Y-m-d' }}";
-  modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
-  setTimeout(()=>document.getElementById('quick-appointment-link').focus(),0);
-}
-function closeQuickAppointment(){const modal=document.getElementById('quick-appointment-modal');modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.style.overflow='';}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeQuickAppointment();});
+function openQuickAppointment(start,timeStart,timeEnd){const modal=document.getElementById('quick-appointment-modal');document.getElementById('quick-slot-time').textContent=timeStart+' — '+timeEnd;document.getElementById('quick-appointment-link').href="{% url 'station_appointment_create' station.pk %}?start="+encodeURIComponent(start)+"&date={{ selected_date|date:'Y-m-d' }}";modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('quick-appointment-link').focus(),0)}
+function closeQuickAppointment(){const modal=document.getElementById('quick-appointment-modal');modal.hidden=true;modal.setAttribute('aria-hidden','true');document.body.style.overflow=''}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeQuickAppointment()});
 </script>
 {% endblock %}
