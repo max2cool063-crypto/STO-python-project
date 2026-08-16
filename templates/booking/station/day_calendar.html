@@ -23,12 +23,17 @@
 
 <div class="st-calendar-summary">
   <div class="st-calendar-summary__main">
-    <span class="st-calendar-summary__label">Сегодня на станции</span>
+    <span class="st-calendar-summary__label">Расписание дня</span>
     <strong>{{ selected_date|date:"d.m.Y" }}</strong>
   </div>
   <div class="st-calendar-summary__hours">
     <span>Рабочее время</span>
     {% if work_start and work_end %}<strong>{{ work_start|time:"H:i" }} — {{ work_end|time:"H:i" }}</strong>{% else %}<strong>Выходной</strong>{% endif %}
+  </div>
+  <div class="st-calendar-summary__stats" aria-label="Статистика дня">
+    <span><strong>{{ summary.appointments }}</strong> записей</span>
+    <span><strong>{{ summary.free }}</strong> свободно</span>
+    <span><strong>{{ summary.blocked }}</strong> заблокировано</span>
   </div>
   <div class="st-calendar-summary__legend">
     <span><i class="st-calendar-dot st-calendar-dot--free"></i> Свободно</span>
@@ -55,6 +60,7 @@
         <div class="st-day-slot__details">
           <span>{{ slot.appointment.car }}</span>
           <span>{{ slot.appointment.car.model }}</span>
+          <span>{% if slot.appointment.car.vehicle_type == "TRUCK" %}Грузовой · 60 мин{% else %}Легковой · 30 мин{% endif %}</span>
           {% if slot.appointment.phone %}<a href="tel:{{ slot.appointment.phone }}">{{ slot.appointment.phone }}</a>{% endif %}
         </div>
         <a href="{% url 'station_appointment_detail' station.pk slot.appointment.pk %}" class="st-btn st-btn--secondary st-btn--sm">Открыть запись →</a>
