@@ -53,6 +53,15 @@ def station_day_calendar(request, station_id, staff=None):
             slots.append({"start": cursor, "end": slot_end, "state": state, "appointment": appointment, "block": block})
             cursor += step
 
+    summary = {
+        "appointments": len({slot["appointment"].pk for slot in slots if slot["appointment"]}),
+        "free": sum(1 for slot in slots if slot["state"] == "free"),
+        "blocked": sum(1 for slot in slots if slot["state"] == "blocked"),
+        "past": sum(1 for slot in slots if slot["state"] == "past"),
+        "total": len(slots),
+    }
+    summary["occupied"] = sum(1 for slot in slots if slot["state"] == "appointment")
+
     return render(request, "booking/station/day_calendar.html", {
         "station": station,
         "staff": staff,
@@ -63,4 +72,5 @@ def station_day_calendar(request, station_id, staff=None):
         "work_start": work_start,
         "work_end": work_end,
         "slots": slots,
+        "summary": summary,
     })
