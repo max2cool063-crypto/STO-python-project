@@ -1,7 +1,7 @@
 {% extends "booking/station/base.html" %}
 {% block station_content %}
 <div class="st-appointments-page">
-  <div class="st-appointments-toolbar">
+  <header class="st-appointments-toolbar">
     <div class="st-page-head" style="margin:0">
       <div>
         <div class="st-page-head__eyebrow">Журнал станции</div>
@@ -13,7 +13,7 @@
       <a href="{% url 'station_appointments_csv' station.pk %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="st-btn st-btn--secondary">↓ Экспорт CSV</a>
       <a href="{% url 'station_appointment_create' station.pk %}" class="st-btn st-btn--primary">+ Новая запись</a>
     </div>
-  </div>
+  </header>
 
   <form method="get" class="st-filter-bar st-filter-bar--appointments">
     <div class="st-filter-field st-filter-field--search">
@@ -59,7 +59,7 @@
           <div>
             <div class="st-appointment-date__day">{{ a.start|date:"d" }}</div>
             <div class="st-appointment-date__month">{{ a.start|date:"M" }}</div>
-            <div class="st-appointment-date__time">{{ a.start|date:"H:i" }}</div>
+            <div class="st-appointment-date__time">{{ a.start|date:"H:i" }}{% if a.end %}–{{ a.end|date:"H:i" }}{% endif %}</div>
           </div>
         </div>
 
