@@ -5,6 +5,9 @@
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-components-v1.css' %}">
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-calendar-v1.css' %}">
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-appointments-v1.css' %}">
+{% if request.resolver_match.url_name == 'station_staff' %}
+<link rel="stylesheet" href="{% static 'booking/css/ui-station-staff-v1.css' %}">
+{% endif %}
 {% endblock %}
 {% block content %}
 <div class="st-layout">
