@@ -2,11 +2,12 @@
 {% block station_content %}
 <div class="st-page-head">
   <div>
-    <div class="st-page-head__eyebrow">Рабочее время</div>
-    <h1>Расписание станции</h1>
-    <div class="st-page-head__meta">Настройте недельный график и отдельные дни без изменения логики записи.</div>
+    <div class="st-page-head__eyebrow">Рабочее время станции</div>
+    <h1>Расписание</h1>
+    <div class="st-page-head__meta">Управляйте недельным графиком и отдельными датами. Исключение на конкретную дату имеет приоритет над обычным расписанием.</div>
   </div>
   <div class="st-page-head__actions">
+    <a href="{% url 'station_slot_blocks' station.id %}" class="st-btn st-btn--secondary">Блокировки</a>
     <a href="{% url 'station_dashboard' station.id %}" class="st-btn st-btn--secondary">← Обзор</a>
   </div>
 </div>
@@ -14,16 +15,37 @@
 <div class="st-schedule-note">
   <div class="st-schedule-note__icon">◷</div>
   <div>
-    <strong>Базовый график станции</strong>
-    <span>Оставьте день без времени, если станция не работает. Исключение на конкретную дату имеет приоритет над недельным графиком.</span>
+    <strong>Как работает расписание</strong>
+    <span>Недельный график задаёт стандартные часы работы. Если на конкретную дату создано исключение, используется именно оно. День без времени считается выходным.</span>
   </div>
 </div>
+
+{% with open_days=weekday_rows|length %}
+<div class="st-stats">
+  <div class="st-stat">
+    <div class="st-stat__num">{{ weekday_rows|length }}</div>
+    <div class="st-stat__label">Дней в графике</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num">30</div>
+    <div class="st-stat__label">Минут — шаг слота</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num">60</div>
+    <div class="st-stat__label">Минут — грузовой авто</div>
+  </div>
+  <div class="st-stat">
+    <div class="st-stat__num">{{ schedules|length }}</div>
+    <div class="st-stat__label">Особых дат</div>
+  </div>
+</div>
+{% endwith %}
 
 <div class="st-card">
   <div class="st-card__header">
     <div>
       <div class="st-card__title">Недельный график</div>
-      <div class="st-card__subtitle">Время работы по дням недели</div>
+      <div class="st-card__subtitle">Базовые часы работы станции</div>
     </div>
     <span class="st-badge st-badge--info">Шаг слотов 30 мин</span>
   </div>
@@ -78,7 +100,7 @@
   <div class="st-card__header">
     <div>
       <div class="st-card__title">Исключения на конкретные даты</div>
-      <div class="st-card__subtitle">Праздники, сокращённые дни и дополнительные выходные</div>
+      <div class="st-card__subtitle">Праздники, дополнительные выходные и сокращённые рабочие дни</div>
     </div>
     <form method="post" class="st-inline-form">
       {% csrf_token %}
@@ -131,7 +153,13 @@
           <strong>{{ s.date|date:"D" }}</strong>
           <span>{% if s.work_start == s.work_end %}Выходной{% else %}{{ s.work_start|time:"H:i" }} — {{ s.work_end|time:"H:i" }}{% endif %}</span>
         </div>
-        <div class="st-exception-kind">Особый график</div>
+        <div class="st-exception-kind">
+          {% if s.work_start == s.work_end %}
+          <span class="st-status-pill st-status-pill--muted">Выходной</span>
+          {% else %}
+          <span class="st-status-pill st-status-pill--danger">Особый график</span>
+          {% endif %}
+        </div>
         <form method="post">
           {% csrf_token %}
           <input type="hidden" name="action" value="delete_exception">
