@@ -4,7 +4,7 @@
   <div>
     <div class="st-page-head__eyebrow">CRM станции</div>
     <h1>Клиенты</h1>
-    <div class="st-page-head__meta">Клиенты, которые обращались на эту станцию. Поиск не раскрывает данные других станций.</div>
+    <div class="st-page-head__meta">Клиентская база только вашей станции — без доступа к данным других станций.</div>
   </div>
   <div class="st-page-head__actions">
     <a href="{% url 'station_dashboard' station.pk %}" class="st-btn st-btn--secondary">← Обзор</a>
@@ -13,29 +13,25 @@
 
 <div class="st-hero" style="margin-bottom:18px">
   <div class="st-hero__content">
-    <div class="st-hero__kicker">Клиентская база</div>
-    <h1>Работайте с клиентами быстрее</h1>
-    <p>Найдите клиента по имени, телефону или email и сразу увидите историю посещений. Список формируется только по клиентам вашей станции.</p>
+    <div class="st-hero__kicker">Рабочая база оператора</div>
+    <h1>Клиенты и история обслуживания</h1>
+    <p>Быстро находите нужного клиента по имени, телефону или email. В результатах отображаются только клиенты, связанные с обращениями на эту станцию.</p>
   </div>
 </div>
 
-<div class="st-card">
-  <div class="st-card__header">
-    <div>
-      <div class="st-card__title">Поиск клиента</div>
-      <div class="st-card__subtitle">Имя, телефон или email</div>
-    </div>
-    {% if search %}<span class="st-badge st-badge--info">Поиск: «{{ search }}»</span>{% endif %}
-  </div>
+<div class="st-card" style="margin-bottom:18px">
   <div class="st-card__body">
-    <form method="get" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <div style="position:relative;flex:1;min-width:240px">
-        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#98a2b3">⌕</span>
-        <input type="text" name="q" value="{{ search }}" class="st-input" style="width:100%;padding-left:34px;box-sizing:border-box" placeholder="Например: Иванов, +7..., client@example.com" autocomplete="off">
+    <form method="get" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:260px">
+        <span aria-hidden="true" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:18px">⌕</span>
+        <input type="search" name="q" value="{{ search }}" class="st-input" style="width:100%;padding-left:40px;box-sizing:border-box" placeholder="Имя, фамилия, телефон или email" autocomplete="off">
       </div>
-      <button type="submit" class="st-btn st-btn--primary">Найти клиента</button>
+      <button type="submit" class="st-btn st-btn--primary">Найти</button>
       {% if search %}<a href="{% url 'station_clients' station.pk %}" class="st-btn st-btn--secondary">Сбросить</a>{% endif %}
     </form>
+    {% if search %}
+      <div style="margin-top:10px;color:#64748b;font-size:12px">Результаты поиска для <strong style="color:#334155">«{{ search }}»</strong></div>
+    {% endif %}
   </div>
 </div>
 
@@ -43,9 +39,9 @@
   <div class="st-card__header">
     <div>
       <div class="st-card__title">Клиенты станции</div>
-      <div class="st-card__subtitle">Контактные данные и количество выполненных визитов</div>
+      <div class="st-card__subtitle">Контакты и завершённые визиты</div>
     </div>
-    <span class="st-badge st-badge--info">{{ clients|length }} в списке</span>
+    <span class="st-badge st-badge--info">{{ clients|length }} {% if clients|length == 1 %}клиент{% else %}клиентов{% endif %}</span>
   </div>
   <div class="st-card__body st-card__body--flush">
     <div style="overflow-x:auto">
@@ -55,15 +51,15 @@
             <th>Клиент</th>
             <th>Контакты</th>
             <th>Аккаунт</th>
-            <th>Визиты</th>
+            <th>Обслуживание</th>
           </tr>
         </thead>
         <tbody>
           {% for client in clients %}
           <tr>
             <td>
-              <div style="display:flex;align-items:center;gap:11px;min-width:190px">
-                <div style="width:38px;height:38px;flex:0 0 38px;border-radius:11px;background:#eef4ff;color:#155eef;display:grid;place-items:center;font-size:13px;font-weight:800">
+              <div style="display:flex;align-items:center;gap:12px;min-width:210px">
+                <div style="width:42px;height:42px;flex:0 0 42px;border-radius:12px;background:#eef4ff;color:#155eef;display:grid;place-items:center;font-size:14px;font-weight:800">
                   {% with p=client.profile %}
                     {% if p.first_name %}{{ p.first_name|slice:':1'|upper }}{% elif p.last_name %}{{ p.last_name|slice:':1'|upper }}{% else %}К{% endif %}
                   {% endwith %}
@@ -74,7 +70,7 @@
                       {% if p.last_name or p.first_name %}{{ p.last_name }} {{ p.first_name }}{% else %}Без имени{% endif %}
                     {% endwith %}
                   </div>
-                  <span class="st-appointment-sub">ID клиента: {{ client.pk }}</span>
+                  <span class="st-appointment-sub">Клиент №{{ client.pk }}</span>
                 </div>
               </div>
             </td>
@@ -87,7 +83,7 @@
             </td>
             <td>
               <span class="st-badge st-badge--done">{{ client.visit_count }}</span>
-              <span style="display:block;margin-top:4px;color:#98a2b3;font-size:10px">выполнено</span>
+              <span style="display:block;margin-top:4px;color:#98a2b3;font-size:10px">завершённых визитов</span>
             </td>
           </tr>
           {% empty %}
@@ -95,8 +91,8 @@
             <td colspan="4">
               <div class="st-empty st-empty--compact">
                 <div class="st-empty__icon">⌕</div>
-                <strong>{% if search %}Клиенты не найдены{% else %}Пока нет клиентов{% endif %}</strong>
-                <p>{% if search %}Попробуйте изменить запрос или проверить написание.{% else %}Здесь появятся клиенты после обращения на станцию.{% endif %}</p>
+                <strong>{% if search %}Клиенты не найдены{% else %}Клиентская база пока пуста{% endif %}</strong>
+                <p>{% if search %}Измените запрос и попробуйте снова.{% else %}После появления обращений клиенты будут отображаться здесь.{% endif %}</p>
               </div>
             </td>
           </tr>
