@@ -5,19 +5,26 @@ services:
     env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   web:
     build: .
     restart: unless-stopped
     command: >
       sh -c "
-      until pg_isready -h db -p 5432;
-      do echo 'Waiting for database...';
-      sleep 2;
-      done;
-      python manage.py migrate &&
-      python manage.py collectstatic --noinput &&
-      gunicorn auto_booking.wsgi:application --config gunicorn.conf.py"
+        until pg_isready -h db -p 5432; do
+          echo 'Waiting for database...';
+          sleep 2;
+        done;
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput &&
+        gunicorn auto_booking.wsgi:application --config gunicorn.conf.py
+      "
     volumes:
       - .:/app
       - media_data:/app/media
@@ -25,21 +32,35 @@ services:
       - "8000:8000"
     env_file: .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
-  # cron-контейнер: обновление статусов + напоминания клиентам
   cron:
     build: .
     restart: unless-stopped
     command: >
-      sh -c "while true; do
-        python manage.py update_appointments;
-        python manage.py send_reminders;
-        sleep 900;
-      done"
+      sh -c "
+        echo 'Waiting for database...';
+        until pg_isready -h db -p 5432; do sleep 2; done;
+
+        echo 'Waiting for migrations...';
+        until python manage.py showmigrations booking 2>/dev/null | grep -q '\[X\] 0018'; do
+          sleep 3;
+        done;
+
+        echo 'Cron started';
+        while true; do
+          python manage.py update_appointments || true;
+          python manage.py send_reminders || true;
+          sleep 900;
+        done
+      "
     env_file: .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
 
 volumes:
   postgres_data:
