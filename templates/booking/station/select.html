@@ -1,56 +1,94 @@
 {% extends "base.html" %}
 {% load l10n %}
+
+{% block title %}Выбор станции — СТО Онлайн-запись{% endblock %}
+
 {% block content %}
-<div style="max-width:900px;margin:32px auto;padding:0 16px">
-  <h2 style="margin-bottom:20px">Мои станции</h2>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-
-    <div>
-      {% for s in stations %}
-      <a href="{% url 'station_dashboard' s.pk %}" style="text-decoration:none;display:block;margin-bottom:12px">
-        <div class="st-select-card"
-             data-lat="{{ s.latitude|unlocalize }}"
-             data-lng="{{ s.longitude|unlocalize }}"
-             data-name="{{ s.name|force_escape }}"
-             data-address="{{ s.address|force_escape }}"
-             data-url="{% url 'station_dashboard' s.pk %}">
-          <div style="font-weight:600;color:#111827">{{ s.name }}</div>
-          <div style="font-size:13px;color:#6b7280;margin-top:2px">{{ s.address|default:"Адрес не указан" }}</div>
-          <div style="margin-top:8px;font-size:13px;color:#1d4ed8">Открыть кабинет &rarr;</div>
-        </div>
-      </a>
-      {% endfor %}
+<section class="station-select-page">
+  <div class="station-select-hero">
+    <div class="station-select-hero__content">
+      <span class="station-select-eyebrow">Кабинет станции</span>
+      <h1>Выберите станцию</h1>
+      <p>Откройте рабочий кабинет нужной станции, чтобы управлять записями, расписанием и обслуживанием клиентов.</p>
     </div>
-
-    <div>
-      <div id="stations-map" style="height:360px;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden"></div>
-    </div>
+    <div class="station-select-hero__badge" aria-hidden="true">🏢</div>
   </div>
-</div>
 
-<style>
-.st-select-card {
-  background:#fff; border:1px solid #e5e7eb; border-radius:10px;
-  padding:16px; transition:all .15s;
-}
-.st-select-card:hover { border-color:#3b82f6; box-shadow:0 4px 12px rgba(59,130,246,.12); }
-</style>
+  {% if stations %}
+  <div class="station-select-layout">
+    <section class="station-select-panel station-select-panel--list" aria-labelledby="stations-list-title">
+      <div class="station-select-panel__head">
+        <div>
+          <span class="section-kicker">Доступные станции</span>
+          <h2 id="stations-list-title">Ваши станции</h2>
+          <p>Выберите станцию для перехода в кабинет.</p>
+        </div>
+        <span class="station-select-count"><strong>{{ stations|length }}</strong> {% if stations|length == 1 %}станция{% elif stations|length < 5 %}станции{% else %}станций{% endif %}</span>
+      </div>
+
+      <div class="station-select-list">
+        {% for s in stations %}
+        <a class="station-select-card" href="{% url 'station_dashboard' s.pk %}" aria-label="Открыть кабинет станции {{ s.name }}">
+          <div class="station-select-card__icon" aria-hidden="true">⌖</div>
+          <div class="station-select-card__body">
+            <div class="station-select-card__top">
+              <h3>{{ s.name }}</h3>
+              {% if s.is_active %}<span class="station-select-status"><i></i>Активна</span>{% endif %}
+            </div>
+            <p>{{ s.address|default:"Адрес не указан" }}</p>
+            <span class="station-select-card__action">Открыть кабинет <span aria-hidden="true">→</span></span>
+          </div>
+          <div class="station-select-card__arrow" aria-hidden="true">›</div>
+          <div class="station-select-card__map-data"
+               data-lat="{{ s.latitude|unlocalize }}"
+               data-lng="{{ s.longitude|unlocalize }}"
+               data-name="{{ s.name|force_escape }}"
+               data-address="{{ s.address|force_escape }}"
+               data-url="{% url 'station_dashboard' s.pk %}"></div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="station-select-panel station-select-panel--map" aria-labelledby="stations-map-title">
+      <div class="station-select-panel__head station-select-panel__head--map">
+        <div>
+          <span class="section-kicker">Расположение</span>
+          <h2 id="stations-map-title">Станции на карте</h2>
+        </div>
+        <span class="station-select-map-label">Яндекс Карты</span>
+      </div>
+      <div id="stations-map" class="station-select-map" aria-label="Карта станций"></div>
+      <p class="station-select-map-hint">Нажмите на метку, чтобы открыть кабинет станции.</p>
+    </section>
+  </div>
+  {% else %}
+  <section class="station-select-empty">
+    <div class="station-select-empty__icon" aria-hidden="true">🏢</div>
+    <h2>Станции пока недоступны</h2>
+    <p>У вашей учётной записи пока нет назначенных станций.</p>
+  </section>
+  {% endif %}
+</section>
 {% endblock %}
 
 {% block extra_scripts %}
+{% if stations %}
 <script>
 window._stationData = { withCoords: [], withoutCoords: [] };
-document.querySelectorAll('.st-select-card').forEach(function(el) {
+
+document.querySelectorAll('.station-select-card__map-data').forEach(function(el) {
   var lat = parseFloat((el.dataset.lat || '').replace(',', '.'));
   var lng = parseFloat((el.dataset.lng || '').replace(',', '.'));
   var name = el.dataset.name;
   var url = el.dataset.url;
   var addr = el.dataset.address;
   var valid = !isNaN(lat) && !isNaN(lng) && lat > 41 && lat < 82 && lng > 19 && lng < 190;
+
   if (valid) {
-    window._stationData.withCoords.push({lat:lat, lng:lng, name:name, url:url});
+    window._stationData.withCoords.push({lat: lat, lng: lng, name: name, url: url});
   } else if (addr) {
-    window._stationData.withoutCoords.push({name:name, address:addr, url:url});
+    window._stationData.withoutCoords.push({name: name, address: addr, url: url});
   }
 });
 
@@ -65,14 +103,14 @@ function initStationMap() {
   function addPin(lat, lng, name, url) {
     map.geoObjects.add(new ymaps.Placemark([lat, lng], {
       balloonContentHeader: name,
-      balloonContentFooter: '<a href="' + url + '" style="color:#1d4ed8;font-weight:600">Открыть кабинет</a>'
+      balloonContentFooter: '<a href="' + url + '" class="station-map-link">Открыть кабинет</a>'
     }, { preset: 'islands#blueDotIcon' }));
   }
 
   function fitBounds() {
     var bounds = map.geoObjects.getBounds();
     if (bounds) {
-      map.setBounds(bounds, {checkZoomRange:true, zoomMargin:60});
+      map.setBounds(bounds, {checkZoomRange: true, zoomMargin: 60});
     }
   }
 
@@ -85,23 +123,25 @@ function initStationMap() {
 
   if (total === 0) {
     setTimeout(fitBounds, 300);
-  } else {
-    data.withoutCoords.forEach(function(s) {
-      ymaps.geocode(s.address, {results:1}).then(function(res) {
-        var obj = res.geoObjects.get(0);
-        if (obj) {
-          var c = obj.geometry.getCoordinates();
-          addPin(c[0], c[1], s.name, s.url);
-        }
-        done++;
-        if (done >= total) { setTimeout(fitBounds, 200); }
-      }, function() {
-        done++;
-        if (done >= total) { setTimeout(fitBounds, 200); }
-      });
-    });
+    return;
   }
+
+  data.withoutCoords.forEach(function(s) {
+    ymaps.geocode(s.address, {results: 1}).then(function(res) {
+      var obj = res.geoObjects.get(0);
+      if (obj) {
+        var c = obj.geometry.getCoordinates();
+        addPin(c[0], c[1], s.name, s.url);
+      }
+      done++;
+      if (done >= total) setTimeout(fitBounds, 200);
+    }, function() {
+      done++;
+      if (done >= total) setTimeout(fitBounds, 200);
+    });
+  });
 }
 </script>
 <script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU&onload=initStationMap"></script>
+{% endif %}
 {% endblock %}
