@@ -1,22 +1,38 @@
 import logging
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.crypto import get_random_string
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import is_aware, make_aware
 
 from booking.models import Car, CarModel, Station, Appointment
 from booking.notifications import notify_station_staff_booked, notify_client_booked
 from booking.station_access import require_station_access
+from booking.views.auth import send_password_setup_email
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+def _get_or_create_client(email):
+    """Find a client deterministically; email is not unique in Django's User model."""
+    user = User.objects.filter(username=email).first()
+    if user:
+        return user, False
+
+    user = User.objects.filter(email__iexact=email).order_by("id").first()
+    if user:
+        return user, False
+
+    user = User.objects.create_user(username=email, email=email)
+    user.set_unusable_password()
+    user.save(update_fields=["password"])
+    return user, True
 
 
 @login_required
@@ -44,6 +60,8 @@ def station_appointment_create(request, station_id, staff=None):
             messages.error(request, "Нельзя записать в прошлое")
             return redirect(request.path)
 
+        user_created = False
+        client_user = None
         try:
             with transaction.atomic():
                 if not car_id:
@@ -61,37 +79,20 @@ def station_appointment_create(request, station_id, staff=None):
                     except (ValueError, CarModel.DoesNotExist):
                         raise ValidationError("Выбрана некорректная модель автомобиля")
 
-                    client_user, user_created = User.objects.get_or_create(
-                        email=email,
-                        defaults={"username": email},
-                    )
-
-                    if user_created:
-                        password = get_random_string(12)
-                        client_user.set_password(password)
-                        client_user.save(update_fields=["password"])
-                        try:
-                            send_mail(
-                                "Доступ к сервису СТО",
-                                f"Для вас создана запись на ТО.\n"
-                                f"Вход: {email}\nПароль: {password}",
-                                None,
-                                [email],
-                                fail_silently=True,
-                            )
-                        except Exception:
-                            logger.exception("Failed to send credentials email to %s", email)
-
+                    client_user, user_created = _get_or_create_client(email)
                     car = Car.objects.create(
                         owner=client_user,
                         model=model,
                         plate_number=plate,
                     )
                 else:
+                    # Критически важно: оператор не должен иметь возможность
+                    # привязать к станции автомобиль произвольного пользователя.
                     car = get_object_or_404(
-                        Car.objects.select_related("model"),
+                        Car.objects.select_related("model", "owner"),
                         id=car_id,
                         is_active=True,
+                        appointments__station=station,
                     )
 
                 locked_station = Station.objects.select_for_update().get(pk=station.pk)
@@ -117,6 +118,14 @@ def station_appointment_create(request, station_id, staff=None):
             )
             messages.error(request, "Не удалось создать запись. Проверьте данные и попробуйте ещё раз.")
             return redirect(request.path)
+
+        # Пароль никогда не передаём по email. Для нового клиента отправляется
+        # одноразовая ссылка установки пароля. Ошибка почты не отменяет запись.
+        if user_created and client_user and client_user.email:
+            try:
+                send_password_setup_email(request, client_user)
+            except Exception:
+                logger.exception("Failed to send password setup email to %s", client_user.email)
 
         notify_station_staff_booked(appointment)
         notify_client_booked(appointment)
