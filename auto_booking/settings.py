@@ -3,19 +3,17 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# FIX: SECRET_KEY только из переменной окружения
+# SECRET_KEY только из переменной окружения
 SECRET_KEY = os.environ["SECRET_KEY"]
 
-# FIX: DEBUG=False по умолчанию — безопасный дефолт
+# Безопасный дефолт для production
 DEBUG = os.getenv("DEBUG", "False") == "True"
-
-# FIX: ALLOWED_HOSTS из переменной окружения вместо ["*"]
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
 
 LANGUAGE_CODE = "ru"
 TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
-USE_L10N = False  # Отключаем локализацию чисел — иначе float рендерится с запятой в ru локали
+USE_L10N = False
 USE_TZ = True
 
 YANDEX_MAPS_API_KEY = os.getenv("YANDEX_MAPS_API_KEY", "")
@@ -61,7 +59,6 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    # FIX: добавлен XFrameOptionsMiddleware против кликджекинга
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -108,7 +105,6 @@ LOGIN_REDIRECT_URL = "/accounts/post-login/"
 LOGOUT_REDIRECT_URL = "/"
 LOGIN_URL = "/accounts/login/"
 
-# FIX: все email-настройки только из переменных окружения
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
@@ -120,8 +116,21 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 DEFAULT_CHARSET = "utf-8"
 EMAIL_TIMEOUT = 20
 
-# FIX: CSRF_TRUSTED_ORIGINS из env для гибкости в продакшене
 _trusted = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _trusted.split(",") if o.strip()]
+
+# Production HTTPS hardening is controlled by env so local HTTP development remains possible.
+SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "False") == "True"
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
+CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False") == "True"
+SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("SECURE_HSTS_INCLUDE_SUBDOMAINS", "False") == "True"
+SECURE_HSTS_PRELOAD = os.getenv("SECURE_HSTS_PRELOAD", "False") == "True"
+SECURE_REFERRER_POLICY = os.getenv("SECURE_REFERRER_POLICY", "same-origin")
+SECURE_PROXY_SSL_HEADER = (
+    ("HTTP_X_FORWARDED_PROTO", "https")
+    if os.getenv("SECURE_PROXY_SSL_HEADER", "False") == "True"
+    else None
+)
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
