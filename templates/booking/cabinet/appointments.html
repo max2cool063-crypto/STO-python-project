@@ -23,7 +23,11 @@
         <div class="appt-meta-modern"><span>Станция технического осмотра</span>{% if a.notes %}<span>{{ a.notes }}</span>{% endif %}</div>
 
         {% if a.photos.all %}
-          <div class="appt-photos-modern">{% for photo in a.photos.all %}<img src="{{ photo.image.url }}" alt="Фото автомобиля">{% endfor %}</div>
+          <div class="appt-photos-modern">
+            {% for photo in a.photos.all %}
+              <img src="{% url 'protected_media' path=photo.image.name %}" alt="Фото автомобиля" loading="lazy">
+            {% endfor %}
+          </div>
           <div style="margin-top:10px"><a href="{% url 'appointment_photos_zip' a.id %}" class="btn btn-secondary btn-sm">Скачать фото (ZIP)</a></div>
         {% endif %}
       </div>
