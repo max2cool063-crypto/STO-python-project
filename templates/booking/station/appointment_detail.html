@@ -18,21 +18,14 @@
         </div>
         <p class="st-page-subtitle">Детали обслуживания и история изменений</p>
       </div>
-      <div class="st-time-card">
-        <span>Время визита</span>
-        <strong>{{ appointment.start|date:"H:i" }}</strong>
-        <small>до {{ appointment.end|date:"H:i" }}</small>
-      </div>
+      <div class="st-time-card"><span>Время визита</span><strong>{{ appointment.start|date:"H:i" }}</strong><small>до {{ appointment.end|date:"H:i" }}</small></div>
     </div>
   </header>
 
   <div class="st-detail-layout">
     <main class="st-detail-main">
       <section class="st-card st-detail-card">
-        <div class="st-card-heading">
-          <div class="st-heading-icon">👤</div>
-          <div><span class="st-section-eyebrow">Клиент</span><h2>Контактные данные</h2></div>
-        </div>
+        <div class="st-card-heading"><div class="st-heading-icon">👤</div><div><span class="st-section-eyebrow">Клиент</span><h2>Контактные данные</h2></div></div>
         <div class="st-detail-grid">
           <div class="st-detail-field"><span>Имя</span><strong>{{ appointment.name }}</strong></div>
           <div class="st-detail-field"><span>Телефон</span>{% if appointment.phone %}<a href="tel:{{ appointment.phone }}" class="st-phone-link">{{ appointment.phone }}</a>{% else %}<strong class="st-muted">Не указан</strong>{% endif %}</div>
@@ -40,31 +33,31 @@
       </section>
 
       <section class="st-card st-detail-card">
-        <div class="st-card-heading">
-          <div class="st-heading-icon">🚗</div>
-          <div><span class="st-section-eyebrow">Автомобиль</span><h2>Данные автомобиля</h2></div>
-        </div>
+        <div class="st-card-heading"><div class="st-heading-icon">🚗</div><div><span class="st-section-eyebrow">Автомобиль</span><h2>Данные автомобиля</h2></div></div>
         <div class="st-vehicle-highlight">
-          <div class="st-vehicle-main">
-            <span class="st-section-eyebrow">Транспорт</span>
-            <strong>{{ appointment.car }}</strong>
-            {% if appointment.car.model %}<small>{{ appointment.car.model }}</small>{% endif %}
-          </div>
-          <div class="st-vehicle-meta">
-            {% if appointment.car.vehicle_type %}<span class="st-type-pill">{% if appointment.car.vehicle_type == 'TRUCK' %}Грузовой{% else %}Легковой{% endif %}</span>{% endif %}
-            <span class="st-duration-pill">{% if appointment.end and appointment.start %}{{ appointment.end|timeuntil:appointment.start }}{% endif %}</span>
-          </div>
-          {% if appointment.vin %}
-          <div class="st-vin"><span>VIN</span><strong>{{ appointment.vin }}</strong></div>
-          {% endif %}
+          <div class="st-vehicle-main"><span class="st-section-eyebrow">Транспорт</span><strong>{{ appointment.car }}</strong>{% if appointment.car.model %}<small>{{ appointment.car.model }}</small>{% endif %}</div>
+          <div class="st-vehicle-meta">{% if appointment.car.vehicle_type %}<span class="st-type-pill">{% if appointment.car.vehicle_type == 'TRUCK' %}Грузовой{% else %}Легковой{% endif %}</span>{% endif %}<span class="st-duration-pill">{% if appointment.end and appointment.start %}{{ appointment.end|timeuntil:appointment.start }}{% endif %}</span></div>
+          {% if appointment.vin %}<div class="st-vin"><span>VIN</span><strong>{{ appointment.vin }}</strong></div>{% endif %}
         </div>
       </section>
 
-      {% if appointment.notes %}
+      {% if appointment.photos.all %}
       <section class="st-card st-detail-card">
-        <div class="st-card-heading"><div class="st-heading-icon">💬</div><div><span class="st-section-eyebrow">Комментарий</span><h2>Комментарий клиента</h2></div></div>
-        <div class="st-note-box">{{ appointment.notes }}</div>
+        <div class="st-card-heading"><div class="st-heading-icon">📷</div><div><span class="st-section-eyebrow">Фото</span><h2>Фотографии автомобиля</h2></div></div>
+        <div class="st-photo-grid">
+          {% for photo in appointment.photos.all %}
+          <a href="{{ photo.image.url }}" target="_blank" rel="noopener" class="st-photo-item">
+            <img src="{{ photo.image.url }}" alt="Фото автомобиля к записи #{{ appointment.pk }}" loading="lazy">
+          </a>
+          {% empty %}
+          <div class="st-photo-empty">К записи фотографии не прикреплены.</div>
+          {% endfor %}
+        </div>
       </section>
+      {% endif %}
+
+      {% if appointment.notes %}
+      <section class="st-card st-detail-card"><div class="st-card-heading"><div class="st-heading-icon">💬</div><div><span class="st-section-eyebrow">Комментарий</span><h2>Комментарий клиента</h2></div></div><div class="st-note-box">{{ appointment.notes }}</div></section>
       {% endif %}
 
       <section class="st-card st-detail-card">
@@ -82,22 +75,7 @@
       <section class="st-card st-history-card">
         <div class="st-card-heading"><div class="st-heading-icon">↺</div><div><span class="st-section-eyebrow">Timeline</span><h2>История</h2></div></div>
         <div class="st-history-body">
-          {% if logs %}
-          <div class="st-timeline">
-            {% for log in logs %}
-            <div class="st-timeline-item">
-              <div class="st-timeline-marker"></div>
-              <div class="st-timeline-content">
-                <div class="st-timeline-meta"><strong>{{ log.created_at|date:"d.m.Y H:i" }}</strong><span>{{ log.changed_by|default:"Система" }}</span></div>
-                <div class="st-timeline-change">{% if log.old_status %}{{ log.old_status }} <span>→</span>{% endif %}{{ log.new_status }}</div>
-                {% if log.comment %}<div class="st-timeline-comment">{{ log.comment }}</div>{% endif %}
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-          {% else %}
-          <div class="st-empty-state"><div class="st-empty-state__icon">↺</div><strong>История пока пуста</strong><span>Изменения статуса появятся здесь.</span></div>
-          {% endif %}
+          {% if logs %}<div class="st-timeline">{% for log in logs %}<div class="st-timeline-item"><div class="st-timeline-marker"></div><div class="st-timeline-content"><div class="st-timeline-meta"><strong>{{ log.created_at|date:"d.m.Y H:i" }}</strong><span>{{ log.changed_by|default:"Система" }}</span></div><div class="st-timeline-change">{% if log.old_status %}{{ log.old_status }} <span>→</span>{% endif %}{{ log.new_status }}</div>{% if log.comment %}<div class="st-timeline-comment">{{ log.comment }}</div>{% endif %}</div></div>{% endfor %}</div>{% else %}<div class="st-empty-state"><div class="st-empty-state__icon">↺</div><strong>История пока пуста</strong><span>Изменения статуса появятся здесь.</span></div>{% endif %}
         </div>
       </section>
     </aside>
@@ -105,6 +83,6 @@
 </div>
 
 <style>
-.st-detail-page{max-width:1400px;margin:0 auto}.st-detail-hero{margin-bottom:22px}.st-detail-hero__top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}.st-back-link{color:#64748b;text-decoration:none;font-size:14px;font-weight:700}.st-back-link:hover{color:#0f172a}.st-detail-id{color:#94a3b8;font-size:13px;font-weight:700}.st-detail-hero__main{display:flex;align-items:center;justify-content:space-between;gap:24px}.st-title-line{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.st-page-title{margin:0;font-size:clamp(28px,3vw,38px);letter-spacing:-.03em}.st-page-subtitle{margin:6px 0 0;color:#64748b}.st-time-card{min-width:155px;padding:14px 18px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;box-shadow:0 6px 20px rgba(15,23,42,.05)}.st-time-card span,.st-time-card small{display:block;color:#64748b;font-size:12px}.st-time-card strong{display:inline-block;margin-top:2px;font-size:28px;letter-spacing:-.03em}.st-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}.st-detail-main{display:grid;gap:16px;min-width:0}.st-card{border:1px solid #e5e7eb;border-radius:18px;background:#fff;box-shadow:0 6px 24px rgba(15,23,42,.045);overflow:hidden}.st-detail-card{padding:22px}.st-card-heading{display:flex;align-items:center;gap:12px;margin-bottom:20px}.st-heading-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:12px;background:#f1f5f9;font-size:18px}.st-section-eyebrow{display:block;color:#94a3b8;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}.st-card-heading h2{margin:2px 0 0;color:#0f172a;font-size:18px;letter-spacing:-.015em}.st-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.st-detail-field{padding:15px 16px;border:1px solid #e8edf3;border-radius:13px;background:#f8fafc}.st-detail-field>span{display:block;margin-bottom:6px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.st-detail-field strong,.st-phone-link{color:#0f172a;font-size:16px;font-weight:750;overflow-wrap:anywhere}.st-phone-link{color:#2563eb;text-decoration:none}.st-muted{color:#94a3b8!important}.st-vehicle-highlight{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:18px;border:1px solid #dbeafe;border-radius:15px;background:linear-gradient(135deg,#f8fbff,#f1f5f9)}.st-vehicle-main strong{display:block;margin-top:4px;font-size:20px}.st-vehicle-main small{display:block;margin-top:4px;color:#64748b}.st-vehicle-meta{display:flex;align-items:center;gap:8px}.st-type-pill,.st-duration-pill{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:800}.st-type-pill{background:#e0f2fe;color:#0369a1}.st-duration-pill{background:#eef2ff;color:#4338ca}.st-vin{grid-column:1/-1;padding-top:13px;border-top:1px solid #dbeafe}.st-vin span{display:block;color:#64748b;font-size:10px;font-weight:800;letter-spacing:.08em}.st-vin strong{display:block;margin-top:3px;color:#334155;font-size:13px;letter-spacing:.04em;word-break:break-all}.st-note-box{padding:16px;border-left:3px solid #94a3b8;border-radius:0 12px 12px 0;background:#f8fafc;color:#334155;line-height:1.6;white-space:pre-line}.st-status-form{display:grid;grid-template-columns:minmax(160px,.55fr) minmax(220px,1fr) auto;gap:12px;align-items:end}.st-form-group{min-width:0}.st-form-group label{display:block;margin-bottom:6px;color:#475569;font-size:12px;font-weight:700}.st-select,.st-input{width:100%;min-height:44px;box-sizing:border-box}.st-status-form .st-btn{min-height:44px;white-space:nowrap}.st-history-card{position:sticky;top:20px}.st-history-card .st-card-heading{padding:20px 20px 0;margin-bottom:0}.st-history-body{padding:20px}.st-timeline{position:relative;margin-left:5px}.st-timeline:before{content:"";position:absolute;top:7px;bottom:7px;left:5px;width:1px;background:#e2e8f0}.st-timeline-item{position:relative;display:flex;gap:15px;padding-bottom:22px}.st-timeline-item:last-child{padding-bottom:0}.st-timeline-marker{position:relative;z-index:1;flex:0 0 9px;width:9px;height:9px;margin-top:4px;border:2px solid #fff;border-radius:50%;background:#2563eb;box-shadow:0 0 0 1px #bfdbfe}.st-timeline-content{min-width:0;flex:1}.st-timeline-meta{display:flex;justify-content:space-between;gap:8px;font-size:11px}.st-timeline-meta strong{color:#475569}.st-timeline-meta span{color:#94a3b8;text-align:right;overflow-wrap:anywhere}.st-timeline-change{margin-top:5px;color:#0f172a;font-size:13px;font-weight:700}.st-timeline-change span{padding:0 3px;color:#94a3b8}.st-timeline-comment{margin-top:7px;padding:9px 10px;border-radius:9px;background:#f8fafc;color:#64748b;font-size:12px;line-height:1.45}.st-empty-state{min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#64748b;text-align:center}.st-empty-state__icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:6px;border-radius:50%;background:#f1f5f9;color:#64748b;font-size:20px}.st-empty-state strong{color:#334155}@media(max-width:1000px){.st-detail-layout{grid-template-columns:1fr}.st-history-card{position:static}}@media(max-width:760px){.st-detail-hero__main{align-items:flex-start;flex-direction:column}.st-time-card{width:100%;box-sizing:border-box}.st-status-form{grid-template-columns:1fr 1fr}.st-status-form .st-btn{grid-column:1/-1;width:100%}.st-vehicle-highlight{grid-template-columns:1fr}}@media(max-width:560px){.st-detail-hero__top{align-items:flex-start;flex-direction:column;gap:5px}.st-detail-grid,.st-status-form{grid-template-columns:1fr}.st-detail-card{padding:17px}.st-vehicle-meta{flex-wrap:wrap}.st-vin{grid-column:auto}.st-status-form .st-btn{grid-column:auto}}
+.st-detail-page{max-width:1400px;margin:0 auto}.st-detail-hero{margin-bottom:22px}.st-detail-hero__top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}.st-back-link{color:#64748b;text-decoration:none;font-size:14px;font-weight:700}.st-back-link:hover{color:#0f172a}.st-detail-id{color:#94a3b8;font-size:13px;font-weight:700}.st-detail-hero__main{display:flex;align-items:center;justify-content:space-between;gap:24px}.st-title-line{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.st-page-title{margin:0;font-size:clamp(28px,3vw,38px);letter-spacing:-.03em}.st-page-subtitle{margin:6px 0 0;color:#64748b}.st-time-card{min-width:155px;padding:14px 18px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;box-shadow:0 6px 20px rgba(15,23,42,.05)}.st-time-card span,.st-time-card small{display:block;color:#64748b;font-size:12px}.st-time-card strong{display:inline-block;margin-top:2px;font-size:28px;letter-spacing:-.03em}.st-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}.st-detail-main{display:grid;gap:16px;min-width:0}.st-card{border:1px solid #e5e7eb;border-radius:18px;background:#fff;box-shadow:0 6px 24px rgba(15,23,42,.045);overflow:hidden}.st-detail-card{padding:22px}.st-card-heading{display:flex;align-items:center;gap:12px;margin-bottom:20px}.st-heading-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:12px;background:#f1f5f9;font-size:18px}.st-section-eyebrow{display:block;color:#94a3b8;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}.st-card-heading h2{margin:2px 0 0;color:#0f172a;font-size:18px;letter-spacing:-.015em}.st-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.st-detail-field{padding:15px 16px;border:1px solid #e8edf3;border-radius:13px;background:#f8fafc}.st-detail-field>span{display:block;margin-bottom:6px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.st-detail-field strong,.st-phone-link{color:#0f172a;font-size:16px;font-weight:750;overflow-wrap:anywhere}.st-phone-link{color:#2563eb;text-decoration:none}.st-muted{color:#94a3b8!important}.st-vehicle-highlight{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:18px;border:1px solid #dbeafe;border-radius:15px;background:linear-gradient(135deg,#f8fbff,#f1f5f9)}.st-vehicle-main strong{display:block;margin-top:4px;font-size:20px}.st-vehicle-main small{display:block;margin-top:4px;color:#64748b}.st-vehicle-meta{display:flex;align-items:center;gap:8px}.st-type-pill,.st-duration-pill{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:800}.st-type-pill{background:#e0f2fe;color:#0369a1}.st-duration-pill{background:#eef2ff;color:#4338ca}.st-vin{grid-column:1/-1;padding-top:13px;border-top:1px solid #dbeafe}.st-vin span{display:block;color:#64748b;font-size:10px;font-weight:800;letter-spacing:.08em}.st-vin strong{display:block;margin-top:3px;color:#334155;font-size:13px;letter-spacing:.04em;word-break:break-all}.st-photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.st-photo-item{display:block;aspect-ratio:4/3;overflow:hidden;border-radius:13px;background:#f1f5f9}.st-photo-item img{width:100%;height:100%;display:block;object-fit:cover;transition:transform .2s ease}.st-photo-item:hover img{transform:scale(1.025)}.st-photo-empty{grid-column:1/-1;padding:24px;border-radius:12px;background:#f8fafc;color:#64748b;text-align:center}.st-note-box{padding:16px;border-left:3px solid #94a3b8;border-radius:0 12px 12px 0;background:#f8fafc;color:#334155;line-height:1.6;white-space:pre-line}.st-status-form{display:grid;grid-template-columns:minmax(160px,.55fr) minmax(220px,1fr) auto;gap:12px;align-items:end}.st-form-group{min-width:0}.st-form-group label{display:block;margin-bottom:6px;color:#475569;font-size:12px;font-weight:700}.st-select,.st-input{width:100%;min-height:44px;box-sizing:border-box}.st-status-form .st-btn{min-height:44px;white-space:nowrap}.st-history-card{position:sticky;top:20px}.st-history-card .st-card-heading{padding:20px 20px 0;margin-bottom:0}.st-history-body{padding:20px}.st-timeline{position:relative;margin-left:5px}.st-timeline:before{content:"";position:absolute;top:7px;bottom:7px;left:5px;width:1px;background:#e2e8f0}.st-timeline-item{position:relative;display:flex;gap:15px;padding-bottom:22px}.st-timeline-item:last-child{padding-bottom:0}.st-timeline-marker{position:relative;z-index:1;flex:0 0 9px;width:9px;height:9px;margin-top:4px;border:2px solid #fff;border-radius:50%;background:#2563eb;box-shadow:0 0 0 1px #bfdbfe}.st-timeline-content{min-width:0;flex:1}.st-timeline-meta{display:flex;justify-content:space-between;gap:8px;font-size:11px}.st-timeline-meta strong{color:#475569}.st-timeline-meta span{color:#94a3b8;text-align:right;overflow-wrap:anywhere}.st-timeline-change{margin-top:5px;color:#0f172a;font-size:13px;font-weight:700}.st-timeline-change span{padding:0 3px;color:#94a3b8}.st-timeline-comment{margin-top:7px;padding:9px 10px;border-radius:9px;background:#f8fafc;color:#64748b;font-size:12px;line-height:1.45}.st-empty-state{min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#64748b;text-align:center}.st-empty-state__icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:6px;border-radius:50%;background:#f1f5f9;color:#64748b;font-size:20px}.st-empty-state strong{color:#334155}@media(max-width:1000px){.st-detail-layout{grid-template-columns:1fr}.st-history-card{position:static}}@media(max-width:760px){.st-detail-hero__main{align-items:flex-start;flex-direction:column}.st-time-card{width:100%;box-sizing:border-box}.st-status-form{grid-template-columns:1fr 1fr}.st-status-form .st-btn{grid-column:1/-1;width:100%}.st-vehicle-highlight{grid-template-columns:1fr}.st-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.st-detail-hero__top{align-items:flex-start;flex-direction:column;gap:5px}.st-detail-grid,.st-status-form,.st-photo-grid{grid-template-columns:1fr}.st-detail-card{padding:17px}.st-vehicle-meta{flex-wrap:wrap}.st-vin{grid-column:auto}.st-status-form .st-btn{grid-column:auto}}
 </style>
 {% endblock %}
