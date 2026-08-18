@@ -26,7 +26,6 @@ services:
         gunicorn auto_booking.wsgi:application --config gunicorn.conf.py
       "
     volumes:
-      - .:/app
       - media_data:/app/media
     ports:
       - "8000:8000"
@@ -49,10 +48,8 @@ services:
         echo 'Waiting for database...';
         until pg_isready -h db -p 5432; do sleep 2; done;
 
-        echo 'Waiting for migrations...';
-        until python manage.py showmigrations booking 2>/dev/null | grep -q '\[X\] 0018'; do
-          sleep 3;
-        done;
+        echo 'Applying migrations...';
+        python manage.py migrate --noinput;
 
         echo 'Cron started';
         while true; do
