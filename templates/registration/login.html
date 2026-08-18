@@ -2,61 +2,19 @@
 {% load static %}
 {% block title %}Вход — СТО Онлайн-запись{% endblock %}
 {% block content %}
-
 <section class="auth-page" aria-labelledby="login-title">
-  <div class="auth-visual">
+  <div class="auth-visual auth-visual--photo" style="background-image:linear-gradient(90deg,rgba(15,23,42,.78),rgba(15,23,42,.32)),url('{% static 'booking/img/hero-service.jpg' %}');">
     <div class="auth-visual-content">
-      <div class="auth-brand">
-        <img src="{% static 'booking/img/logo.png' %}" alt="СТО">
-        <div>
-          <strong>Технический Осмотр</strong>
-          <span>онлайн запись</span>
-        </div>
-      </div>
-
+      <div class="auth-brand"><img src="{% static 'booking/img/logo.png' %}" alt="СТО"><div><strong>Технический Осмотр</strong><span>онлайн запись</span></div></div>
       <h1>Запишитесь на техосмотр без лишних звонков.</h1>
       <p>Выберите станцию, удобное время и автомобиль — вся информация о записи останется в вашем личном кабинете.</p>
-
-      <div class="auth-benefits" aria-label="Преимущества">
-        <span class="auth-benefit">✓ Удобная запись онлайн</span>
-        <span class="auth-benefit">✓ История посещений</span>
-        <span class="auth-benefit">✓ Автомобили в профиле</span>
-      </div>
+      <div class="auth-benefits" aria-label="Преимущества"><span class="auth-benefit">✓ Удобная запись онлайн</span><span class="auth-benefit">✓ История посещений</span><span class="auth-benefit">✓ Автомобили в профиле</span></div>
     </div>
   </div>
-
-  <div class="auth-panel">
-    <div class="auth-card-v2">
-      <div class="auth-kicker">Личный кабинет</div>
-      <h2 id="login-title">С возвращением</h2>
-      <p class="auth-description">Войдите, чтобы управлять записями и автомобилями.</p>
-
-      <form method="post">
-        {% csrf_token %}
-        {% for field in form %}
-        <div class="form-group">
-          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-          {{ field }}
-          {% if field.errors %}
-            <p class="form-error">{{ field.errors.0 }}</p>
-          {% endif %}
-        </div>
-        {% endfor %}
-
-        {% if form.non_field_errors %}
-          <div class="form-error">{{ form.non_field_errors.0 }}</div>
-        {% endif %}
-
-        <button type="submit" class="btn btn-primary btn-block btn-lg">
-          Войти в кабинет <span aria-hidden="true">→</span>
-        </button>
-      </form>
-
-      <div class="auth-footer">
-        Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a>
-      </div>
-    </div>
-  </div>
+  <div class="auth-panel"><div class="auth-card-v2"><div class="auth-kicker">Личный кабинет</div><h2 id="login-title">С возвращением</h2><p class="auth-description">Войдите, чтобы управлять записями и автомобилями.</p>
+    <form method="post">{% csrf_token %}{% for field in form %}<div class="form-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.errors %}<p class="form-error">{{ field.errors.0 }}</p>{% endif %}</div>{% endfor %}{% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors.0 }}</div>{% endif %}<button type="submit" class="btn btn-primary btn-block btn-lg">Войти в кабинет <span aria-hidden="true">→</span></button></form>
+    <div class="auth-footer">Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a></div>
+  </div></div>
 </section>
-
+<style>.auth-visual--photo{background-size:cover;background-position:center;position:relative}.auth-visual--photo:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(15,23,42,.2),rgba(15,23,42,.05))}.auth-visual--photo .auth-visual-content{position:relative;z-index:1;color:#fff}.auth-visual--photo .auth-visual-content p{color:rgba(255,255,255,.88)}.auth-visual--photo .auth-brand strong,.auth-visual--photo .auth-brand span{color:#fff}.auth-visual--photo .auth-benefit{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);backdrop-filter:blur(8px)}</style>
 {% endblock %}
