@@ -2,65 +2,20 @@
 {% load static %}
 {% block title %}Регистрация — СТО Онлайн-запись{% endblock %}
 {% block content %}
-
 <section class="auth-page" aria-labelledby="register-title">
-  <div class="auth-visual">
+  <div class="auth-visual auth-visual--photo" style="background-image:linear-gradient(90deg,rgba(15,23,42,.78),rgba(15,23,42,.32)),url('{% static 'booking/img/hero-service.jpg' %}');">
     <div class="auth-visual-content">
-      <div class="auth-brand">
-        <img src="{% static 'booking/img/logo.png' %}" alt="СТО">
-        <div>
-          <strong>Технический Осмотр</strong>
-          <span>онлайн запись</span>
-        </div>
-      </div>
-
+      <div class="auth-brand"><img src="{% static 'booking/img/logo.png' %}" alt="СТО"><div><strong>Технический Осмотр</strong><span>онлайн запись</span></div></div>
       <h1>Ваш автомобиль и записи — в одном месте.</h1>
       <p>Создайте аккаунт один раз, сохраните автомобили в профиле и записывайтесь на техосмотр в несколько шагов.</p>
-
-      <div class="auth-benefits" aria-label="Преимущества">
-        <span class="auth-benefit">✓ Быстрая запись</span>
-        <span class="auth-benefit">✓ История записей</span>
-        <span class="auth-benefit">✓ Несколько автомобилей</span>
-      </div>
+      <div class="auth-benefits" aria-label="Преимущества"><span class="auth-benefit">✓ Быстрая запись</span><span class="auth-benefit">✓ История записей</span><span class="auth-benefit">✓ Несколько автомобилей</span></div>
     </div>
   </div>
-
-  <div class="auth-panel">
-    <div class="auth-card-v2">
-      <div class="auth-kicker">Новый аккаунт</div>
-      <h2 id="register-title">Создайте аккаунт</h2>
-      <p class="auth-description">Укажите email — на него придёт безопасная ссылка для установки пароля.</p>
-
-      <form method="post">
-        {% csrf_token %}
-        <div class="form-group">
-          <label for="register-email">Email-адрес</label>
-          <input
-            id="register-email"
-            type="email"
-            name="email"
-            required
-            placeholder="you@example.com"
-            autocomplete="email"
-            inputmode="email"
-          >
-        </div>
-
-        <button type="submit" class="btn btn-primary btn-block btn-lg">
-          Создать аккаунт <span aria-hidden="true">→</span>
-        </button>
-      </form>
-
-      <div class="auth-note">
-        <span aria-hidden="true">✉</span>
-        <span>Проверьте папку «Спам», если письмо со ссылкой установки пароля не появится во входящих.</span>
-      </div>
-
-      <div class="auth-footer">
-        Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a>
-      </div>
-    </div>
-  </div>
+  <div class="auth-panel"><div class="auth-card-v2"><div class="auth-kicker">Новый аккаунт</div><h2 id="register-title">Создайте аккаунт</h2><p class="auth-description">Укажите email — на него придёт безопасная ссылка для установки пароля.</p>
+    <form method="post">{% csrf_token %}<div class="form-group"><label for="register-email">Email-адрес</label><input id="register-email" type="email" name="email" required placeholder="you@example.com" autocomplete="email" inputmode="email"></div><button type="submit" class="btn btn-primary btn-block btn-lg">Создать аккаунт <span aria-hidden="true">→</span></button></form>
+    <div class="auth-note"><span aria-hidden="true">✉</span><span>Проверьте папку «Спам», если письмо со ссылкой установки пароля не появится во входящих.</span></div>
+    <div class="auth-footer">Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a></div>
+  </div></div>
 </section>
-
+<style>.auth-visual--photo{background-size:cover;background-position:center;position:relative}.auth-visual--photo:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(15,23,42,.2),rgba(15,23,42,.05))}.auth-visual--photo .auth-visual-content{position:relative;z-index:1;color:#fff}.auth-visual--photo .auth-visual-content p{color:rgba(255,255,255,.88)}.auth-visual--photo .auth-brand strong,.auth-visual--photo .auth-brand span{color:#fff}.auth-visual--photo .auth-benefit{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);backdrop-filter:blur(8px)}</style>
 {% endblock %}
