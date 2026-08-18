@@ -1,5 +1,6 @@
 import io
 import mimetypes
+import urllib.parse
 import zipfile
 
 from django.contrib import messages
@@ -27,71 +28,49 @@ def cabinet_dashboard(request):
     else:
         form = ProfileForm(instance=profile)
 
-    return render(request, "booking/cabinet/dashboard.html", {
-        "profile": profile,
-        "form": form,
-    })
+    return render(request, "booking/cabinet/dashboard.html", {"profile": profile, "form": form})
 
 
 @login_required
 def cabinet_cars(request):
-    cars = Car.objects.filter(
-        owner=request.user, is_active=True
-    ).select_related("model__brand")
+    cars = Car.objects.filter(owner=request.user, is_active=True).select_related("model__brand")
     brands = Brand.objects.all().order_by("name")
 
     if request.method == "POST":
         model_id = request.POST.get("model")
         plate = request.POST.get("plate", "").strip()
         vin = request.POST.get("vin", "").strip() or None
-
         if not model_id or not plate:
             messages.error(request, "Выберите модель и укажите госномер")
             return redirect("cabinet_cars")
-
         if len(plate) > 20:
             messages.error(request, "Госномер слишком длинный")
             return redirect("cabinet_cars")
-
         try:
-            Car.objects.create(
-                owner=request.user,
-                model_id=int(model_id),
-                plate_number=plate,
-                vin=vin,
-            )
+            Car.objects.create(owner=request.user, model_id=int(model_id), plate_number=plate, vin=vin)
         except Exception:
             messages.error(request, "Не удалось добавить автомобиль")
             return redirect("cabinet_cars")
-
         messages.success(request, "Автомобиль добавлен")
         return redirect("cabinet_cars")
 
-    return render(request, "booking/cabinet/cars.html", {
-        "cars": cars,
-        "brands": brands,
-    })
+    return render(request, "booking/cabinet/cars.html", {"cars": cars, "brands": brands})
 
 
 @login_required
 def cabinet_appointments(request):
     appointments = (
-        Appointment.objects
-        .filter(user=request.user)
+        Appointment.objects.filter(user=request.user)
         .select_related("station", "car__model__brand")
         .prefetch_related("photos")
         .order_by("-start")
     )
-    return render(request, "booking/cabinet/appointments.html", {
-        "appointments": appointments,
-        "now": timezone.now(),
-    })
+    return render(request, "booking/cabinet/appointments.html", {"appointments": appointments, "now": timezone.now()})
 
 
 @login_required
 def cabinet_car_edit(request, pk):
     car = get_object_or_404(Car, pk=pk, owner=request.user)
-
     if request.method == "POST":
         form = CarForm(request.POST, instance=car)
         if form.is_valid():
@@ -100,11 +79,7 @@ def cabinet_car_edit(request, pk):
             return redirect("cabinet_cars")
     else:
         form = CarForm(instance=car)
-
-    return render(request, "booking/cabinet/car_edit.html", {
-        "form": form,
-        "car": car,
-    })
+    return render(request, "booking/cabinet/car_edit.html", {"form": form, "car": car})
 
 
 @login_required
@@ -121,15 +96,12 @@ def cabinet_car_delete(request, pk):
 @require_POST
 def cabinet_cancel_appointment(request, pk):
     appt = get_object_or_404(Appointment, pk=pk, user=request.user)
-
     if appt.start <= timezone.now():
         messages.error(request, "Нельзя отменить уже прошедшее ТО")
         return redirect("cabinet_appointments")
-
     if appt.status != "BOOKED":
         messages.error(request, "Запись уже отменена или завершена")
         return redirect("cabinet_appointments")
-
     appt.status = "CANCELLED"
     appt.save()
     notify_client_cancelled(appt, cancelled_by_station=False)
@@ -141,7 +113,6 @@ def cabinet_cancel_appointment(request, pk):
 def appointment_photos_zip(request, pk):
     appointment = get_object_or_404(Appointment, pk=pk, user=request.user)
     photos = list(appointment.photos.all())
-
     if not photos:
         messages.error(request, "У этой записи нет фото")
         return redirect("cabinet_appointments")
@@ -164,10 +135,25 @@ def appointment_photos_zip(request, pk):
 @login_required
 def protected_media(request, path):
     """Serve appointment photos only to the appointment owner or station staff."""
-    photo = get_object_or_404(
-        AppointmentPhoto.objects.select_related("appointment__station"),
-        image=path,
-    )
+    raw_path = urllib.parse.unquote((path or "").lstrip("/"))
+    candidates = [raw_path]
+
+    # Older uploads may have been stored with a media/ prefix. Current
+    # ImageField values are normally appointments/<filename>.
+    for prefix in ("media/", "/media/"):
+        if raw_path.startswith(prefix):
+            candidates.append(raw_path[len(prefix):])
+    if raw_path.startswith("appointments/"):
+        candidates.append(raw_path.removeprefix("appointments/"))
+    else:
+        candidates.append(f"appointments/{raw_path}")
+
+    candidates = list(dict.fromkeys(candidates))
+    photo = AppointmentPhoto.objects.select_related("appointment__station").filter(
+        image__in=candidates
+    ).first()
+    if not photo:
+        raise Http404("AppointmentPhoto not found")
 
     is_owner = photo.appointment.user_id == request.user.id
     is_station_staff = StationStaff.objects.filter(
@@ -175,13 +161,12 @@ def protected_media(request, path):
         station=photo.appointment.station,
         is_active=True,
     ).exists()
-
     if not (is_owner or is_station_staff):
         raise Http404
 
     try:
         file_handle = photo.image.open("rb")
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         raise Http404
 
     content_type = mimetypes.guess_type(photo.image.name)[0] or "application/octet-stream"
@@ -197,7 +182,6 @@ def change_password(request):
         current = request.POST.get("current_password", "")
         new_pwd = request.POST.get("new_password", "").strip()
         confirm = request.POST.get("confirm_password", "").strip()
-
         if not request.user.check_password(current):
             messages.error(request, "Неверный текущий пароль")
             return redirect("change_password")
@@ -207,7 +191,6 @@ def change_password(request):
         if new_pwd != confirm:
             messages.error(request, "Пароли не совпадают")
             return redirect("change_password")
-
         request.user.set_password(new_pwd)
         request.user.save()
         update_session_auth_hash(request, request.user)
