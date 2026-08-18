@@ -9,13 +9,11 @@ from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.crypto import get_random_string
 from django.views.decorators.http import require_POST
 
 from booking.models import (
-    Appointment, AppointmentLog, Car, CarModel, SlotBlock,
+    Appointment, AppointmentLog, Car, SlotBlock,
     Station, StationSchedule, StationStaff, StationWeeklySchedule,
-    UserProfile,
 )
 from booking.station_access import get_user_stations, require_station_access
 from booking.notifications import notify_station_staff_booked, notify_client_booked, notify_client_cancelled
@@ -52,17 +50,26 @@ def station_dashboard(request, station_id, staff=None):
     since = now - timedelta(days=30)
     appts = Appointment.objects.filter(station=station, start__gte=since)
 
+    period_stats = appts.aggregate(
+        total=Count("id"),
+        done=Count("id", filter=Q(status="DONE")),
+        cancelled=Count("id", filter=Q(status="CANCELLED")),
+        no_show=Count("id", filter=Q(status="NO_SHOW")),
+    )
+    today_count = Appointment.objects.filter(
+        station=station, start__date=today, status="BOOKED"
+    ).count()
+    upcoming_count = Appointment.objects.filter(
+        station=station, start__gte=now, status="BOOKED"
+    ).count()
+
     stats = {
-        "total": appts.count(),
-        "done": appts.filter(status="DONE").count(),
-        "cancelled": appts.filter(status="CANCELLED").count(),
-        "no_show": appts.filter(status="NO_SHOW").count(),
-        "today": Appointment.objects.filter(
-            station=station, start__date=today, status="BOOKED"
-        ).count(),
-        "upcoming": Appointment.objects.filter(
-            station=station, start__gte=now, status="BOOKED"
-        ).count(),
+        "total": period_stats["total"],
+        "done": period_stats["done"],
+        "cancelled": period_stats["cancelled"],
+        "no_show": period_stats["no_show"],
+        "today": today_count,
+        "upcoming": upcoming_count,
     }
 
     upcoming = (
@@ -120,100 +127,6 @@ def station_appointments(request, station_id, staff=None):
         "search": search,
         "status_choices": Appointment.STATUS_CHOICES,
         "now": timezone.now(),
-    })
-
-
-@login_required
-@require_station_access()
-def station_appointment_create(request, station_id, staff=None):
-    """Оператор/владелец создаёт запись вручную."""
-    station = staff.station
-
-    if request.method == "POST":
-        from django.utils.dateparse import parse_datetime
-        from django.utils.timezone import make_aware, is_aware
-        from django.db import transaction
-
-        car_id = request.POST.get("car_id", "").strip()
-        start_s = request.POST.get("start", "")
-        client_name = request.POST.get("client_name", "").strip()
-        client_phone = request.POST.get("client_phone", "").strip()
-        start_raw = parse_datetime(start_s)
-        start = make_aware(start_raw) if start_raw and not is_aware(start_raw) else start_raw
-
-        if not start:
-            messages.error(request, "Не выбрано время записи")
-            return redirect(request.path)
-
-        if not client_name:
-            messages.error(request, "Укажите имя клиента")
-            return redirect(request.path)
-
-        if start < timezone.now():
-            messages.error(request, "Нельзя записать в прошлое")
-            return redirect(request.path)
-
-        if not car_id:
-            plate = request.POST.get("plate", "").strip().upper()
-            model_id = request.POST.get("new_model_id", "").strip()
-            email = request.POST.get("new_user_email", "").strip().lower()
-
-            if not plate or not model_id or not email:
-                messages.error(request, "Для нового автомобиля укажите госномер, модель и email клиента")
-                return redirect(request.path)
-
-            from django.utils.crypto import get_random_string
-            from django.core.mail import send_mail as _send_mail
-            client_user, user_created = User.objects.get_or_create(
-                email=email, defaults={"username": email}
-            )
-            if user_created:
-                pwd = get_random_string(12)
-                client_user.set_password(pwd)
-                client_user.save()
-                try:
-                    _send_mail(
-                        "Доступ к сервису СТО",
-                        f"Для вас создана запись на ТО.\nВход: {email}\nПароль: {pwd}",
-                        None, [email], fail_silently=True,
-                    )
-                except Exception:
-                    pass
-
-            car = Car.objects.create(
-                owner=client_user,
-                model_id=int(model_id),
-                plate_number=plate,
-            )
-        else:
-            car = get_object_or_404(Car, id=car_id, is_active=True)
-
-        try:
-            with transaction.atomic():
-                locked_station = Station.objects.select_for_update().get(pk=station.pk)
-                appointment = Appointment.objects.create(
-                    station=locked_station,
-                    user=car.owner,
-                    car=car,
-                    start=start,
-                    end=start,
-                    name=client_name,
-                    phone=client_phone or None,
-                    vin=car.vin,
-                )
-        except Exception as e:
-            messages.error(request, f"Не удалось создать запись: {e}")
-            return redirect(request.path)
-
-        notify_station_staff_booked(appointment)
-        notify_client_booked(appointment)
-        messages.success(request, "Запись создана")
-        return redirect("station_appointments", station_id=station_id)
-
-    return render(request, "booking/station/appointment_create.html", {
-        "station": station,
-        "staff": staff,
-        "today": timezone.now().date(),
     })
 
 
@@ -505,13 +418,15 @@ def station_staff(request, station_id, staff=None):
                 password=password,
             )
 
+            # Пароль вводит владелец станции и передаёт оператору самостоятельно.
+            # Никогда не отправляем пароль по email.
             if email and "@" in email:
                 try:
                     send_mail(
                         "Доступ к кабинету станции СТО",
-                        f"Вас добавили как оператора станции «{station.name}».\n"
-                        f"Логин: {login}\nПароль: {password}\n\n"
-                        f"Рекомендуем сменить пароль после первого входа.",
+                        f"Вам создан аккаунт оператора станции «{station.name}».\n"
+                        f"Логин: {login}\n"
+                        "Пароль передайте оператору безопасным способом.",
                         None, [email], fail_silently=True,
                     )
                 except Exception:
@@ -553,20 +468,4 @@ def station_staff(request, station_id, staff=None):
 
     return render(request, "booking/station/staff.html", {
         "station": station, "staff": staff, "staff_list": staff_list,
-    })
-
-
-# ─── Детальная страница записи ────────────────────────────────────────────────
-
-@login_required
-@require_station_access()
-def station_appointment_detail(request, station_id, pk, staff=None):
-    station = staff.station
-    appointment = get_object_or_404(Appointment, pk=pk, station=station)
-    logs = appointment.logs.select_related("changed_by").order_by("created_at")
-    return render(request, "booking/station/appointment_detail.html", {
-        "station": station,
-        "staff": staff,
-        "appointment": appointment,
-        "logs": logs,
     })
