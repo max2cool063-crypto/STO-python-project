@@ -61,7 +61,7 @@ class StationAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
 
     fieldsets = (
-        ("Основная информация", {"fields": ("name", "address", "phone", "email", "is_active")}),
+        ("Основная информация", {"fields": ("name", "rsa_id", "address", "phone", "email", "is_active")}),
         ("Координаты и карта", {"fields": ("latitude", "longitude", "map_preview")}),
         ("Настройки записи", {"fields": ("slot_duration",)}),
         ("Праздники", {"fields": ("fill_holidays_link",)}),
