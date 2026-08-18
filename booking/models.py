@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
-from django.conf import settings
+
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils.timezone import make_aware, now
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.timezone import make_aware
 
 
 # =========================
@@ -56,37 +56,49 @@ class Station(models.Model):
         return None, None
 
     def get_available_slots(self, date, vehicle_type=None):
-        """Возвращает список свободных слотов на дату."""
+        """Возвращает свободные слоты на дату без N+1 запросов к БД."""
         work_start, work_end = self.get_working_hours(date)
 
         if not work_start or not work_end or work_start >= work_end:
             return []
 
-        slots = []
         slot_mins = self.slot_duration
         required_mins = slot_mins * 2 if vehicle_type == "TRUCK" else slot_mins
 
         from django.utils import timezone
         start_dt = make_aware(datetime.combine(date, work_start))
         end_dt = make_aware(datetime.combine(date, work_end))
-        now = timezone.now()
+        current_time = timezone.now()
 
+        # Загружаем все потенциальные конфликты за один запрос на каждый тип.
+        appointments = list(
+            Appointment.objects.filter(
+                station=self,
+                start__lt=end_dt,
+                end__gt=start_dt,
+            ).exclude(status="CANCELLED").only("start", "end")
+        )
+        blocks = list(
+            SlotBlock.objects.filter(
+                station=self,
+                start__lt=end_dt,
+                end__gt=start_dt,
+            ).only("start", "end")
+        )
+
+        slots = []
         while start_dt + timedelta(minutes=required_mins) <= end_dt:
             slot_end = start_dt + timedelta(minutes=required_mins)
+            has_conflict = any(
+                appointment.start < slot_end and appointment.end > start_dt
+                for appointment in appointments
+            )
+            is_blocked = any(
+                block.start < slot_end and block.end > start_dt
+                for block in blocks
+            )
 
-            conflict = Appointment.objects.filter(
-                station=self,
-                start__lt=slot_end,
-                end__gt=start_dt,
-            ).exclude(status="CANCELLED").exists()
-
-            blocked = SlotBlock.objects.filter(
-                station=self,
-                start__lt=slot_end,
-                end__gt=start_dt
-            ).exists()
-
-            if not conflict and not blocked and start_dt > now:
+            if not has_conflict and not is_blocked and start_dt > current_time:
                 slots.append({
                     "start": start_dt.isoformat(),
                     "end": slot_end.isoformat(),
@@ -163,7 +175,6 @@ class StationSchedule(models.Model):
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-
     first_name = models.CharField("Имя", max_length=100, blank=True)
     last_name = models.CharField("Фамилия", max_length=100, blank=True)
     phone = models.CharField("Телефон", max_length=30, blank=True)
@@ -235,7 +246,6 @@ class Car(models.Model):
     model = models.ForeignKey(CarModel, on_delete=models.CASCADE)
     plate_number = models.CharField("Госномер", max_length=20)
     vin = models.CharField(max_length=32, blank=True, null=True)
-
     is_active = models.BooleanField(default=True, verbose_name="Активен")
 
     def save(self, *args, **kwargs):
@@ -263,37 +273,15 @@ class Appointment(models.Model):
         ("NO_SHOW", "Не приехал"),
     ]
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="appointments",
-        verbose_name="Пользователь"
-    )
-    car = models.ForeignKey(
-        Car,
-        on_delete=models.CASCADE,
-        related_name="appointments",
-        verbose_name="Автомобиль"
-    )
-    station = models.ForeignKey(
-        Station,
-        on_delete=models.CASCADE,
-        verbose_name="Станция"
-    )
-
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="appointments", verbose_name="Пользователь")
+    car = models.ForeignKey(Car, on_delete=models.CASCADE, related_name="appointments", verbose_name="Автомобиль")
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, verbose_name="Станция")
     start = models.DateTimeField("Начало")
     end = models.DateTimeField("Конец")
-
     name = models.CharField("Имя клиента", max_length=100)
     phone = models.CharField("Телефон", max_length=20, blank=True, null=True)
     vin = models.CharField("VIN", max_length=32, blank=True, null=True)
-
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="BOOKED",
-        verbose_name="Статус"
-    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="BOOKED", verbose_name="Статус")
     notes = models.TextField("Комментарий оператора", blank=True, default="")
 
     class Meta:
@@ -315,14 +303,6 @@ class Appointment(models.Model):
         return base
 
     def clean(self):
-        if self.pk:
-            try:
-                old = Appointment.objects.get(pk=self.pk)
-                if old.start == self.start and old.end == self.end and old.station == self.station:
-                    return
-            except Appointment.DoesNotExist:
-                pass
-
         if self.start >= self.end:
             raise ValidationError("Время окончания должно быть позже начала")
 
@@ -336,7 +316,7 @@ class Appointment(models.Model):
             raise ValidationError("Запись вне графика работы станции")
 
         expected_end = self.start + self.get_required_duration()
-        if expected_end.time() > work_end:
+        if expected_end.date() != date or expected_end.time() > work_end:
             raise ValidationError(
                 f"Запись заканчивается в {expected_end.strftime('%H:%M')}, "
                 f"станция работает до {work_end.strftime('%H:%M')}"
@@ -355,8 +335,7 @@ class Appointment(models.Model):
         if self.status in ("CANCELLED", "DONE", "NO_SHOW"):
             super().save(*args, **kwargs)
             return
-        duration = self.get_required_duration()
-        self.end = self.start + duration
+        self.end = self.start + self.get_required_duration()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -366,11 +345,7 @@ class Appointment(models.Model):
 # =========================
 
 class AppointmentPhoto(models.Model):
-    appointment = models.ForeignKey(
-        Appointment,
-        on_delete=models.CASCADE,
-        related_name="photos"
-    )
+    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="photos")
     image = models.ImageField(upload_to="appointments/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
@@ -387,32 +362,25 @@ class AppointmentPhoto(models.Model):
 # =========================
 
 class StationStaff(models.Model):
-    ROLE_OWNER    = "OWNER"
+    ROLE_OWNER = "OWNER"
     ROLE_OPERATOR = "OPERATOR"
-    ROLE_CHOICES  = [
-        (ROLE_OWNER,    "Владелец"),
+    ROLE_CHOICES = [
+        (ROLE_OWNER, "Владелец"),
         (ROLE_OPERATOR, "Оператор"),
     ]
 
-    station    = models.ForeignKey(Station, on_delete=models.CASCADE,
-                                   related_name="staff", verbose_name="Станция")
-    user       = models.ForeignKey(User, on_delete=models.CASCADE,
-                                   related_name="station_roles", verbose_name="Пользователь")
-    role       = models.CharField("Роль", max_length=10, choices=ROLE_CHOICES)
-    is_active  = models.BooleanField("Активен", default=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                   null=True, blank=True,
-                                   related_name="created_staff",
-                                   verbose_name="Кто создал")
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="staff", verbose_name="Станция")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="station_roles", verbose_name="Пользователь")
+    role = models.CharField("Роль", max_length=10, choices=ROLE_CHOICES)
+    is_active = models.BooleanField("Активен", default=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_staff", verbose_name="Кто создал")
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
 
     class Meta:
         unique_together = ("station", "user")
         verbose_name = "Сотрудник станции"
         verbose_name_plural = "Сотрудники станций"
-        indexes = [
-            models.Index(fields=["user", "role", "is_active"]),
-        ]
+        indexes = [models.Index(fields=["user", "role", "is_active"])]
 
     def __str__(self):
         return f"{self.user} — {self.get_role_display()} @ {self.station}"
@@ -438,9 +406,7 @@ class SlotBlock(models.Model):
 
     class Meta:
         ordering = ["start"]
-        indexes = [
-            models.Index(fields=["station", "start", "end"]),
-        ]
+        indexes = [models.Index(fields=["station", "start", "end"])]
         verbose_name = "Блокировка слота"
         verbose_name_plural = "Блокировки слотов"
 
