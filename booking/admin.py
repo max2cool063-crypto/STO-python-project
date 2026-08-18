@@ -55,9 +55,9 @@ class AppointmentPhotoInline(admin.TabularInline):
 
 @admin.register(Station)
 class StationAdmin(admin.ModelAdmin):
-    list_display = ("name", "address", "phone", "is_active", "fill_holidays_button")
+    list_display = ("rsa_id", "name", "address", "phone", "is_active", "fill_holidays_button")
     list_editable = ("is_active",)
-    search_fields = ("name", "address")
+    search_fields = ("rsa_id", "name", "address")
     list_filter = ("is_active",)
 
     fieldsets = (
@@ -95,12 +95,8 @@ class StationAdmin(admin.ModelAdmin):
         extra_context['import_rsa_url'] = '/admin/booking/station/import-rsa/'
         return super().changelist_view(request, extra_context=extra_context)
     
-    # ─── Страница импорта ─────────────────────────────────────────────
-
     def import_rsa_view(self, request):
         return render(request, "admin/import_rsa.html", {"query": ""})
-
-    # ─── SSE поток импорта ────────────────────────────────────────────
 
     def import_rsa_stream(self, request):
         from bs4 import BeautifulSoup
@@ -134,16 +130,32 @@ class StationAdmin(admin.ModelAdmin):
 
                     yield f"data: {json.dumps({'type': 'log', 'message': f'📄 Страница {page}: найдено {len(rows)} строк'})}\n\n"
 
-                    for row in rows:
-                        rid = row.get("data-request-id")
-                        if not rid:
-                            continue
+                    for i, row in enumerate(rows, 1):
                         status_div = row.select_one(".status")
                         if status_div and "ok" not in status_div.get("class", []):
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  Строка {i}: пропущена (статус не OK)'})}\n\n"
                             continue
+                        
+                        tds = row.select("td")
+                        if len(tds) < 2:
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  Строка {i}: пропущена (нет второй колонки)'})}\n\n"
+                            continue
+                        
+                        rid = tds[1].text.strip()
+                        if not rid:
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  Строка {i}: пропущена (пустой номер ОТО)'})}\n\n"
+                            continue
+                        
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'  🔍 Обработка № ОТО {rid}...'})}\n\n"
 
                         try:
-                            dr = req.get(f"{BASE}/modals/pto/{rid}", headers=HEADERS, timeout=(5, 8))
+                            request_id = row.get("data-request-id")
+                            if not request_id:
+                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠️ № {rid}: нет data-request-id'})}\n\n"
+                                errors += 1
+                                continue
+                            
+                            dr = req.get(f"{BASE}/modals/pto/{request_id}", headers=HEADERS, timeout=(5, 8))
                             ds = BS(dr.text, "html.parser")
 
                             detail = {}
@@ -162,96 +174,71 @@ class StationAdmin(admin.ModelAdmin):
                                     elif "mail" in k.lower():
                                         detail["email"] = v
 
-                            tds = ds.select(".popupTable td")
-                            if len(tds) >= 2:
+                            if "name" not in detail or "address" not in detail:
+                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠️ № {rid}: не найдено название или адрес'})}\n\n"
+                                errors += 1
+                                continue
+
+                            tds_modal = ds.select(".popupTable td")
+                            if len(tds_modal) >= 2:
                                 try:
-                                    # РСА может отдавать координаты с запятой вместо точки
-                                    detail["lat"] = float(tds[0].text.strip().replace(",", "."))
-                                    detail["lng"] = float(tds[1].text.strip().replace(",", "."))
+                                    detail["lat"] = float(tds_modal[0].text.strip().replace(",", "."))
+                                    detail["lng"] = float(tds_modal[1].text.strip().replace(",", "."))
                                 except ValueError:
-                                    pass
+                                    detail["lat"] = None
+                                    detail["lng"] = None
 
-                            if "name" in detail and "address" in detail:
-                                # Нормализуем строки — схлопываем пробелы
-                                # Используем station_name/station_address чтобы не
-                                # конфликтовать с переменной address из params выше
-                                station_name = " ".join(detail["name"].split())
-                                station_address = " ".join(detail["address"].split())
+                            station_name = " ".join(detail["name"].split())
+                            station_address = " ".join(detail["address"].split())
+                            
+                            station = Station.objects.filter(rsa_id=rid).first()
 
-                                # Стратегия поиска:
-                                # 1. Точное совпадение name + address — идеально
-                                # 2. Только по name если адрес изменился в реестре РСА
-                                #    (например "Самара, Олимпийская, 61" →
-                                #    "Самарская обл., г.Самара, ул.Олимпийская, д.61")
-                                # 3. Если по name нашлось несколько — создаём новую
-                                #    (два разных юрлица с одинаковым именем)
-
-                                station = Station.objects.filter(
-                                    name=station_name, address=station_address
-                                ).first()
-
-                                if station:
-                                    # Точное совпадение — обновляем координаты/контакты
-                                    Station.objects.filter(pk=station.pk).update(
-                                        latitude=detail.get("lat"),
-                                        longitude=detail.get("lng"),
-                                        phone=detail.get("phone", ""),
-                                        email=detail.get("email", ""),
-                                    )
-                                    was_created = False
-                                else:
-                                    by_name = Station.objects.filter(name=station_name)
-                                    if by_name.count() == 1:
-                                        # Нашли ровно одну — адрес изменился в РСА,
-                                        # обновляем адрес и контакты
-                                        by_name.update(
-                                            address=station_address,
-                                            latitude=detail.get("lat"),
-                                            longitude=detail.get("lng"),
-                                            phone=detail.get("phone", ""),
-                                            email=detail.get("email", ""),
-                                        )
-                                        was_created = False
-                                    else:
-                                        # Не нашли вообще, или нашли несколько
-                                        # с таким именем — создаём новую
-                                        Station.objects.create(
-                                            name=station_name,
-                                            address=station_address,
-                                            latitude=detail.get("lat"),
-                                            longitude=detail.get("lng"),
-                                            phone=detail.get("phone", ""),
-                                            email=detail.get("email", ""),
-                                        )
-                                        was_created = True
-                                if was_created:
-                                    created += 1
-                                    msg = f'✅ {station_name} — {station_address}'
-                                else:
-                                    skipped += 1
-                                    msg = f'⏭ Уже есть: {station_name}'
+                            if station:
+                                Station.objects.filter(pk=station.pk).update(
+                                    name=station_name,
+                                    address=station_address,
+                                    latitude=detail.get("lat"),
+                                    longitude=detail.get("lng"),
+                                    phone=detail.get("phone", ""),
+                                    email=detail.get("email", ""),
+                                )
+                                was_created = False
+                                msg = f'⏭ Обновлена: {station_name} (№ ОТО: {rid})'
                             else:
-                                msg = f'⚠️ ID {rid}: не удалось получить данные'
+                                Station.objects.create(
+                                    name=station_name,
+                                    address=station_address,
+                                    rsa_id=rid,
+                                    latitude=detail.get("lat"),
+                                    longitude=detail.get("lng"),
+                                    phone=detail.get("phone", ""),
+                                    email=detail.get("email", ""),
+                                )
+                                was_created = True
+                                msg = f'✅ Создана: {station_name} (№ ОТО: {rid})'
+
+                            if was_created:
+                                created += 1
+                            else:
+                                skipped += 1
 
                             yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
                             time_mod.sleep(0.3)
 
                         except Exception as e:
                             errors += 1
-                            yield f"data: {json.dumps({'type': 'log', 'message': f'⚠️ Ошибка ID {rid}: {str(e)}'})}\n\n"
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  ❌ № {rid}: Ошибка: {str(e)}'})}\n\n"
 
                 except Exception as e:
                     yield f"data: {json.dumps({'type': 'log', 'message': f'❌ Ошибка страницы {page}: {str(e)}'})}\n\n"
                     break
 
-            yield f"data: {json.dumps({'type': 'done', 'message': f'Создано {created}, пропущено {skipped}, ошибок {errors}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'message': f'Готово! Создано: {created}, Обновлено: {skipped}, Ошибок: {errors}'})}\n\n"
 
         response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
         response["Cache-Control"] = "no-cache"
         response["X-Accel-Buffering"] = "no"
         return response
-
-    # ─── Праздники ───────────────────────────────────────────────────
 
     def fill_holidays_view(self, request, pk):
         try:
@@ -297,7 +284,7 @@ class StationAdmin(admin.ModelAdmin):
             return format_html(
                 '<a class="button" href="/admin/booking/station/{}/fill-holidays/" '
                 'style="background:#417690;color:white;padding:8px 16px;border-radius:4px;text-decoration:none">'
-                '🗓 Заполнить праздники {} года</a>'
+                ' Заполнить праздники {} года</a>'
                 '<p style="color:#666;margin-top:8px;font-size:12px">'
                 'Добавит все российские праздники как выходные в таблицу исключений</p>',
                 obj.pk, date_type.today().year

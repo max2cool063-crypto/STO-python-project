@@ -15,6 +15,7 @@ from django.utils.timezone import make_aware
 class Station(models.Model):
     name = models.CharField("Название станции ТО", max_length=255)
     address = models.CharField("Адрес", max_length=255, blank=True)
+    rsa_id = models.CharField("ID из реестра РСА (№ ОТО)", max_length=20, blank=True, null=True, db_index=True, unique=True)  # ← НОВОЕ ПОЛЕ
     latitude = models.FloatField("Широта", null=True, blank=True)
     longitude = models.FloatField("Долгота", null=True, blank=True)
     phone = models.CharField("Телефон", max_length=50, blank=True, default="")
