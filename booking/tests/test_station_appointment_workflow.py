@@ -45,7 +45,14 @@ class StationAppointmentWorkflowTests(TestCase):
     def test_station_detail_and_edit_are_available_to_operator(self):
         user = User.objects.create_user(username="client-workflow", email="client@example.com")
         car = Car.objects.create(owner=user, model=self.model, plate_number="B456BB")
-        appointment = Appointment.objects.create(station=self.station, user=user, car=car, start=self.start_dt, end=self.start_dt, name="Клиент")
+        appointment = Appointment.objects.create(
+            station=self.station,
+            user=user,
+            car=car,
+            start=self.start_dt,
+            end=self.start_dt,
+            name="Клиент",
+        )
         detail = self.client.get(reverse("station_appointment_detail", kwargs={"station_id": self.station.id, "pk": appointment.id}))
         self.assertEqual(detail.status_code, 200)
         edit = self.client.get(reverse("station_appointment_edit", kwargs={"station_id": self.station.id, "pk": appointment.id}))
