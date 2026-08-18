@@ -1,0 +1,64 @@
+{% extends "booking/station/base.html" %}
+{% block station_content %}
+<div class="st-edit-page">
+  <header class="st-page-head">
+    <div>
+      <div class="st-page-head__eyebrow">Журнал станции · редактирование</div>
+      <h1>Редактирование записи #{{ appointment.pk }}</h1>
+      <p>{{ station.name }} · данные клиента, время, комментарий и фотографии</p>
+    </div>
+    <a href="{% url 'station_appointment_detail' station.pk appointment.pk %}" class="st-btn st-btn--secondary">← К записи</a>
+  </header>
+
+  <form method="post" enctype="multipart/form-data" class="st-edit-layout">
+    {% csrf_token %}
+    <main class="st-edit-main">
+      <section class="st-card st-edit-card">
+        <div class="st-card-heading"><div class="st-heading-icon">👤</div><div><span class="st-section-eyebrow">Клиент</span><h2>Контактные данные</h2></div></div>
+        <div class="st-edit-grid">
+          <div class="st-form-group"><label for="client-name">Имя клиента *</label><input id="client-name" class="st-input" type="text" name="client_name" value="{{ appointment.name }}" required></div>
+          <div class="st-form-group"><label for="client-phone">Телефон</label><input id="client-phone" class="st-input" type="text" name="client_phone" value="{{ appointment.phone|default:'' }}"></div>
+        </div>
+      </section>
+
+      <section class="st-card st-edit-card">
+        <div class="st-card-heading"><div class="st-heading-icon">📅</div><div><span class="st-section-eyebrow">Визит</span><h2>Дата и время</h2></div></div>
+        <div class="st-edit-grid">
+          <div class="st-form-group"><label for="start">Начало записи *</label><input id="start" class="st-input" type="datetime-local" name="start" value="{{ appointment.start|date:'Y-m-d\\TH:i' }}" required></div>
+          <div class="st-edit-info"><strong>{{ appointment.car }}</strong><span>{% if appointment.car.model.vehicle_type == 'TRUCK' %}Грузовой · 2 слота{% else %}Легковой · 1 слот{% endif %}</span></div>
+        </div>
+        <p class="st-edit-hint">Длительность пересчитается автоматически по типу автомобиля. Перенос возможен только на будущее время и в рабочий график станции.</p>
+      </section>
+
+      <section class="st-card st-edit-card">
+        <div class="st-card-heading"><div class="st-heading-icon">💬</div><div><span class="st-section-eyebrow">Комментарий</span><h2>Комментарий оператора</h2></div></div>
+        <textarea class="st-input st-textarea" name="notes" rows="5" placeholder="Комментарий к записи">{{ appointment.notes }}</textarea>
+      </section>
+
+      <section class="st-card st-edit-card">
+        <div class="st-card-heading"><div class="st-heading-icon">📷</div><div><span class="st-section-eyebrow">Фото</span><h2>Добавить фотографии</h2></div></div>
+        <label for="edit-photos" class="st-photo-upload__drop"><span class="st-photo-upload__icon">📷</span><strong>Выбрать фотографии</strong><small>До 5 файлов за один раз · JPEG, PNG, WebP, GIF · до 5 МБ</small></label>
+        <input id="edit-photos" type="file" name="photos" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+        <div id="edit-photo-preview" class="st-photo-preview"></div>
+      </section>
+    </main>
+
+    <aside class="st-edit-side">
+      <div class="st-card st-edit-summary">
+        <span class="st-section-eyebrow">Проверка</span>
+        <h2>Сохранить изменения</h2>
+        <p>Текущий статус: <strong>{{ appointment.get_status_display }}</strong></p>
+        <button class="st-btn st-btn--primary st-btn--wide" type="submit">Сохранить</button>
+        <a class="st-btn st-btn--secondary st-btn--wide" href="{% url 'station_appointment_detail' station.pk appointment.pk %}">Отмена</a>
+      </div>
+    </aside>
+  </form>
+</div>
+
+<style>
+.st-edit-page{max-width:1280px;margin:0 auto}.st-edit-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}.st-edit-main{display:grid;gap:16px}.st-edit-card{padding:22px}.st-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.st-edit-info{display:flex;flex-direction:column;justify-content:center;padding:15px 16px;border:1px solid #dbeafe;border-radius:13px;background:#f8fbff}.st-edit-info strong{font-size:16px}.st-edit-info span,.st-edit-hint{color:#64748b;font-size:12px}.st-edit-hint{margin:12px 0 0;line-height:1.5}.st-textarea{resize:vertical;padding:12px 14px}.st-edit-side{min-width:0}.st-edit-summary{position:sticky;top:20px;padding:22px}.st-edit-summary h2{margin:5px 0 8px;font-size:20px}.st-edit-summary p{color:#64748b;font-size:13px}.st-btn--wide{width:100%;justify-content:center;margin-top:8px}.st-photo-upload__drop{display:flex;align-items:center;gap:12px;padding:18px;border:1px dashed #b9c7da;border-radius:14px;background:#f8fbff;cursor:pointer}.st-photo-upload__drop:hover{border-color:#2563eb;background:#f1f6ff}.st-photo-upload__icon{font-size:24px}.st-photo-upload__drop strong{display:block}.st-photo-upload__drop small{display:block;color:#64748b;margin-top:3px}.st-photo-preview{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}.st-photo-preview:empty{display:none}.st-photo-preview figure{margin:0;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f1f5f9}.st-photo-preview img{width:100%;height:100%;object-fit:cover;display:block}@media(max-width:900px){.st-edit-layout{grid-template-columns:1fr}.st-edit-summary{position:static}}@media(max-width:650px){.st-edit-grid{grid-template-columns:1fr}.st-photo-preview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<script>
+document.getElementById('edit-photos')?.addEventListener('change',e=>{const p=document.getElementById('edit-photo-preview');p.innerHTML='';[...e.target.files].slice(0,5).forEach(file=>{const f=document.createElement('figure');const img=document.createElement('img');img.src=URL.createObjectURL(file);img.alt=file.name;f.appendChild(img);p.appendChild(f)})});
+</script>
+{% endblock %}
