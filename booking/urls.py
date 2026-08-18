@@ -11,6 +11,8 @@ from booking.views.api import (
     brands_with_models_api,
 )
 from booking.views.station_appointment_create import station_appointment_create
+from booking.views.station_appointment_detail import station_appointment_detail
+from booking.views.station_appointment_edit import station_appointment_edit
 from booking.views.station_calendar import station_day_calendar
 
 urlpatterns = [
@@ -56,7 +58,8 @@ urlpatterns = [
     path("station/<int:station_id>/appointments/", views.station_appointments, name="station_appointments"),
     path("station/<int:station_id>/appointments/create/", station_appointment_create, name="station_appointment_create"),
     path("station/<int:station_id>/appointments/<int:pk>/status/", views.station_appointment_status, name="station_appointment_status"),
-    path("station/<int:station_id>/appointments/<int:pk>/", views.station_appointment_detail, name="station_appointment_detail"),
+    path("station/<int:station_id>/appointments/<int:pk>/edit/", station_appointment_edit, name="station_appointment_edit"),
+    path("station/<int:station_id>/appointments/<int:pk>/", station_appointment_detail, name="station_appointment_detail"),
     path("station/<int:station_id>/appointments/csv/", views.station_appointments_csv, name="station_appointments_csv"),
     path("station/<int:station_id>/schedule/", views.station_schedule, name="station_schedule"),
     path("station/<int:station_id>/slot-blocks/", views.station_slot_blocks, name="station_slot_blocks"),
