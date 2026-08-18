@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -10,8 +11,9 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import is_aware, make_aware
 
-from booking.models import Car, CarModel, Station, Appointment
-from booking.notifications import notify_station_staff_booked, notify_client_booked
+from booking.forms import PhotosUploadForm
+from booking.models import Appointment, AppointmentPhoto, Car, CarModel, Station
+from booking.notifications import notify_client_booked, notify_station_staff_booked
 from booking.station_access import require_station_access
 from booking.views.auth import send_password_setup_email
 
@@ -20,16 +22,18 @@ User = get_user_model()
 
 
 def _get_or_create_client(email):
-    """Find a client deterministically; email is not unique in Django's User model."""
-    user = User.objects.filter(username=email).first()
-    if user:
-        return user, False
+    """Find a client by email. Returns (user, created)."""
+    email = (email or "").strip().lower()
+    if email:
+        user = User.objects.filter(username=email).first()
+        if user:
+            return user, False
+        user = User.objects.filter(email__iexact=email).order_by("id").first()
+        if user:
+            return user, False
 
-    user = User.objects.filter(email__iexact=email).order_by("id").first()
-    if user:
-        return user, False
-
-    user = User.objects.create_user(username=email, email=email)
+    username = f"client_{uuid.uuid4().hex[:12]}"
+    user = User.objects.create_user(username=username, email=email)
     user.set_unusable_password()
     user.save(update_fields=["password"])
     return user, True
@@ -46,6 +50,8 @@ def station_appointment_create(request, station_id, staff=None):
         start_s = request.POST.get("start", "")
         client_name = request.POST.get("client_name", "").strip()
         client_phone = request.POST.get("client_phone", "").strip()
+        email = request.POST.get("new_user_email", "").strip().lower()
+        files = request.FILES.getlist("photos")
 
         start_raw = parse_datetime(start_s)
         start = make_aware(start_raw) if start_raw and not is_aware(start_raw) else start_raw
@@ -60,6 +66,12 @@ def station_appointment_create(request, station_id, staff=None):
             messages.error(request, "Нельзя записать в прошлое")
             return redirect(request.path)
 
+        photo_errors = PhotosUploadForm.validate_photos(files)
+        if photo_errors:
+            for error in photo_errors:
+                messages.error(request, error)
+            return redirect(request.path)
+
         user_created = False
         client_user = None
         try:
@@ -67,11 +79,10 @@ def station_appointment_create(request, station_id, staff=None):
                 if not car_id:
                     plate = request.POST.get("plate", "").strip().upper()
                     model_id = request.POST.get("new_model_id", "").strip()
-                    email = request.POST.get("new_user_email", "").strip().lower()
 
-                    if not plate or not model_id or not email:
+                    if not plate or not model_id:
                         raise ValidationError(
-                            "Для нового автомобиля укажите госномер, модель и email клиента"
+                            "Для нового автомобиля укажите госномер и модель автомобиля"
                         )
 
                     try:
@@ -86,8 +97,6 @@ def station_appointment_create(request, station_id, staff=None):
                         plate_number=plate,
                     )
                 else:
-                    # Доступ к этой операции уже ограничен активным сотрудником станции.
-                    # Автомобиль может ещё не иметь истории посещений этой станции.
                     car = get_object_or_404(
                         Car.objects.select_related("model", "owner"),
                         id=car_id,
@@ -105,6 +114,12 @@ def station_appointment_create(request, station_id, staff=None):
                     phone=client_phone or None,
                     vin=car.vin,
                 )
+
+                for uploaded in files:
+                    AppointmentPhoto.objects.create(
+                        appointment=appointment,
+                        image=uploaded,
+                    )
 
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
