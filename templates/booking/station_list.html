@@ -1,97 +1,59 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Станции техосмотра{% endblock %}
-
 {% block content %}
 <section class="discovery-hero" aria-labelledby="discovery-title">
   <div class="discovery-hero__content">
     <span class="discovery-hero__eyebrow">Онлайн-запись</span>
     <h1 id="discovery-title">Запишитесь на техосмотр<br><span>без очередей</span></h1>
-    <p>Выберите станцию, дату и удобное время для вас. Пройдите техосмотр быстро и без ожидания.</p>
-    <div class="discovery-hero__actions">
-      <a href="#stations" class="btn btn-primary"><span aria-hidden="true">⌖</span> Найти станцию</a>
-      {% if not user.is_authenticated %}<a href="{% url 'register' %}" class="btn btn-outline">Создать аккаунт</a>{% endif %}
-    </div>
+    <p>Выберите станцию, дату и удобное время для вас.<br>Пройдите техосмотр быстро и без ожидания.</p>
+    <div class="discovery-hero__actions"><a href="#stations" class="btn btn-primary"><span aria-hidden="true">⌖</span> Найти станцию</a></div>
     <div class="hero-benefits" aria-label="Преимущества онлайн-записи">
       <div><span class="hero-benefit-icon">◷</span><span><strong>Без очередей</strong><small>Запись онлайн</small></span></div>
       <div><span class="hero-benefit-icon">◷</span><span><strong>Удобное время</strong><small>Выберите сами</small></span></div>
       <div><span class="hero-benefit-icon">⌂</span><span><strong>Надёжные станции</strong><small>Проверенные СТО</small></span></div>
     </div>
   </div>
-  <div class="discovery-hero__visual" aria-label="Современная станция технического обслуживания">
-    <div class="hero-visual-card hero-visual-card--photo" style="background-image:url('{% static 'booking/img/hero-service.jpg' %}');">
-      <div class="hero-photo-overlay"></div>
-    </div>
-  </div>
+  <div class="discovery-hero__visual" aria-label="Современная станция технического обслуживания"><div class="hero-visual-card hero-visual-card--photo" style="background-image:url('{% static 'booking/img/hero-service.jpg' %}');"><div class="hero-photo-overlay"></div></div></div>
 </section>
 
 <section id="stations" class="discovery-stations" aria-labelledby="stations-title">
-  <div class="discovery-section-head">
-    <div>
-      <span class="section-kicker">Станции</span>
-      <h2 id="stations-title" class="page-title">Выберите станцию</h2>
-    </div>
-    <div class="station-count"><strong>{{ stations|length }}</strong> {% if stations|length == 1 %}станция{% elif stations|length < 5 %}станции{% else %}станций{% endif %}</div>
-  </div>
-
-  <div class="discovery-toolbar">
-    <label class="discovery-search-wrap" for="station-search"><span aria-hidden="true">⌕</span><input id="station-search" class="discovery-search" type="search" placeholder="Поиск по названию или адресу…" autocomplete="off"></label>
-    <a href="#station-map" class="btn btn-secondary discovery-map-link">Показать на карте</a>
-  </div>
+  <div class="discovery-section-head"><div><span class="section-kicker">Станции</span><h2 id="stations-title" class="page-title">Выберите станцию</h2></div></div>
 
   <div class="station-discovery-layout">
-    <div class="station-map-panel" id="station-map">
-      <div class="station-map-panel__head"><strong>Станции рядом</strong><span>Яндекс Карты</span></div>
-      <div class="map-container" id="map" aria-label="Карта станций"></div>
-    </div>
-
+    <div class="station-map-panel" id="station-map"><div class="station-map-panel__head"><strong>Станции рядом</strong><span id="map-location-status">Определяем ваше местоположение…</span></div><div class="map-container" id="map" aria-label="Карта станций"></div></div>
     <div class="station-grid" id="station-list">
       {% for station in stations %}
       <a href="{% url 'book_station' station.id %}" class="station-card" data-station-search="{{ station.name|lower }} {{ station.address|default:''|lower }}">
         <div class="station-card-top"><span class="station-status"><i></i> Открыта</span><span class="station-card-icon" aria-hidden="true">⌂</span></div>
-        <div>
-          <div class="station-name">{{ station.name }}</div>
-          <div class="station-address"><span aria-hidden="true">⌖</span> {{ station.address|default:"Адрес не указан" }}</div>
-          <div class="station-hours">◷ График станции доступен при записи</div>
-        </div>
+        <div><div class="station-name">{{ station.name }}</div><div class="station-address"><span aria-hidden="true">⌖</span> {{ station.address|default:"Адрес не указан" }}</div><div class="station-hours">◷ График станции доступен при записи</div></div>
         <div class="station-card-footer"><span>Записаться</span><span class="station-card-arrow" aria-hidden="true">→</span></div>
       </a>
-      {% empty %}
-      <div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">⌂</div><div class="empty-state-title">Станций пока нет</div><div class="empty-state-text">Администратор ещё не добавил активные станции</div></div>
-      {% endfor %}
+      {% empty %}<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">⌂</div><div class="empty-state-title">Станций пока нет</div><div class="empty-state-text">Администратор ещё не добавил активные станции</div></div>{% endfor %}
     </div>
   </div>
-
-  <div id="station-no-results" class="empty-state" style="display:none"><div class="empty-state-icon">⌕</div><div class="empty-state-title">Ничего не найдено</div><div class="empty-state-text">Попробуйте изменить название или адрес.</div></div>
 </section>
 
 <script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU"></script>
 <script>
-ymaps.ready(() => {
-  const map = new ymaps.Map("map", { center: [55.751574, 37.573856], zoom: 10, controls: ['zoomControl', 'geolocationControl'] });
-  fetch("/api/stations/").then(r => r.json()).then(stations => {
-    if (!stations.length) return;
-    const bounds = [];
-    stations.forEach(s => {
-      if (!s.lat || !s.lng) return;
-      bounds.push([s.lat, s.lng]);
-      map.geoObjects.add(new ymaps.Placemark([s.lat, s.lng], {
-        balloonContentHeader: s.name,
-        balloonContentBody: s.address || '',
-        balloonContentFooter: '<a href="/station/' + s.id + '/book/" style="color:#155eef;font-weight:700">Записаться →</a>'
-      }, { preset: 'islands#blueCircleDotIcon' }));
-    });
-    if (bounds.length) map.setBounds(bounds, { checkZoomRange: true, zoomMargin: 40 });
-  });
-});
-const stationSearch = document.getElementById('station-search');
-const stationCards = [...document.querySelectorAll('.station-card[data-station-search]')];
-const noResults = document.getElementById('station-no-results');
-stationSearch?.addEventListener('input', () => {
-  const query = stationSearch.value.trim().toLowerCase();
-  let visible = 0;
-  stationCards.forEach(card => { const match = !query || card.dataset.stationSearch.includes(query); card.hidden = !match; if (match) visible += 1; });
-  if (noResults) noResults.style.display = visible ? 'none' : 'block';
+const mapStatus=document.getElementById('map-location-status');
+ymaps.ready(async()=>{
+  const fallback=[55.751574,37.573856];
+  const map=new ymaps.Map('map',{center:fallback,zoom:10,controls:['zoomControl','geolocationControl']});
+  const stationBounds=[];
+  const stations=await fetch('/api/stations/').then(r=>r.json()).catch(()=>[]);
+  stations.forEach(s=>{if(s.lat==null||s.lng==null)return;const coords=[Number(s.lat),Number(s.lng)];stationBounds.push(coords);map.geoObjects.add(new ymaps.Placemark(coords,{balloonContentHeader:s.name,balloonContentBody:s.address||'',balloonContentFooter:'<a href="/station/'+s.id+'/book/" style="color:#155eef;font-weight:700">Записаться →</a>'},{preset:'islands#blueCircleDotIcon'}))});
+
+  try{
+    const geo=await ymaps.geolocation.get({provider:'yandex',mapStateAutoApply:false});
+    const userCoords=geo.geoObjects.position;
+    map.setCenter(userCoords,12,{duration:300});
+    map.geoObjects.add(new ymaps.Placemark(userCoords,{balloonContentHeader:'Вы здесь'},{preset:'islands#redCircleDotIcon'}));
+    mapStatus.textContent='Станции от вашей позиции';
+  }catch(error){
+    mapStatus.textContent='Показаны все станции';
+    if(stationBounds.length)map.setBounds(stationBounds,{checkZoomRange:true,zoomMargin:40});
+  }
 });
 </script>
 {% endblock %}
