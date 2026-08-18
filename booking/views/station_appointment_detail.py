@@ -11,7 +11,7 @@ def station_appointment_detail(request, station_id, pk, staff=None):
     """Показывает запись только если она относится к станции оператора."""
     station = staff.station
     appointment = get_object_or_404(
-        Appointment.objects.select_related("car__model__brand", "user"),
+        Appointment.objects.select_related("car__model__brand", "user").prefetch_related("photos"),
         pk=pk,
         station=station,
     )
@@ -21,6 +21,7 @@ def station_appointment_detail(request, station_id, pk, staff=None):
         "station": station,
         "staff": staff,
         "appointment": appointment,
+        "photos": list(appointment.photos.all()),
         "logs": logs,
         "status_choices": Appointment.STATUS_CHOICES,
     })
