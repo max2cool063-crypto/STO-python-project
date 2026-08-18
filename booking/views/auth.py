@@ -1,9 +1,37 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.models import User
 from django.contrib import messages
-from django.utils.crypto import get_random_string
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from django.core.exceptions import ValidationError
+from django.shortcuts import render, redirect
+from django.urls import reverse
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.http import require_http_methods
+
+User = get_user_model()
+
+
+def send_password_setup_email(request, user):
+    """Send a one-time password setup link; never put a password in email."""
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    setup_url = request.build_absolute_uri(
+        reverse("set_password", kwargs={"uidb64": uid, "token": token})
+    )
+    return send_mail(
+        "Установите пароль для сервиса СТО",
+        (
+            "Для вашего аккаунта в сервисе СТО необходимо установить пароль.\n\n"
+            f"Перейдите по ссылке: {setup_url}\n\n"
+            "Ссылка одноразовая и действует ограниченное время."
+        ),
+        None,
+        [user.email],
+        fail_silently=False,
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -19,41 +47,73 @@ def register(request):
             messages.error(request, "Некорректный формат email")
             return redirect("register")
 
-        if User.objects.filter(email=email).exists():
-            # FIX: не раскрываем факт регистрации email — защита от перебора
-            messages.success(request, "Если email существует, пароль будет отправлен")
+        user = User.objects.filter(email__iexact=email).order_by("id").first()
+        if user:
+            # Не раскрываем факт существования аккаунта. Для неактивированного
+            # аккаунта можно безопасно отправить новую ссылку установки пароля.
+            if not user.has_usable_password():
+                try:
+                    send_password_setup_email(request, user)
+                except Exception:
+                    pass
+            messages.success(request, "Если email существует, инструкция будет отправлена на почту")
             return redirect("login")
-
-        # FIX: 12 символов вместо 8 для большей стойкости пароля
-        password = get_random_string(12)
 
         user = User.objects.create_user(
             username=email,
             email=email,
-            password=password
         )
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
 
-        body = "Ваш пароль: " + password + "\nВход: " + email + "\n\nРекомендуем сменить пароль после первого входа."
         try:
-            send_mail(
-                "Доступ к сервису СТО",
-                body,
-                None,
-                [email],
-                fail_silently=False,
-            )
+            send_password_setup_email(request, user)
         except Exception:
             user.delete()
             messages.error(request, "Ошибка отправки письма. Попробуйте позже.")
             return redirect("register")
 
-        messages.success(request, "Пароль отправлен на вашу почту")
+        messages.success(request, "Инструкция для установки пароля отправлена на вашу почту")
         return redirect("login")
 
     return render(request, "registration/register.html")
 
 
-from django.contrib.auth.decorators import login_required
+@require_http_methods(["GET", "POST"])
+def set_password(request, uidb64, token):
+    """One-time password setup for newly created accounts."""
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if not user or not default_token_generator.check_token(user, token):
+        messages.error(request, "Ссылка недействительна или уже использована")
+        return redirect("login")
+
+    if request.method == "POST":
+        password = request.POST.get("password", "")
+        confirmation = request.POST.get("confirmation", "")
+
+        if password != confirmation:
+            messages.error(request, "Пароли не совпадают")
+            return render(request, "registration/set_password.html")
+
+        try:
+            validate_password(password, user)
+        except ValidationError as exc:
+            for error in exc.messages:
+                messages.error(request, error)
+            return render(request, "registration/set_password.html")
+
+        user.set_password(password)
+        user.save(update_fields=["password"])
+        messages.success(request, "Пароль установлен. Теперь можно войти в систему.")
+        return redirect("login")
+
+    return render(request, "registration/set_password.html")
+
 
 @login_required
 def post_login_redirect(request):
@@ -62,7 +122,6 @@ def post_login_redirect(request):
     - Сотрудник станции → кабинет станции (или выбор если несколько)
     - Обычный пользователь → клиентский кабинет
     """
-    from booking.models import StationStaff
     from booking.station_access import get_user_stations
 
     stations = get_user_stations(request.user)
