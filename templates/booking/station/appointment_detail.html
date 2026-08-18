@@ -36,7 +36,7 @@
         <div class="st-card-heading"><div class="st-heading-icon">🚗</div><div><span class="st-section-eyebrow">Автомобиль</span><h2>Данные автомобиля</h2></div></div>
         <div class="st-vehicle-highlight">
           <div class="st-vehicle-main"><span class="st-section-eyebrow">Транспорт</span><strong>{{ appointment.car }}</strong>{% if appointment.car.model %}<small>{{ appointment.car.model }}</small>{% endif %}</div>
-          <div class="st-vehicle-meta">{% if appointment.car.vehicle_type %}<span class="st-type-pill">{% if appointment.car.vehicle_type == 'TRUCK' %}Грузовой{% else %}Легковой{% endif %}</span>{% endif %}<span class="st-duration-pill">{% if appointment.end and appointment.start %}{{ appointment.end|timeuntil:appointment.start }}{% endif %}</span></div>
+          <div class="st-vehicle-meta">{% if appointment.car.model.vehicle_type %}<span class="st-type-pill">{% if appointment.car.model.vehicle_type == 'TRUCK' %}Грузовой{% else %}Легковой{% endif %}</span>{% endif %}<span class="st-duration-pill">{% if appointment.end and appointment.start %}{{ appointment.end|timeuntil:appointment.start }}{% endif %}</span></div>
           {% if appointment.vin %}<div class="st-vin"><span>VIN</span><strong>{{ appointment.vin }}</strong></div>{% endif %}
         </div>
       </section>
@@ -46,8 +46,8 @@
         <div class="st-card-heading"><div class="st-heading-icon">📷</div><div><span class="st-section-eyebrow">Фото</span><h2>Фотографии автомобиля</h2></div></div>
         <div class="st-photo-grid">
           {% for photo in appointment.photos.all %}
-          <a href="{{ photo.image.url }}" target="_blank" rel="noopener" class="st-photo-item">
-            <img src="{{ photo.image.url }}" alt="Фото автомобиля к записи #{{ appointment.pk }}" loading="lazy">
+          <a href="{% url 'protected_media' path=photo.image.name %}" target="_blank" rel="noopener" class="st-photo-item">
+            <img src="{% url 'protected_media' path=photo.image.name %}" alt="Фото автомобиля к записи #{{ appointment.pk }}" loading="lazy">
           </a>
           {% empty %}
           <div class="st-photo-empty">К записи фотографии не прикреплены.</div>
