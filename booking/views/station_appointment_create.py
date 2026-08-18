@@ -86,13 +86,12 @@ def station_appointment_create(request, station_id, staff=None):
                         plate_number=plate,
                     )
                 else:
-                    # Критически важно: оператор не должен иметь возможность
-                    # привязать к станции автомобиль произвольного пользователя.
+                    # Доступ к этой операции уже ограничен активным сотрудником станции.
+                    # Автомобиль может ещё не иметь истории посещений этой станции.
                     car = get_object_or_404(
                         Car.objects.select_related("model", "owner"),
                         id=car_id,
                         is_active=True,
-                        appointments__station=station,
                     )
 
                 locked_station = Station.objects.select_for_update().get(pk=station.pk)
@@ -119,8 +118,6 @@ def station_appointment_create(request, station_id, staff=None):
             messages.error(request, "Не удалось создать запись. Проверьте данные и попробуйте ещё раз.")
             return redirect(request.path)
 
-        # Пароль никогда не передаём по email. Для нового клиента отправляется
-        # одноразовая ссылка установки пароля. Ошибка почты не отменяет запись.
         if user_created and client_user and client_user.email:
             try:
                 send_password_setup_email(request, client_user)
