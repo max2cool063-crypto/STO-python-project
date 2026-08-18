@@ -1,14 +1,17 @@
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import StreamingHttpResponse, FileResponse, Http404
-from django.utils import timezone
-from django.contrib import messages
-from django.views.decorators.http import require_POST
-import zipfile
 import io
+import mimetypes
+import zipfile
 
-from booking.models import UserProfile, Car, Brand, Appointment, AppointmentPhoto
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404, StreamingHttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
 from booking.forms import CarForm, ProfileForm
+from booking.models import UserProfile, Car, Brand, Appointment, AppointmentPhoto, StationStaff
+from booking.notifications import notify_client_cancelled
 
 
 @login_required
@@ -16,7 +19,6 @@ def cabinet_dashboard(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
     if request.method == "POST":
-        # FIX: используем ProfileForm вместо прямого чтения request.POST без валидации
         form = ProfileForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()
@@ -43,7 +45,6 @@ def cabinet_cars(request):
         plate = request.POST.get("plate", "").strip()
         vin = request.POST.get("vin", "").strip() or None
 
-        # FIX: валидация перед созданием (раньше не было никакой)
         if not model_id or not plate:
             messages.error(request, "Выберите модель и укажите госномер")
             return redirect("cabinet_cars")
@@ -107,6 +108,7 @@ def cabinet_car_edit(request, pk):
 
 
 @login_required
+@require_POST
 def cabinet_car_delete(request, pk):
     car = get_object_or_404(Car, pk=pk, owner=request.user)
     car.is_active = False
@@ -116,7 +118,7 @@ def cabinet_car_delete(request, pk):
 
 
 @login_required
-@require_POST  # FIX: защита от CSRF через GET-запросы (ссылка/img на стороннем сайте)
+@require_POST
 def cabinet_cancel_appointment(request, pk):
     appt = get_object_or_404(Appointment, pk=pk, user=request.user)
 
@@ -130,14 +132,13 @@ def cabinet_cancel_appointment(request, pk):
 
     appt.status = "CANCELLED"
     appt.save()
+    notify_client_cancelled(appt, cancelled_by_station=False)
     messages.success(request, "Запись отменена")
     return redirect("cabinet_appointments")
 
 
 @login_required
 def appointment_photos_zip(request, pk):
-    # FIX: проверка что запись принадлежит текущему пользователю
-    # (раньше был IDOR — любой залогиненный мог скачать фото чужой записи)
     appointment = get_object_or_404(Appointment, pk=pk, user=request.user)
     photos = list(appointment.photos.all())
 
@@ -145,7 +146,6 @@ def appointment_photos_zip(request, pk):
         messages.error(request, "У этой записи нет фото")
         return redirect("cabinet_appointments")
 
-    # FIX: стриминг ZIP вместо загрузки всех файлов в память сервера
     def generate_zip():
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -157,28 +157,35 @@ def appointment_photos_zip(request, pk):
         yield buf.read()
 
     response = StreamingHttpResponse(generate_zip(), content_type="application/zip")
-    response["Content-Disposition"] = (
-        f'attachment; filename="appointment_{pk}_photos.zip"'
-    )
+    response["Content-Disposition"] = f'attachment; filename="appointment_{pk}_photos.zip"'
     return response
 
 
 @login_required
 def protected_media(request, path):
-    """
-    FIX: защищённая отдача медиафайлов из /media/appointments/.
-    Без этого view любой мог открыть /media/appointments/filename.jpg
-    напрямую, зная имя файла. Теперь файл отдаётся только владельцу записи.
-    """
+    """Serve appointment photos only to the appointment owner or station staff."""
     photo = get_object_or_404(
-        AppointmentPhoto,
+        AppointmentPhoto.objects.select_related("appointment__station"),
         image=path,
-        appointment__user=request.user,
     )
+
+    is_owner = photo.appointment.user_id == request.user.id
+    is_station_staff = StationStaff.objects.filter(
+        user=request.user,
+        station=photo.appointment.station,
+        is_active=True,
+    ).exists()
+
+    if not (is_owner or is_station_staff):
+        raise Http404
+
     try:
-        return FileResponse(photo.image.open("rb"))
+        file_handle = photo.image.open("rb")
     except FileNotFoundError:
         raise Http404
+
+    content_type = mimetypes.guess_type(photo.image.name)[0] or "application/octet-stream"
+    return FileResponse(file_handle, content_type=content_type, as_attachment=False)
 
 
 @login_required
@@ -187,9 +194,9 @@ def change_password(request):
     from django.contrib.auth import update_session_auth_hash
 
     if request.method == "POST":
-        current  = request.POST.get("current_password", "")
-        new_pwd  = request.POST.get("new_password", "").strip()
-        confirm  = request.POST.get("confirm_password", "").strip()
+        current = request.POST.get("current_password", "")
+        new_pwd = request.POST.get("new_password", "").strip()
+        confirm = request.POST.get("confirm_password", "").strip()
 
         if not request.user.check_password(current):
             messages.error(request, "Неверный текущий пароль")
@@ -203,7 +210,7 @@ def change_password(request):
 
         request.user.set_password(new_pwd)
         request.user.save()
-        update_session_auth_hash(request, request.user)  # не разлогиниваем
+        update_session_auth_hash(request, request.user)
         messages.success(request, "Пароль успешно изменён")
         return redirect("cabinet")
 
