@@ -40,8 +40,6 @@
             } else {
                 placemark.geometry.setCoordinates(coords);
             }
-
-            updateAddress(coords);
         }
 
         function updateAddress(coords) {
