@@ -16,6 +16,11 @@ def book_station(request, pk):
     cars = Car.objects.filter(
         owner=request.user, is_active=True
     ).select_related("model__brand")
+    other_stations = (
+        Station.objects.filter(is_active=True)
+        .exclude(pk=station.pk)
+        .order_by("name")
+    )
 
     if request.method == "POST":
         start = parse_datetime(request.POST.get("start"))
@@ -32,8 +37,7 @@ def book_station(request, pk):
         # Защита от IDOR: машина должна принадлежать пользователю
         car = get_object_or_404(Car, id=car_id, owner=request.user, is_active=True)
 
-        # FIX: валидация фото ДО создания записи (раньше запись создавалась
-        # сразу и удалялась при ошибке — неатомарно, могли оставаться мусорные записи)
+        # Валидация фото до создания записи
         files = request.FILES.getlist("photos")
         if files:
             photo_errors = PhotosUploadForm.validate_photos(files)
@@ -44,10 +48,7 @@ def book_station(request, pk):
 
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
-        # FIX: transaction.atomic() + select_for_update() полностью исключают
-        # двойное бронирование одного слота при одновременных запросах.
-        # select_for_update() ставит блокировку на строку станции — второй запрос
-        # ждёт пока первый не закоммитит транзакцию, и только потом проходит clean().
+        # Блокировка строки станции исключает двойное бронирование одного слота.
         try:
             with transaction.atomic():
                 station = Station.objects.select_for_update().get(pk=station.pk)
@@ -56,7 +57,7 @@ def book_station(request, pk):
                     user=request.user,
                     car=car,
                     start=start,
-                    end=start,  # placeholder: перезаписывается в Appointment.save()
+                    end=start,
                     name=(
                         f"{profile.last_name or ''} {profile.first_name or ''}".strip()
                         or request.user.username
@@ -67,7 +68,6 @@ def book_station(request, pk):
                 for f in files:
                     AppointmentPhoto.objects.create(appointment=appointment, image=f)
 
-            # Уведомляем персонал станции и клиента
             notify_station_staff_booked(appointment)
             notify_client_booked(appointment)
 
@@ -82,4 +82,5 @@ def book_station(request, pk):
         "station": station,
         "cars": cars,
         "today": timezone.now().date(),
+        "other_stations": other_stations,
     })
