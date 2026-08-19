@@ -79,11 +79,14 @@ def station_appointment_create(request, station_id, staff=None):
                 if not car_id:
                     plate = request.POST.get("plate", "").strip().upper()
                     model_id = request.POST.get("new_model_id", "").strip()
+                    vin = request.POST.get("vin", "").strip().upper() or None
 
                     if not plate or not model_id:
                         raise ValidationError(
                             "Для нового автомобиля укажите госномер и модель автомобиля"
                         )
+                    if vin and len(vin) > 32:
+                        raise ValidationError("VIN не должен превышать 32 символа")
 
                     try:
                         model = CarModel.objects.get(pk=int(model_id))
@@ -95,6 +98,7 @@ def station_appointment_create(request, station_id, staff=None):
                         owner=client_user,
                         model=model,
                         plate_number=plate,
+                        vin=vin,
                     )
                 else:
                     car = get_object_or_404(
