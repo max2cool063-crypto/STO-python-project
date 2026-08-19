@@ -27,6 +27,34 @@ class PasswordSetupTests(TestCase):
         self.assertNotIn("Пароль:", body)
 
     @patch("booking.views.auth.send_mail")
+    def test_registration_resends_reset_link_for_existing_account(self, send_mail):
+        user = User.objects.create_user(
+            username="existing@example.com",
+            email="existing@example.com",
+            password="Old-password-123!",
+        )
+
+        response = self.client.post(reverse("register"), {"email": "EXISTING@example.com"})
+
+        self.assertRedirects(response, reverse("login"))
+        send_mail.assert_called_once()
+        body = send_mail.call_args.args[1]
+        self.assertIn("accounts/set-password/", body)
+        self.assertNotIn("Old-password-123!", body)
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        reset_response = self.client.post(
+            reverse("set_password", kwargs={"uidb64": uid, "token": token}),
+            {"password": "New-password-456!", "confirmation": "New-password-456!"},
+        )
+
+        self.assertRedirects(reset_response, reverse("login"))
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("New-password-456!"))
+        self.assertFalse(user.check_password("Old-password-123!"))
+
+    @patch("booking.views.auth.send_mail")
     def test_set_password_activates_account(self, send_mail):
         user = User.objects.create_user(
             username="new@example.com",
