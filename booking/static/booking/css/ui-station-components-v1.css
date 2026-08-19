@@ -55,6 +55,22 @@
 .st-inline-form { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .st-table-action { display: inline-flex; align-items: center; gap: 6px; }
 
+/* Формы управления записью не должны вылезать за пределы карточки. */
+.st-status-form { min-width: 0; }
+.st-status-form > .st-form-group { min-width: 0; }
+.st-status-form .st-select,
+.st-status-form .st-input { max-width: 100%; }
+
+@media (max-width: 900px) {
+  .st-status-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) !important;
+  }
+  .st-status-form .st-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
 @media (max-width: 760px) {
   .st-filter-bar { align-items: stretch; }
   .st-filter-field, .st-filter-field--search { width: 100%; min-width: 0; }
