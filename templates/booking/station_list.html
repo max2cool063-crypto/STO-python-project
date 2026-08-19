@@ -11,9 +11,9 @@
       <a href="#stations" class="btn btn-primary"><span aria-hidden="true">⌖</span> Найти станцию</a>
     </div>
     <div class="hero-benefits" aria-label="Преимущества онлайн-записи">
-      <div><span class="hero-benefit-icon">◷</span><span><strong>Без очередей</strong><small>Запись онлайн</small></span></div>
-      <div><span class="hero-benefit-icon">◷</span><span><strong>Удобное время</strong><small>Выберите сами</small></span></div>
-      <div><span class="hero-benefit-icon">⌂</span><span><strong>Надёжные станции</strong><small>Проверенные СТО</small></span></div>
+      <div class="hero-benefit"><span class="hero-benefit-icon" aria-hidden="true">◷</span><span><strong>Без очередей</strong><small>Запись онлайн</small></span></div>
+      <div class="hero-benefit"><span class="hero-benefit-icon" aria-hidden="true">◷</span><span><strong>Удобное время</strong><small>Выберите сами</small></span></div>
+      <div class="hero-benefit"><span class="hero-benefit-icon" aria-hidden="true">⌂</span><span><strong>Надёжные станции</strong><small>Проверенные СТО</small></span></div>
     </div>
   </div>
   <div class="discovery-hero__visual" aria-label="Современная станция технического обслуживания">
@@ -24,9 +24,7 @@
 </section>
 
 <section id="stations" class="discovery-stations" aria-labelledby="stations-title">
-  <div class="discovery-section-head">
-    <div><h2 id="stations-title" class="page-title">Выберите станцию</h2></div>
-  </div>
+  <div class="discovery-section-head"><h2 id="stations-title" class="page-title">Выберите станцию</h2></div>
 
   <div class="station-discovery-layout">
     <div class="station-map-panel" id="station-map">
@@ -36,7 +34,11 @@
 
     <div class="station-grid" id="station-list">
       {% for station in stations %}
-      <a href="{% url 'book_station' station.id %}" class="station-card{% if forloop.counter > 3 %} is-hidden{% endif %}" data-station-search="{{ station.name|lower }} {{ station.address|default:''|lower }}">
+      <a href="{% url 'book_station' station.id %}"
+         class="station-card"
+         data-station-id="{{ station.id }}"
+         data-lat="{{ station.latitude }}"
+         data-lng="{{ station.longitude }}">
         <div class="station-card-top"><span class="station-status"><i></i> Открыта</span><span class="station-card-icon" aria-hidden="true">⌂</span></div>
         <div>
           <div class="station-name">{{ station.name }}</div>
@@ -48,49 +50,149 @@
       {% empty %}
       <div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">⌂</div><div class="empty-state-title">Станций пока нет</div><div class="empty-state-text">Администратор ещё не добавил активные станции</div></div>
       {% endfor %}
+
+      <div id="station-map-empty" class="station-map-empty" hidden>
+        <div class="station-map-empty__icon">⌖</div>
+        <strong>В этой области станции не найдены</strong>
+        <span>Увеличьте область карты или покажите все станции.</span>
+      </div>
     </div>
   </div>
 
-  {% if stations|length > 3 %}
+  {% if stations|length > 0 %}
   <button type="button" class="station-show-more" id="station-show-more">Показать все станции <span>⌄</span></button>
   {% endif %}
 </section>
 
 <script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU"></script>
 <script>
-const mapStatus=document.getElementById('map-location-status');
+(function () {
+  const mapStatus = document.getElementById('map-location-status');
+  const showMoreButton = document.getElementById('station-show-more');
+  const emptyState = document.getElementById('station-map-empty');
+  const cards = Array.from(document.querySelectorAll('#station-list .station-card'));
+  const maxVisibleCards = 3;
 
-ymaps.ready(async()=>{
-  const fallback=[55.751574,37.573856];
-  const map=new ymaps.Map('map',{center:fallback,zoom:10,controls:['zoomControl','geolocationControl']});
-  const stationBounds=[];
-  const stations=await fetch('/api/stations/').then(r=>r.json()).catch(()=>[]);
+  let map = null;
+  let allStations = [];
+  let userCoords = null;
+  let showAllVisible = false;
 
-  stations.forEach(s=>{
-    if(s.lat==null||s.lng==null)return;
-    const coords=[Number(s.lat),Number(s.lng)];
-    stationBounds.push(coords);
-    map.geoObjects.add(new ymaps.Placemark(coords,{balloonContentHeader:s.name,balloonContentBody:s.address||'',balloonContentFooter:'<a href="/station/'+s.id+'/book/" style="color:#155eef;font-weight:700">Записаться →</a>'},{preset:'islands#blueCircleDotIcon'}));
+  function stationIsInBounds(station, bounds) {
+    return station.lat >= bounds[0][0] && station.lat <= bounds[1][0] &&
+           station.lng >= bounds[0][1] && station.lng <= bounds[1][1];
+  }
+
+  function visibleStations() {
+    if (!map) return [];
+    const bounds = map.getBounds();
+    return allStations.filter((station) => stationIsInBounds(station, bounds));
+  }
+
+  function syncCardsWithMap() {
+    const visible = visibleStations();
+    const visibleIds = new Set(visible.map((station) => station.id));
+
+    cards.forEach((card) => { card.hidden = true; });
+
+    const cardsToShow = showAllVisible ? visible : visible.slice(0, maxVisibleCards);
+    cardsToShow.forEach((card) => { card.hidden = false; });
+
+    const hasVisible = visible.length > 0;
+    emptyState.hidden = hasVisible;
+
+    if (showMoreButton) {
+      const hasMore = visible.length > maxVisibleCards;
+      showMoreButton.hidden = !hasMore && !showAllVisible;
+      showMoreButton.innerHTML = showAllVisible
+        ? 'Скрыть дополнительные <span>⌃</span>'
+        : 'Показать все станции <span>⌄</span>';
+      if (showAllVisible && !visible.length) showMoreButton.hidden = true;
+    }
+
+    if (mapStatus) {
+      if (userCoords) {
+        mapStatus.textContent = hasVisible
+          ? `Станции рядом с вами: ${visible.length}`
+          : 'В этой области станций нет';
+      } else if (hasVisible) {
+        mapStatus.textContent = `Станции на карте: ${visible.length}`;
+      }
+    }
+  }
+
+  function fitAllStations() {
+    if (!allStations.length) return;
+    map.setBounds(allStations.map((station) => [station.lat, station.lng]), {
+      checkZoomRange: true,
+      zoomMargin: 45,
+      duration: 300
+    });
+  }
+
+  ymaps.ready(async function () {
+    const fallback = [55.751574, 37.573856];
+    map = new ymaps.Map('map', {
+      center: fallback,
+      zoom: 10,
+      controls: ['zoomControl', 'geolocationControl']
+    });
+
+    const apiStations = await fetch('/api/stations/')
+      .then((response) => response.ok ? response.json() : [])
+      .catch(() => []);
+
+    allStations = apiStations.map((station) => ({
+      id: Number(station.id),
+      name: station.name,
+      address: station.address || '',
+      lat: Number(station.lat),
+      lng: Number(station.lng)
+    })).filter((station) => Number.isFinite(station.lat) && Number.isFinite(station.lng));
+
+    allStations.forEach((station) => {
+      map.geoObjects.add(new ymaps.Placemark(
+        [station.lat, station.lng],
+        {
+          balloonContentHeader: station.name,
+          balloonContentBody: station.address,
+          balloonContentFooter: `<a href="/station/${station.id}/book/" style="color:#155eef;font-weight:700">Записаться →</a>`
+        },
+        { preset: 'islands#blueCircleDotIcon' }
+      ));
+    });
+
+    map.events.add('boundschange', syncCardsWithMap);
+
+    try {
+      const geo = await ymaps.geolocation.get({ provider: 'yandex', mapStateAutoApply: false });
+      userCoords = geo.geoObjects.position;
+      map.setCenter(userCoords, 11, { duration: 300 });
+      map.geoObjects.add(new ymaps.Placemark(
+        userCoords,
+        { balloonContentHeader: 'Вы здесь' },
+        { preset: 'islands#redCircleDotIcon' }
+      ));
+      if (mapStatus) mapStatus.textContent = 'Станции рядом с вами';
+    } catch (error) {
+      if (allStations.length) {
+        fitAllStations();
+        if (mapStatus) mapStatus.textContent = 'Показаны станции на карте';
+      } else if (mapStatus) {
+        mapStatus.textContent = 'Станций пока нет';
+      }
+    }
+
+    syncCardsWithMap();
   });
 
-  try{
-    const geo=await ymaps.geolocation.get({provider:'yandex',mapStateAutoApply:false});
-    const userCoords=geo.geoObjects.position;
-    map.setCenter(userCoords,12,{duration:300});
-    map.geoObjects.add(new ymaps.Placemark(userCoords,{balloonContentHeader:'Вы здесь'},{preset:'islands#redCircleDotIcon'}));
-    mapStatus.textContent='Станции от вашей позиции';
-  }catch(error){
-    mapStatus.textContent='Показаны все станции';
-    if(stationBounds.length)map.setBounds(stationBounds,{checkZoomRange:true,zoomMargin:40});
-  }
-});
-
-const showMoreButton=document.getElementById('station-show-more');
-const hiddenStations=[...document.querySelectorAll('#station-list .station-card.is-hidden')];
-showMoreButton?.addEventListener('click',()=>{
-  const expanding=hiddenStations.some(card=>card.classList.contains('is-hidden'));
-  hiddenStations.forEach(card=>card.classList.toggle('is-hidden',!expanding));
-  showMoreButton.innerHTML=expanding?'Скрыть дополнительные станции <span>⌃</span>':'Показать все станции <span>⌄</span>';
-});
+  showMoreButton?.addEventListener('click', function () {
+    showAllVisible = !showAllVisible;
+    if (showAllVisible && visibleStations().length <= maxVisibleCards) {
+      fitAllStations();
+    }
+    syncCardsWithMap();
+  });
+})();
 </script>
 {% endblock %}
