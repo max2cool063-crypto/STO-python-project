@@ -40,7 +40,11 @@
       {% endif %}
     </nav>
     <div class="header-actions header-actions--user">
-      <a href="{% url 'cabinet' %}" class="header-user" aria-label="Открыть личный кабинет">
+      {% if user.station_roles.exists %}
+        <a href="{% url 'station_select' %}" class="header-user" aria-label="Открыть кабинет станции">
+      {% else %}
+        <a href="{% url 'cabinet' %}" class="header-user" aria-label="Открыть личный кабинет">
+      {% endif %}
         <span class="header-user__avatar" aria-hidden="true">
           {% if user.profile.first_name %}{{ user.profile.first_name|first|upper }}{% elif user.first_name %}{{ user.first_name|first|upper }}{% else %}{{ user.username|first|upper }}{% endif %}
         </span>
