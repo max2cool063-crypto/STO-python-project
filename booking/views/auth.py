@@ -15,16 +15,16 @@ User = get_user_model()
 
 
 def send_password_setup_email(request, user):
-    """Send a one-time password setup link; never put a password in email."""
+    """Send a one-time password setup/reset link; never put a password in email."""
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     setup_url = request.build_absolute_uri(
         reverse("set_password", kwargs={"uidb64": uid, "token": token})
     )
     return send_mail(
-        "Установите пароль для сервиса СТО",
+        "Установите или сбросьте пароль для сервиса СТО",
         (
-            "Для вашего аккаунта в сервисе СТО необходимо установить пароль.\n\n"
+            "Для вашего аккаунта в сервисе СТО можно установить новый пароль.\n\n"
             f"Перейдите по ссылке: {setup_url}\n\n"
             "Ссылка одноразовая и действует ограниченное время."
         ),
@@ -49,13 +49,13 @@ def register(request):
 
         user = User.objects.filter(email__iexact=email).order_by("id").first()
         if user:
-            # Не раскрываем факт существования аккаунта. Для неактивированного
-            # аккаунта можно безопасно отправить новую ссылку установки пароля.
-            if not user.has_usable_password():
-                try:
-                    send_password_setup_email(request, user)
-                except Exception:
-                    pass
+            # Не раскрываем факт существования аккаунта. Повторная отправка
+            # ссылки работает и для уже активированного аккаунта, поэтому
+            # пользователь может самостоятельно восстановить забытый пароль.
+            try:
+                send_password_setup_email(request, user)
+            except Exception:
+                pass
             messages.success(request, "Если email существует, инструкция будет отправлена на почту")
             return redirect("login")
 
@@ -81,7 +81,7 @@ def register(request):
 
 @require_http_methods(["GET", "POST"])
 def set_password(request, uidb64, token):
-    """One-time password setup for newly created accounts."""
+    """One-time password setup/reset link."""
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)
