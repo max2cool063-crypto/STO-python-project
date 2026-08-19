@@ -19,8 +19,8 @@
   display: flex;
   align-items: flex-end;
   background:
-    linear-gradient(145deg, rgba(15,23,42,.92) 0%, rgba(30,64,175,.78) 55%, rgba(37,99,235,.58) 100%),
-    url('../img/hero-service.svg') center / cover no-repeat;
+    linear-gradient(145deg, rgba(15,23,42,.84) 0%, rgba(30,64,175,.55) 55%, rgba(37,99,235,.28) 100%),
+    url('../img/hero-service.jpg') center / cover no-repeat;
 }
 
 .auth-visual::after {
