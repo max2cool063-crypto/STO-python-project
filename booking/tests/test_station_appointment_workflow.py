@@ -42,6 +42,24 @@ class StationAppointmentWorkflowTests(TestCase):
         self.assertEqual(appointment.user.email, "")
         self.assertEqual(appointment.photos.count(), 1)
 
+    def test_operator_can_create_new_car_with_vin(self):
+        response = self.client.post(
+            reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
+            {
+                "plate": "B456BB63",
+                "new_model_id": self.model.id,
+                "vin": "XTA12345678901234",
+                "new_user_email": "",
+                "client_name": "Петров Пётр",
+                "client_phone": "+79991112233",
+                "start": self.start,
+            },
+        )
+        self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
+        appointment = Appointment.objects.get(station=self.station)
+        self.assertEqual(appointment.car.vin, "XTA12345678901234")
+        self.assertEqual(appointment.vin, "XTA12345678901234")
+
     def test_station_detail_and_edit_are_available_to_operator(self):
         user = User.objects.create_user(username="client-workflow", email="client@example.com")
         car = Car.objects.create(owner=user, model=self.model, plate_number="B456BB")
