@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="{% static 'booking/css/ui-public-v3.css' %}">
   <link rel="stylesheet" href="{% static 'booking/css/ui-cabinet-v1.css' %}">
   <link rel="stylesheet" href="{% static 'booking/css/ui-auth-v1.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/css/ui-header-v1.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -38,7 +39,22 @@
         <a href="{% url 'cabinet_cars' %}" class="nav-link">Мои авто</a>
       {% endif %}
     </nav>
-    <div class="header-actions">
+    <div class="header-actions header-actions--user">
+      <a href="{% url 'cabinet' %}" class="header-user" aria-label="Открыть личный кабинет">
+        <span class="header-user__avatar" aria-hidden="true">
+          {% if user.profile.first_name %}{{ user.profile.first_name|first|upper }}{% elif user.first_name %}{{ user.first_name|first|upper }}{% else %}{{ user.username|first|upper }}{% endif %}
+        </span>
+        <span class="header-user__name">
+          {% if user.profile.first_name or user.profile.last_name %}
+            {{ user.profile.first_name }} {{ user.profile.last_name }}
+          {% elif user.get_full_name %}
+            {{ user.get_full_name }}
+          {% else %}
+            {{ user.username }}
+          {% endif %}
+        </span>
+        <span class="header-user__chevron" aria-hidden="true">⌄</span>
+      </a>
       <form method="post" action="{% url 'logout' %}" style="margin:0">
         {% csrf_token %}
         <button type="submit" class="btn-header">Выйти</button>
