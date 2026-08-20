@@ -4,7 +4,7 @@
   <div>
     <div class="st-staff-kicker">Команда станции</div>
     <h1>Сотрудники</h1>
-    <p>Управляйте операторами станции, доступом и учётными данными.</p>
+    <p>Управляйте операторами станции, доступом и профилями сотрудников.</p>
   </div>
 </div>
 
@@ -20,32 +20,19 @@
     <div class="st-card__body">
       <div class="st-staff-add__intro">
         <div class="st-staff-add__icon" aria-hidden="true">+</div>
-        <div>
-          <strong>Создать учётную запись</strong>
-          <span>Оператор получит доступ только к рабочей области этой станции.</span>
-        </div>
+        <div><strong>Создать учётную запись</strong><span>Оператор получит доступ только к рабочей области этой станции.</span></div>
       </div>
 
-      <form method="post" class="st-staff-form">
+      <form method="post" action="{% url 'station_staff_create_operator' station.pk %}" class="st-staff-form">
         {% csrf_token %}
-        <input type="hidden" name="action" value="create_operator">
-
-        <div class="st-form-group">
-          <label for="staff-login">Логин *</label>
-          <input id="staff-login" type="text" name="login" class="st-input" placeholder="ivanov_op" autocomplete="username" required>
+        <div class="st-form-group"><label for="staff-login">Логин *</label><input id="staff-login" type="text" name="login" class="st-input" placeholder="ivanov_op" autocomplete="username" required></div>
+        <div class="st-form-group"><label for="staff-password">Пароль *</label><input id="staff-password" type="password" name="password" class="st-input" placeholder="минимум 8 символов" autocomplete="new-password" required minlength="8"></div>
+        <div class="st-form-row">
+          <div class="st-form-group"><label for="staff-first-name">Имя</label><input id="staff-first-name" type="text" name="first_name" class="st-input" placeholder="Иван" autocomplete="given-name" maxlength="100"></div>
+          <div class="st-form-group"><label for="staff-last-name">Фамилия</label><input id="staff-last-name" type="text" name="last_name" class="st-input" placeholder="Иванов" autocomplete="family-name" maxlength="100"></div>
         </div>
-
-        <div class="st-form-group">
-          <label for="staff-password">Пароль *</label>
-          <input id="staff-password" type="password" name="password" class="st-input" placeholder="минимум 8 символов" autocomplete="new-password" required minlength="8">
-        </div>
-
-        <div class="st-form-group">
-          <label for="staff-email">Email</label>
-          <input id="staff-email" type="email" name="email" class="st-input" placeholder="operator@example.com" autocomplete="email">
-        </div>
-
-        <div class="st-staff-help">Email необязателен. Если он указан, оператор сможет получать сообщения, связанные с рабочей учётной записью.</div>
+        <div class="st-form-group"><label for="staff-email">Email</label><input id="staff-email" type="email" name="email" class="st-input" placeholder="operator@example.com" autocomplete="email"></div>
+        <div class="st-staff-help">Имя и фамилия сохраняются в профиле оператора. Email необязателен.</div>
         <button type="submit" class="st-btn st-btn--primary st-staff-submit">Добавить оператора</button>
       </form>
     </div>
@@ -54,107 +41,52 @@
   <section>
     {% with total=staff_list|length %}
     <div class="st-staff-summary">
-      <div class="st-staff-summary__item">
-        <div class="st-staff-summary__num">{{ total }}</div>
-        <div class="st-staff-summary__label">Сотрудников</div>
-      </div>
-      <div class="st-staff-summary__item">
-        <div class="st-staff-summary__num">{% widthratio total 1 1 %}</div>
-        <div class="st-staff-summary__label">В списке</div>
-      </div>
-      <div class="st-staff-summary__item">
-        <div class="st-staff-summary__num">{{ station.name|truncatechars:18 }}</div>
-        <div class="st-staff-summary__label">Станция</div>
-      </div>
+      <div class="st-staff-summary__item"><div class="st-staff-summary__num">{{ total }}</div><div class="st-staff-summary__label">Сотрудников</div></div>
+      <div class="st-staff-summary__item"><div class="st-staff-summary__num">{{ total }}</div><div class="st-staff-summary__label">В списке</div></div>
+      <div class="st-staff-summary__item"><div class="st-staff-summary__num">{{ station.name|truncatechars:18 }}</div><div class="st-staff-summary__label">Станция</div></div>
     </div>
     {% endwith %}
 
     <div class="st-card">
-      <div class="st-card__header">
-        <div>
-          <div class="st-card__title">Команда станции</div>
-          <div class="st-card__subtitle">Роли, статус и управление доступом</div>
-        </div>
-        <span class="st-badge st-badge--info">{{ staff_list|length }}</span>
-      </div>
-
+      <div class="st-card__header"><div><div class="st-card__title">Команда станции</div><div class="st-card__subtitle">Роли, статус, профили и управление доступом</div></div><span class="st-badge st-badge--info">{{ staff_list|length }}</span></div>
       <div class="st-staff-table-wrap">
         <table class="st-table st-staff-table">
-          <thead>
-            <tr>
-              <th>Сотрудник</th>
-              <th>Контакты</th>
-              <th>Роль</th>
-              <th>Добавил</th>
-              <th>Дата</th>
-              <th>Статус</th>
-              {% if staff.role == 'OWNER' %}<th>Действия</th>{% endif %}
-            </tr>
-          </thead>
+          <thead><tr><th>Сотрудник</th><th>Контакты</th><th>Роль</th><th>Добавил</th><th>Дата</th><th>Статус</th><th>Действия</th></tr></thead>
           <tbody>
-            {% for member in staff_list %}
-            <tr class="{% if not member.is_active %}st-staff-row--inactive{% endif %}">
-              <td>
-                <div class="st-staff-user">
-                  <div class="st-staff-avatar" aria-hidden="true">{{ member.user.username|slice:":1"|upper }}</div>
-                  <div>
-                    <div class="st-staff-user__name">{{ member.user.username }}</div>
-                    {% with p=member.user.profile %}
-                      <div class="st-staff-user__meta">{% if p.last_name or p.first_name %}{{ p.last_name }} {{ p.first_name }}{% else %}Профиль не заполнен{% endif %}</div>
-                    {% endwith %}
-                  </div>
+          {% for member in staff_list %}
+          <tr class="{% if not member.is_active %}st-staff-row--inactive{% endif %}">
+            <td>
+              <div class="st-staff-user">
+                <div class="st-staff-avatar" aria-hidden="true">{% if member.user.profile.first_name %}{{ member.user.profile.first_name|first|upper }}{% else %}{{ member.user.username|slice:":1"|upper }}{% endif %}</div>
+                <div>
+                  <div class="st-staff-user__name">{% if member.user.profile.first_name or member.user.profile.last_name %}{{ member.user.profile.first_name }} {{ member.user.profile.last_name }}{% else %}{{ member.user.username }}{% endif %}</div>
+                  <div class="st-staff-user__meta">Логин: {{ member.user.username }}</div>
                 </div>
-              </td>
-              <td><span class="st-staff-email">{{ member.user.email|default:"—" }}</span></td>
-              <td>
-                {% if member.role == 'OWNER' %}
-                  <span class="st-badge st-badge--booked">Владелец</span>
-                {% else %}
-                  <span class="st-badge st-badge--cancelled">Оператор</span>
+              </div>
+            </td>
+            <td><span class="st-staff-email">{{ member.user.email|default:"—" }}</span>{% if member.user.profile.phone %}<span class="st-staff-email">{{ member.user.profile.phone }}</span>{% endif %}</td>
+            <td>{% if member.role == 'OWNER' %}<span class="st-badge st-badge--booked">Владелец</span>{% else %}<span class="st-badge st-badge--cancelled">Оператор</span>{% endif %}</td>
+            <td><span class="st-staff-email">{{ member.created_by|default:"—" }}</span></td>
+            <td><span class="st-staff-email">{{ member.created_at|date:"d.m.Y" }}</span></td>
+            <td>{% if member.is_active %}<span class="st-badge st-badge--done">Активен</span>{% else %}<span class="st-badge st-badge--cancelled">Неактивен</span>{% endif %}</td>
+            <td>
+              <div class="st-staff-actions">
+                {% if member.user_id == request.user.id or member.role == 'OPERATOR' %}
+                  <a href="{% url 'station_staff_edit_profile' station.pk member.pk %}" class="st-btn st-btn--secondary st-btn--sm">Редактировать профиль</a>
                 {% endif %}
-              </td>
-              <td><span class="st-staff-email">{{ member.created_by|default:"—" }}</span></td>
-              <td><span class="st-staff-email">{{ member.created_at|date:"d.m.Y" }}</span></td>
-              <td>
-                {% if member.is_active %}
-                  <span class="st-badge st-badge--done">Активен</span>
-                {% else %}
-                  <span class="st-badge st-badge--cancelled">Неактивен</span>
-                {% endif %}
-              </td>
-              {% if staff.role == 'OWNER' %}
-              <td>
-                {% if member.user != request.user %}
-                <div class="st-staff-actions">
+                {% if staff.role == 'OWNER' and member.user != request.user %}
                   <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="toggle_active">
-                    <input type="hidden" name="member_id" value="{{ member.pk }}">
-                    <button type="submit" class="st-btn st-btn--sm {% if member.is_active %}st-btn--danger{% else %}st-btn--secondary{% endif %}">
-                      {% if member.is_active %}Деактивировать{% else %}Активировать{% endif %}
-                    </button>
+                    {% csrf_token %}<input type="hidden" name="action" value="toggle_active"><input type="hidden" name="member_id" value="{{ member.pk }}">
+                    <button type="submit" class="st-btn st-btn--sm {% if member.is_active %}st-btn--danger{% else %}st-btn--secondary{% endif %}">{% if member.is_active %}Деактивировать{% else %}Активировать{% endif %}</button>
                   </form>
-                  {% if member.is_active %}
-                  <button type="button" class="st-btn st-btn--secondary st-btn--sm" onclick="showResetForm({{ member.pk }}, '{{ member.user.username|escapejs }}')">Сменить пароль</button>
-                  {% endif %}
-                </div>
-                {% else %}
-                  <span class="st-staff-email">Текущая учётная запись</span>
+                  {% if member.is_active %}<button type="button" class="st-btn st-btn--secondary st-btn--sm" onclick="showResetForm({{ member.pk }}, '{{ member.user.username|escapejs }}')">Сменить пароль</button>{% endif %}
                 {% endif %}
-              </td>
-              {% endif %}
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="7">
-                <div class="st-staff-empty">
-                  <div class="st-staff-empty__icon" aria-hidden="true">♙</div>
-                  <strong>Сотрудников пока нет</strong>
-                  <p>Создайте первого оператора через форму слева.</p>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7"><div class="st-staff-empty"><div class="st-staff-empty__icon" aria-hidden="true">♙</div><strong>Сотрудников пока нет</strong><p>Создайте первого оператора через форму слева.</p></div></td></tr>
+          {% endfor %}
           </tbody>
         </table>
       </div>
@@ -164,59 +96,17 @@
 
 <div id="reset-modal" class="st-staff-modal" role="dialog" aria-modal="true" aria-labelledby="reset-title" aria-hidden="true">
   <div class="st-staff-modal__dialog">
-    <div class="st-staff-modal__head">
-      <div>
-        <div id="reset-title" class="st-staff-modal__title">Смена пароля</div>
-        <div class="st-staff-modal__subtitle">Новый пароль для оператора <strong id="reset-username"></strong></div>
-      </div>
-      <button type="button" class="st-staff-modal__close" onclick="hideResetForm()" aria-label="Закрыть">×</button>
-    </div>
-
+    <div class="st-staff-modal__head"><div><div id="reset-title" class="st-staff-modal__title">Смена пароля</div><div class="st-staff-modal__subtitle">Новый пароль для оператора <strong id="reset-username"></strong></div></div><button type="button" class="st-staff-modal__close" onclick="hideResetForm()" aria-label="Закрыть">×</button></div>
     <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="reset_password">
-      <input type="hidden" name="member_id" id="reset-member-id">
-      <div class="st-form-group">
-        <label for="reset-password">Новый пароль *</label>
-        <input type="password" name="new_password" id="reset-password" class="st-input" placeholder="минимум 8 символов" autocomplete="new-password" required minlength="8">
-      </div>
+      {% csrf_token %}<input type="hidden" name="action" value="reset_password"><input type="hidden" name="member_id" id="reset-member-id">
+      <div class="st-form-group"><label for="reset-password">Новый пароль *</label><input type="password" name="new_password" id="reset-password" class="st-input" placeholder="минимум 8 символов" autocomplete="new-password" required minlength="8"></div>
       <div class="st-staff-safety">После сохранения старый пароль перестанет работать.</div>
-      <div class="st-staff-modal__actions">
-        <button type="submit" class="st-btn st-btn--primary">Сохранить пароль</button>
-        <button type="button" class="st-btn st-btn--secondary" onclick="hideResetForm()">Отмена</button>
-      </div>
+      <div class="st-staff-modal__actions"><button type="submit" class="st-btn st-btn--primary">Сохранить пароль</button><button type="button" class="st-btn st-btn--secondary" onclick="hideResetForm()">Отмена</button></div>
     </form>
   </div>
 </div>
 
 <script>
-(function () {
-  const modal = document.getElementById('reset-modal');
-  const memberId = document.getElementById('reset-member-id');
-  const username = document.getElementById('reset-username');
-  const password = document.getElementById('reset-password');
-
-  window.showResetForm = function (id, name) {
-    memberId.value = id;
-    username.textContent = name;
-    password.value = '';
-    modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
-    window.setTimeout(function () { password.focus(); }, 50);
-  };
-
-  window.hideResetForm = function () {
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
-  };
-
-  modal.addEventListener('click', function (event) {
-    if (event.target === modal) window.hideResetForm();
-  });
-
-  document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && modal.classList.contains('is-open')) window.hideResetForm();
-  });
-})();
-</script>
+(function(){const modal=document.getElementById('reset-modal');const memberId=document.getElementById('reset-member-id');const username=document.getElementById('reset-username');const password=document.getElementById('reset-password');window.showResetForm=function(id,name){memberId.value=id;username.textContent=name;password.value='';modal.classList.add('is-open');modal.setAttribute('aria-hidden','false');setTimeout(()=>password.focus(),50)};window.hideResetForm=function(){modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true')};modal.addEventListener('click',e=>{if(e.target===modal)window.hideResetForm()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('is-open'))window.hideResetForm()})})();
++</script>
 {% endblock %}
