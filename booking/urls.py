@@ -14,12 +14,14 @@ from booking.views.station_appointment_create import station_appointment_create
 from booking.views.station_appointment_detail import station_appointment_detail
 from booking.views.station_appointment_edit import station_appointment_edit
 from booking.views.station_calendar import station_day_calendar
+from booking.views.station_staff_manage import (
+    station_staff_create_operator,
+    station_staff_edit_profile,
+)
 
 urlpatterns = [
-    # ПУБЛИЧНЫЙ ФРОНТ
     path("", views.station_list, name="home"),
 
-    # API
     path("api/stations/", views.stations_json, name="stations_json"),
     path("api/station/<int:station_id>/slots/", station_slots_api, name="station_slots_api"),
     path("api/brands/", brands_api, name="brands_api"),
@@ -28,10 +30,8 @@ urlpatterns = [
     path("api/car-by-plate/", car_by_plate_api, name="car_by_plate_api"),
     path("api/brands-with-models/", brands_with_models_api, name="brands_with_models_api"),
 
-    # ОНЛАЙН ЗАПИСЬ
     path("station/<int:pk>/book/", views.book_station, name="book_station"),
 
-    # ЛИЧНЫЙ КАБИНЕТ КЛИЕНТА
     path("cabinet/", views.cabinet_dashboard, name="cabinet"),
     path("cabinet/cars/", views.cabinet_cars, name="cabinet_cars"),
     path("cabinet/cars/<int:pk>/edit/", views.cabinet_car_edit, name="cabinet_car_edit"),
@@ -40,10 +40,8 @@ urlpatterns = [
     path("cabinet/appointments/<int:pk>/cancel/", views.cabinet_cancel_appointment, name="cabinet_cancel_appointment"),
     path("cabinet/appointments/<int:pk>/photos.zip/", views.appointment_photos_zip, name="appointment_photos_zip"),
 
-    # Защищённые фотографии записей
     path("media/appointments/<path:path>", views.protected_media, name="protected_media"),
 
-    # AUTH
     path("accounts/register/", views.register, name="register"),
     path("accounts/post-login/", views.post_login_redirect, name="post_login_redirect"),
     path("accounts/set-password/<uidb64>/<token>/", views.set_password, name="set_password"),
@@ -51,7 +49,6 @@ urlpatterns = [
     path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
 
-    # КАБИНЕТ СТАНЦИИ
     path("station/", views.station_select, name="station_select"),
     path("station/<int:station_id>/", views.station_dashboard, name="station_dashboard"),
     path("station/<int:station_id>/calendar/", station_day_calendar, name="station_day_calendar"),
@@ -65,4 +62,6 @@ urlpatterns = [
     path("station/<int:station_id>/slot-blocks/", views.station_slot_blocks, name="station_slot_blocks"),
     path("station/<int:station_id>/clients/", views.station_clients, name="station_clients"),
     path("station/<int:station_id>/staff/", views.station_staff, name="station_staff"),
+    path("station/<int:station_id>/staff/create-operator/", station_staff_create_operator, name="station_staff_create_operator"),
+    path("station/<int:station_id>/staff/<int:member_id>/edit/", station_staff_edit_profile, name="station_staff_edit_profile"),
 ]
