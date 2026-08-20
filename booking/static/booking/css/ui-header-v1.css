@@ -1,0 +1,10 @@
+/* Header user identity */
+.header-actions--user{display:flex;align-items:center;gap:12px;margin-left:auto}
+.header-user{display:flex;align-items:center;gap:10px;padding:5px 8px 5px 6px;border-radius:14px;color:#101828;text-decoration:none}
+.header-user__avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#eef2f8;color:#667085;font-size:14px;font-weight:800;box-shadow:inset 0 0 0 1px rgba(16,24,40,.05)}
+.header-user__name{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:750}
+.header-user__chevron{color:#667085;font-size:12px;line-height:1}
+.header-user:hover{background:#f5f7fb;color:#155eef}
+.header-user:hover .header-user__chevron{color:#155eef}
+@media (max-width:900px){.header-user__name{max-width:130px}.header-actions--user{gap:6px}}
+@media (max-width:720px){.header-user__name{display:none}.header-user{padding:4px}.header-user__avatar{width:36px;height:36px}}

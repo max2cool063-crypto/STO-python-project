@@ -1,5 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from PIL import Image, UnidentifiedImageError
+
 from .models import Appointment, UserProfile, Car, StationWeeklySchedule, StationSchedule
 
 TIME_CHOICES = [("", "—")] + [
@@ -28,16 +30,14 @@ class ScheduleInlineForm(forms.ModelForm):
             "work_end": forms.Select(choices=TIME_CHOICES),
         }
 
+
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_PHOTO_SIZE_MB = 5
 MAX_PHOTOS = 5
 
 
 class AppointmentForm(forms.ModelForm):
-    """
-    Форма бронирования — используется в admin и потенциально в view.
-    FIX: исключает отменённые записи при проверке конфликта.
-    """
+    """Форма бронирования — используется в admin и потенциально в view."""
     class Meta:
         model = Appointment
         fields = ["station", "start", "end", "name", "phone", "vin"]
@@ -62,10 +62,6 @@ class AppointmentForm(forms.ModelForm):
 
 
 class ProfileForm(forms.ModelForm):
-    """
-    FIX: добавлены first_name и last_name — раньше форма содержала только phone,
-    а в view поля читались напрямую из POST без валидации.
-    """
     class Meta:
         model = UserProfile
         fields = ["first_name", "last_name", "phone"]
@@ -94,7 +90,7 @@ class CarForm(forms.ModelForm):
 
 
 class PhotosUploadForm:
-    """Только валидация файлов — не является Django-формой."""
+    """Валидация количества, размера, MIME-типа и фактического формата файлов."""
 
     @staticmethod
     def validate_photos(files):
@@ -102,9 +98,23 @@ class PhotosUploadForm:
         if len(files) > MAX_PHOTOS:
             errors.append(f"Максимум {MAX_PHOTOS} фото")
             return errors
-        for f in files:
-            if f.content_type not in ALLOWED_IMAGE_TYPES:
-                errors.append(f"Файл «{f.name}»: допустимые форматы JPEG, PNG, WebP, GIF")
-            if f.size > MAX_PHOTO_SIZE_MB * 1024 * 1024:
-                errors.append(f"Файл «{f.name}»: размер превышает {MAX_PHOTO_SIZE_MB} МБ")
+
+        for uploaded in files:
+            if uploaded.content_type not in ALLOWED_IMAGE_TYPES:
+                errors.append(f"Файл «{uploaded.name}»: допустимые форматы JPEG, PNG, WebP, GIF")
+                continue
+
+            if uploaded.size > MAX_PHOTO_SIZE_MB * 1024 * 1024:
+                errors.append(f"Файл «{uploaded.name}»: размер превышает {MAX_PHOTO_SIZE_MB} МБ")
+                continue
+
+            try:
+                uploaded.seek(0)
+                with Image.open(uploaded) as image:
+                    image.verify()
+            except (UnidentifiedImageError, OSError, ValueError):
+                errors.append(f"Файл «{uploaded.name}»: файл не является корректным изображением")
+            finally:
+                uploaded.seek(0)
+
         return errors

@@ -1,8 +1,18 @@
-from django.urls import path
 from django.contrib.auth import views as auth_views
+from django.urls import path
+
 from . import views
-from booking.views.api import brands_api, models_api, station_slots_api, car_api, car_by_plate_api, brands_with_models_api
+from booking.views.api import (
+    brands_api,
+    models_api,
+    station_slots_api,
+    car_api,
+    car_by_plate_api,
+    brands_with_models_api,
+)
 from booking.views.station_appointment_create import station_appointment_create
+from booking.views.station_appointment_detail import station_appointment_detail
+from booking.views.station_appointment_edit import station_appointment_edit
 from booking.views.station_calendar import station_day_calendar
 
 urlpatterns = [
@@ -30,11 +40,13 @@ urlpatterns = [
     path("cabinet/appointments/<int:pk>/cancel/", views.cabinet_cancel_appointment, name="cabinet_cancel_appointment"),
     path("cabinet/appointments/<int:pk>/photos.zip/", views.appointment_photos_zip, name="appointment_photos_zip"),
 
+    # Защищённые фотографии записей
     path("media/appointments/<path:path>", views.protected_media, name="protected_media"),
 
     # AUTH
     path("accounts/register/", views.register, name="register"),
     path("accounts/post-login/", views.post_login_redirect, name="post_login_redirect"),
+    path("accounts/set-password/<uidb64>/<token>/", views.set_password, name="set_password"),
     path("cabinet/password/", views.change_password, name="change_password"),
     path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
@@ -46,7 +58,8 @@ urlpatterns = [
     path("station/<int:station_id>/appointments/", views.station_appointments, name="station_appointments"),
     path("station/<int:station_id>/appointments/create/", station_appointment_create, name="station_appointment_create"),
     path("station/<int:station_id>/appointments/<int:pk>/status/", views.station_appointment_status, name="station_appointment_status"),
-    path("station/<int:station_id>/appointments/<int:pk>/", views.station_appointment_detail, name="station_appointment_detail"),
+    path("station/<int:station_id>/appointments/<int:pk>/edit/", station_appointment_edit, name="station_appointment_edit"),
+    path("station/<int:station_id>/appointments/<int:pk>/", station_appointment_detail, name="station_appointment_detail"),
     path("station/<int:station_id>/appointments/csv/", views.station_appointments_csv, name="station_appointments_csv"),
     path("station/<int:station_id>/schedule/", views.station_schedule, name="station_schedule"),
     path("station/<int:station_id>/slot-blocks/", views.station_slot_blocks, name="station_slot_blocks"),

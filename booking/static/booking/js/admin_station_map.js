@@ -5,7 +5,6 @@
     function init() {
         const latInput = document.getElementById("id_latitude");
         const lngInput = document.getElementById("id_longitude");
-        const addressInput = document.getElementById("id_address");
 
         if (!latInput || !lngInput) {
             return;
@@ -31,37 +30,18 @@
                     { draggable: true }
                 );
                 map.geoObjects.add(placemark);
-
-                placemark.events.add("dragend", function () {
-                    updateAddress(
-                        placemark.geometry.getCoordinates()
-                    );
-                });
             } else {
                 placemark.geometry.setCoordinates(coords);
             }
-
-            updateAddress(coords);
         }
 
-        function updateAddress(coords) {
-            ymaps.geocode(coords).then(function (res) {
-                const geoObject = res.geoObjects.get(0);
-                if (!geoObject) return;
-
-                const address = geoObject.getAddressLine();
-                if (addressInput) {
-                    addressInput.value = address;
-                }
-            });
-        }
-
-        // Если координаты уже есть (редактирование станции)
+        // Если координаты уже есть (редактирование станции), показываем их
+        // и не изменяем сохранённый адрес через обратный геокодинг.
         if (latInput.value && lngInput.value) {
             setPlacemark([startLat, startLng]);
         }
 
-        // Клик по карте
+        // Клик по карте меняет только координаты станции.
         map.events.add("click", function (e) {
             setPlacemark(e.get("coords"));
         });

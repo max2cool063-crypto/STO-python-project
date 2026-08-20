@@ -34,76 +34,37 @@
       </select>
     </div>
     <button type="submit" class="st-btn st-btn--primary">Найти</button>
-    {% if search or date_filter or status_filter %}
-    <a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary">Сбросить</a>
-    {% endif %}
+    {% if search or date_filter or status_filter %}<a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary">Сбросить</a>{% endif %}
   </form>
 
   <section class="st-card">
     <div class="st-appointments-summary">
-      <div>
-        <div class="st-appointments-summary__title">Журнал записей</div>
-        <div class="st-appointments-summary__meta">
-          {% if appointments %}Найдено: {{ appointments|length }}{% else %}По выбранным параметрам записей нет{% endif %}
-        </div>
-      </div>
-      {% if search or date_filter or status_filter %}
-      <span class="st-badge">Фильтры применены</span>
-      {% endif %}
+      <div><div class="st-appointments-summary__title">Журнал записей</div><div class="st-appointments-summary__meta">{% if appointments %}Найдено: {{ appointments|length }}{% else %}По выбранным параметрам записей нет{% endif %}</div></div>
+      {% if search or date_filter or status_filter %}<span class="st-badge">Фильтры применены</span>{% endif %}
     </div>
 
     <div class="st-appointment-list">
       {% for a in appointments %}
       <article class="st-appointment-row">
-        <div class="st-appointment-date">
-          <div>
-            <div class="st-appointment-date__day">{{ a.start|date:"d" }}</div>
-            <div class="st-appointment-date__month">{{ a.start|date:"M" }}</div>
-            <div class="st-appointment-date__time">{{ a.start|date:"H:i" }}{% if a.end %}–{{ a.end|date:"H:i" }}{% endif %}</div>
-          </div>
-        </div>
-
-        <div class="st-appointment-info">
-          <span class="st-appointment-info__label">Клиент</span>
-          <span class="st-appointment-info__title">{{ a.name }}</span>
-          <span class="st-appointment-info__sub">{{ a.phone|default:"Телефон не указан" }}</span>
-        </div>
-
-        <div class="st-appointment-info">
-          <span class="st-appointment-info__label">Автомобиль</span>
-          <span class="st-appointment-info__title">{{ a.car }}</span>
-          <span class="st-appointment-info__sub">{{ a.car.model }}{% if a.vin %} · VIN {{ a.vin }}{% endif %}</span>
-        </div>
-
+        <div class="st-appointment-date"><div><div class="st-appointment-date__day">{{ a.start|date:"d" }}</div><div class="st-appointment-date__month">{{ a.start|date:"M" }}</div><div class="st-appointment-date__time">{{ a.start|date:"H:i" }}{% if a.end %}–{{ a.end|date:"H:i" }}{% endif %}</div></div></div>
+        <div class="st-appointment-info"><span class="st-appointment-info__label">Клиент</span><span class="st-appointment-info__title">{{ a.name }}</span><span class="st-appointment-info__sub">{{ a.phone|default:"Телефон не указан" }}</span></div>
+        <div class="st-appointment-info"><span class="st-appointment-info__label">Автомобиль</span><span class="st-appointment-info__title">{{ a.car }}</span><span class="st-appointment-info__sub">{{ a.car.model }}{% if a.vin %} · VIN {{ a.vin }}{% endif %}</span></div>
         <div class="st-appointment-status">
-          {% if a.status == 'BOOKED' %}<span class="st-badge st-badge--booked">{{ a.get_status_display }}</span>
-          {% elif a.status == 'DONE' %}<span class="st-badge st-badge--done">{{ a.get_status_display }}</span>
-          {% elif a.status == 'CANCELLED' %}<span class="st-badge st-badge--cancelled">{{ a.get_status_display }}</span>
-          {% elif a.status == 'NO_SHOW' %}<span class="st-badge st-badge--noshow">{{ a.get_status_display }}</span>
-          {% endif %}
+          {% if a.status == 'BOOKED' %}<span class="st-badge st-badge--booked">{{ a.get_status_display }}</span>{% elif a.status == 'DONE' %}<span class="st-badge st-badge--done">{{ a.get_status_display }}</span>{% elif a.status == 'CANCELLED' %}<span class="st-badge st-badge--cancelled">{{ a.get_status_display }}</span>{% elif a.status == 'NO_SHOW' %}<span class="st-badge st-badge--noshow">{{ a.get_status_display }}</span>{% endif %}
         </div>
-
         <div class="st-appointment-actions">
           <form method="post" action="{% url 'station_appointment_status' station.pk a.pk %}" class="st-inline-form st-inline-form--appointment">
             {% csrf_token %}
-            <select name="status" class="st-select" aria-label="Новый статус записи">
-              {% for val, label in status_choices %}
-              <option value="{{ val }}" {% if a.status == val %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
+            <select name="status" class="st-select" aria-label="Новый статус записи">{% for val, label in status_choices %}<option value="{{ val }}" {% if a.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
             <input type="text" name="comment" class="st-input" placeholder="Комментарий" aria-label="Комментарий к изменению статуса">
             <button type="submit" class="st-btn st-btn--secondary st-btn--sm">Сохранить</button>
+            <a href="{% url 'station_appointment_edit' station.pk a.pk %}" class="st-btn st-btn--secondary st-btn--sm">Редактировать</a>
             <a href="{% url 'station_appointment_detail' station.pk a.pk %}" class="st-btn st-btn--primary st-btn--sm">Подробнее</a>
           </form>
         </div>
       </article>
       {% empty %}
-      <div class="st-empty st-empty--appointments">
-        <div class="st-empty--appointments__icon">⌕</div>
-        <strong>Записей не найдено</strong>
-        <p>Попробуйте изменить параметры поиска или создайте новую запись.</p>
-        {% if search or date_filter or status_filter %}<a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary">Показать все записи</a>{% endif %}
-      </div>
+      <div class="st-empty st-empty--appointments"><div class="st-empty--appointments__icon">⌕</div><strong>Записей не найдено</strong><p>Попробуйте изменить параметры поиска или создайте новую запись.</p>{% if search or date_filter or status_filter %}<a href="{% url 'station_appointments' station.pk %}" class="st-btn st-btn--secondary">Показать все записи</a>{% endif %}</div>
       {% endfor %}
     </div>
   </section>
