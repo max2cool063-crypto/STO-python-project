@@ -101,10 +101,15 @@ def station_appointment_create(request, station_id, staff=None):
                         vin=vin,
                     )
                 else:
+                    # Existing cars shown in the station cabinet are limited to
+                    # vehicles already known by this station. Do not allow an
+                    # operator to submit an arbitrary global Car ID and attach
+                    # another station's/client's vehicle to a new appointment.
                     car = get_object_or_404(
                         Car.objects.select_related("model", "owner"),
                         id=car_id,
                         is_active=True,
+                        appointments__station=station,
                     )
 
                 locked_station = Station.objects.select_for_update().get(pk=station.pk)
