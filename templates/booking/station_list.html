@@ -13,10 +13,14 @@ body:has(.discovery-hero) .discovery-hero h1{max-width:620px;font-size:clamp(40p
 body:has(.discovery-hero) .discovery-hero p{max-width:560px;margin:16px 0 22px}
 body:has(.discovery-hero) .hero-benefits{max-width:650px;gap:26px;margin-top:28px}
 body:has(.discovery-hero) .hero-benefit{flex:1 1 0}
-body:has(.station-discovery-layout) .station-discovery-layout{display:grid;grid-template-columns:minmax(430px,500px) minmax(0,1fr);gap:18px;align-items:start}
-body:has(.station-discovery-layout) .station-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;min-width:0;height:auto;align-content:start;grid-auto-rows:270px}
+
+/* Map and station cards must share the same top and bottom edge on desktop. */
+body:has(.station-discovery-layout) .station-discovery-layout{display:grid;grid-template-columns:minmax(430px,500px) minmax(0,1fr);gap:18px;align-items:stretch}
+body:has(.station-discovery-layout) .station-map-panel{height:270px;min-height:270px;align-self:stretch;margin:0}
+body:has(.station-discovery-layout) .map-container{height:270px;min-height:270px;margin:0}
+body:has(.station-discovery-layout) .station-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;min-width:0;height:270px;align-content:start;grid-auto-rows:270px;margin:0}
 body:has(.station-discovery-layout) .station-card[hidden]{display:none!important}
-body:has(.station-discovery-layout) .station-card{display:flex;height:270px;justify-content:flex-start;padding:13px 18px 16px;box-sizing:border-box}
+body:has(.station-discovery-layout) .station-card{display:flex;height:270px;justify-content:flex-start;padding:13px 18px 16px;box-sizing:border-box;margin:0}
 body:has(.station-discovery-layout) .station-card .station-card-top{margin-bottom:0}
 body:has(.station-discovery-layout) .station-card .station-name{margin-top:4px}
 body:has(.station-discovery-layout) .station-card .station-address{margin-top:4px}
@@ -31,7 +35,7 @@ body:has(.station-discovery-layout) .station-card .station-card-footer{margin-to
 .station-map-balloon__link{display:inline-flex;align-items:center;gap:5px;color:#155eef!important;font-size:13px;font-weight:800;text-decoration:none!important}
 .station-map-balloon__link:hover{color:#0b4acb!important}
 .ymaps-2-1-79-balloon__layout,.ymaps-2-1-80-balloon__layout,.ymaps-2-1-81-balloon__layout{border-radius:16px!important;box-shadow:0 16px 40px rgba(16,24,40,.14)!important}
-@media(max-width:1050px){body:has(.discovery-hero) .discovery-hero{min-height:520px;height:520px}body:has(.discovery-hero) .discovery-hero__visual{inset:0;min-height:520px}body:has(.discovery-hero) .discovery-hero__content{width:100%;min-height:520px;height:520px;padding:54px 7vw;transform:none;background:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.94) 55%,rgba(255,255,255,.58) 100%)}body:has(.station-discovery-layout) .station-discovery-layout{grid-template-columns:1fr}body:has(.station-discovery-layout) .station-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1050px){body:has(.discovery-hero) .discovery-hero{min-height:520px;height:520px}body:has(.discovery-hero) .discovery-hero__visual{inset:0;min-height:520px}body:has(.discovery-hero) .discovery-hero__content{width:100%;min-height:520px;height:520px;padding:54px 7vw;transform:none;background:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.94) 55%,rgba(255,255,255,.58) 100%)}body:has(.station-discovery-layout) .station-discovery-layout{grid-template-columns:1fr}body:has(.station-discovery-layout) .station-map-panel{height:330px;min-height:330px}body:has(.station-discovery-layout) .map-container{height:330px;min-height:330px}body:has(.station-discovery-layout) .station-grid{grid-template-columns:repeat(3,minmax(0,1fr));height:auto}}
 @media(max-width:720px){body:has(.discovery-hero) .discovery-hero{min-height:620px;height:620px}body:has(.discovery-hero) .discovery-hero__content{min-height:620px;height:620px;padding:46px 22px}body:has(.discovery-hero) .discovery-hero h1{font-size:40px}body:has(.station-discovery-layout) .station-grid{grid-template-columns:1fr;grid-auto-rows:270px}.station-map-balloon{width:250px}}
 </style>
 <section class="discovery-hero" aria-labelledby="discovery-title">
