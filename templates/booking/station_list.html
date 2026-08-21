@@ -18,7 +18,7 @@ body:has(.discovery-hero) .hero-benefit{flex:1 1 0}
 body:has(.station-discovery-layout) .station-discovery-layout{display:grid;grid-template-columns:minmax(430px,500px) minmax(0,1fr);gap:18px;align-items:stretch}
 body:has(.station-discovery-layout) .station-map-panel{height:270px;min-height:270px;align-self:stretch;margin:0}
 body:has(.station-discovery-layout) .map-container{height:270px;min-height:270px;margin:0}
-body:has(.station-discovery-layout) .station-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;min-width:0;height:270px;align-content:start;grid-auto-rows:270px;margin:0}
+body:has(.station-discovery-layout) .station-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;min-width:0;height:auto;align-content:start;grid-auto-rows:270px;margin:0}
 body:has(.station-discovery-layout) .station-card[hidden]{display:none!important}
 body:has(.station-discovery-layout) .station-card{display:flex;height:270px;justify-content:flex-start;padding:13px 18px 16px;box-sizing:border-box;margin:0}
 body:has(.station-discovery-layout) .station-card .station-card-top{margin-bottom:0}
@@ -26,6 +26,7 @@ body:has(.station-discovery-layout) .station-card .station-name{margin-top:4px}
 body:has(.station-discovery-layout) .station-card .station-address{margin-top:4px}
 body:has(.station-discovery-layout) .station-card .station-hours{margin-top:5px}
 body:has(.station-discovery-layout) .station-card .station-card-footer{margin-top:auto;padding-top:10px}
+body:has(.station-discovery-layout) .station-show-more{grid-column:1/-1;justify-self:center;width:min(280px,100%);margin:0 0 2px;z-index:3;position:relative}
 .station-map-balloon{width:290px;padding:4px;box-sizing:border-box;font-family:var(--font-body,Inter,system-ui,sans-serif);color:#101828}
 .station-map-balloon__status{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:7px;background:#ecfdf3;color:#039855;font-size:11px;font-weight:800}
 .station-map-balloon__status i{width:6px;height:6px;border-radius:50%;background:#12b76a}
@@ -65,9 +66,9 @@ body:has(.station-discovery-layout) .station-card .station-card-footer{margin-to
       </a>
       {% empty %}<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">⌂</div><div class="empty-state-title">Станций пока нет</div><div class="empty-state-text">Администратор ещё не добавил активные станции</div></div>{% endfor %}
       <div id="station-map-empty" class="station-map-empty" hidden><div class="station-map-empty__icon">⌖</div><strong>В этой области станции не найдены</strong><span>Увеличьте область карты или покажите все станции.</span></div>
+      {% if stations|length > 0 %}<button type="button" class="station-show-more" id="station-show-more" hidden>Показать все станции <span>⌄</span></button>{% endif %}
     </div>
   </div>
-  {% if stations|length > 0 %}<button type="button" class="station-show-more" id="station-show-more" hidden>Показать все станции <span>⌄</span></button>{% endif %}
 </section>
 <script src="https://api-maps.yandex.ru/2.1/?apikey={{ YANDEX_MAPS_API_KEY }}&lang=ru_RU"></script>
 <script>
@@ -75,6 +76,7 @@ body:has(.station-discovery-layout) .station-card .station-card-footer{margin-to
   const mapStatus=document.getElementById('map-location-status');
   const showMoreButton=document.getElementById('station-show-more');
   const emptyState=document.getElementById('station-map-empty');
+  const stationGrid=document.getElementById('station-list');
   const cards=Array.from(document.querySelectorAll('#station-list .station-card'));
   const cardById=new Map(cards.map(card=>[Number(card.dataset.stationId),card]));
   const maxVisibleCards=3;
@@ -91,6 +93,18 @@ body:has(.station-discovery-layout) .station-card .station-card-footer{margin-to
     return allStations.filter(station=>stationIsInBounds(station,bounds));
   }
 
+  function placeShowMoreButton(visible){
+    if(!showMoreButton||!stationGrid)return;
+    if(visible.length<=maxVisibleCards){
+      stationGrid.appendChild(showMoreButton);
+      return;
+    }
+    const fourthStation=visible[maxVisibleCards];
+    const fourthCard=fourthStation?cardById.get(fourthStation.id):null;
+    if(fourthCard)fourthCard.before(showMoreButton);
+    else stationGrid.appendChild(showMoreButton);
+  }
+
   function syncCardsWithMap(){
     const visible=visibleStations();
     cards.forEach(card=>{card.hidden=true});
@@ -104,6 +118,7 @@ body:has(.station-discovery-layout) .station-card .station-card-footer{margin-to
     if(showMoreButton){
       showMoreButton.hidden=visible.length<=maxVisibleCards;
       showMoreButton.innerHTML=showAllVisible?'Скрыть дополнительные <span>⌃</span>':'Показать все станции <span>⌄</span>';
+      placeShowMoreButton(visible);
     }
     if(mapStatus){
       if(userCoords)mapStatus.textContent=hasVisible?`Станции в видимой области: ${visible.length}`:'В этой области станций нет';
@@ -119,9 +134,9 @@ body:has(.station-discovery-layout) .station-card .station-card-footer{margin-to
   function makeBalloonLayout(){
     return ymaps.templateLayoutFactory.createClass(
       '<div class="station-map-balloon">'+
-      '<span class="station-map-balloon__status"><i></i> Открыта</span>'+
-      '<div class="station-map-balloon__name">$[properties.name]</div>'+
-      '<div class="station-map-balloon__address">⌖ $[properties.address]</div>'+
+      '<span class="station-map-balloon__status"><i></i> Открыта</span>'+ 
+      '<div class="station-map-balloon__name">$[properties.name]</div>'+ 
+      '<div class="station-map-balloon__address">⌖ $[properties.address]</div>'+ 
       '<div class="station-map-balloon__footer"><a class="station-map-balloon__link" href="$[properties.bookingUrl]">Записаться →</a></div>'+ 
       '</div>'
     );
@@ -182,7 +197,6 @@ body:has(.station-discovery-layout) .station-card .station-card-footer{margin-to
   showMoreButton?.addEventListener('click',function(){
     showAllVisible=!showAllVisible;
     syncCardsWithMap();
-    showMoreButton?.scrollIntoView({behavior:'smooth',block:'nearest'});
   });
 
   if(typeof ymaps!=='undefined')initStationMap();
