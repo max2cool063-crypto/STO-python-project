@@ -174,7 +174,7 @@ body:has(.discovery-hero) .btn-header.primary { color:#fff; background:#2563eb; 
   letter-spacing:-1px;
 }
 
-/* Карта и карточки имеют одинаковую высоту и находятся на одном уровне. */
+/* На desktop карта и три карточки станции имеют одинаковую высоту. */
 .station-discovery-layout {
   display:grid;
   grid-template-columns:minmax(430px,500px) minmax(0,1fr);
@@ -184,7 +184,7 @@ body:has(.discovery-hero) .btn-header.primary { color:#fff; background:#2563eb; 
 
 .station-map-panel {
   overflow:hidden;
-  height:248px;
+  height:270px;
   border:1px solid #e4e7ec;
   border-radius:16px;
   background:#fff;
@@ -197,8 +197,8 @@ body:has(.discovery-hero) .btn-header.primary { color:#fff; background:#2563eb; 
 
 body:has(.station-grid) .map-container {
   position:relative;
-  min-height:248px;
-  height:248px;
+  min-height:270px;
+  height:270px;
   margin:0;
   border:0;
   border-radius:0;
@@ -212,12 +212,12 @@ body:has(.station-grid) .map-container::after { content:none; }
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:14px;
   min-width:0;
-  height:248px;
+  height:270px;
 }
 
 .station-card {
   min-width:0;
-  height:248px;
+  height:270px;
   display:flex;
   flex-direction:column;
   justify-content:space-between;
@@ -313,7 +313,7 @@ body:has(.station-grid) .map-container::after { content:none; }
   .station-map-panel { height:330px; }
   body:has(.station-grid) .map-container { min-height:330px; height:330px; }
   .station-grid { height:auto; grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .station-card { height:248px; }
+  .station-card { height:270px; }
 }
 
 @media (max-width:720px) {
@@ -329,6 +329,6 @@ body:has(.station-grid) .map-container::after { content:none; }
   .station-map-panel { height:330px; }
   body:has(.station-grid) .map-container { min-height:330px; height:330px; }
   .station-grid { grid-template-columns:1fr; height:auto; }
-  .station-card { height:248px; }
+  .station-card { height:270px; }
   .station-show-more { width:100%; }
 }
