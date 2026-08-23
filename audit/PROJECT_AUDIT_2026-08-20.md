@@ -28,3 +28,16 @@ The latest pre-audit branch commit passed the repository GitHub Actions workflow
 ## Recommendation
 
 After the security regression fix passes CI, merge this branch into `main`. Then use a separate branch from the merged `main` for the Django 5.2 LTS upgrade, keeping the framework upgrade isolated from UI/security work.
+
+## Django 5.2 LTS upgrade — started
+
+Branch: `chore/django-5-2-upgrade-2026-08-20`
+
+Initial upgrade changes:
+
+- Django pinned to `5.2.17`, the current Django 5.2 LTS patch release.
+- `django-jazzmin` pinned to `3.0.2`, which supports Django 5.2.
+- Removed the obsolete `USE_L10N` setting; it was removed in Django 5.0.
+- Updated the Dockerfile and README to reflect Django 5.2 LTS.
+
+The repository CI workflow is configured to run on pushes to `main` and on pull requests targeting `main`. This branch currently has no pull request, so the Django 5.2 test suite has not yet been executed by GitHub Actions for these changes.
