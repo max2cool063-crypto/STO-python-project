@@ -4,11 +4,11 @@ Django-приложение для онлайн-записи на техниче
 
 ## Стек
 
-- Django 5.1
+- Django 5.2.17 LTS
 - PostgreSQL 15
 - Gunicorn
 - WhiteNoise
-- Jazzmin
+- Jazzmin 3.0.2
 - Pillow
 - Docker Compose
 
