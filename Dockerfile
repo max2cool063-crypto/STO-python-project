@@ -1,4 +1,4 @@
-# Dockerfile - STO Booking (Django 5.1 + Gunicorn)
+# Dockerfile - STO Booking (Django 5.2 LTS + Gunicorn)
 
 # Stage 1: build deps
 FROM python:3.11-slim AS deps
