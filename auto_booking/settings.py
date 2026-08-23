@@ -13,7 +13,6 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,
 LANGUAGE_CODE = "ru"
 TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
-USE_L10N = False
 USE_TZ = True
 
 YANDEX_MAPS_API_KEY = os.getenv("YANDEX_MAPS_API_KEY", "")
