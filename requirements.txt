@@ -1,9 +1,9 @@
 Django==5.2.17
-psycopg2-binary>=2.9
-gunicorn>=21.2
-django-jazzmin==3.0.2
-Pillow>=10.0
-whitenoise==6.7.0
-holidays==0.46
-beautifulsoup4==4.12.3
-requests==2.32.3
+psycopg2-binary>=2.9.10
+gunicorn>=25.0.0
+django-jazzmin==3.0.5
+Pillow>=12.3.0
+whitenoise>=6.12.0
+holidays>=0.95
+beautifulsoup4>=4.15.0
+requests>=2.34.0
