@@ -10,6 +10,9 @@ class UiDesignSystemTests(SimpleTestCase):
         self.station_base_template = (
             self.root / "templates" / "booking" / "station" / "base.html"
         ).read_text(encoding="utf-8")
+        self.icons_runtime = (
+            self.root / "booking" / "static" / "booking" / "js" / "ui-icons-v1.js"
+        ).read_text(encoding="utf-8")
 
     def test_shared_ui_assets_exist(self):
         self.assertTrue(
@@ -37,3 +40,21 @@ class UiDesignSystemTests(SimpleTestCase):
             "arrow-left",
         ):
             self.assertIn(f'data-lucide="{icon_name}"', self.station_base_template)
+
+    def test_public_client_legacy_glyphs_have_lucide_migration(self):
+        for selector_name in (
+            "booking-back",
+            "booking-address",
+            "booking-trust",
+            "booking-location",
+            "booking-calendar",
+            "booking-car",
+            "booking-truck",
+            "booking-camera",
+            "auth-check",
+            "auth-mail",
+            "header-chevron",
+            "cabinet-calendar",
+            "cabinet-car",
+        ):
+            self.assertIn(selector_name, self.icons_runtime)
