@@ -73,17 +73,22 @@ textarea {
   outline-offset: 2px;
 }
 
+/*
+   Lucide remains the icon system, but the icons intentionally use the
+   smaller, lighter proportions of the previous UI. This keeps the visual
+   language close to the legacy glyphs instead of making icons dominant.
+*/
 .lucide {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
-  stroke-width: 1.9;
+  stroke-width: 2.1;
   vertical-align: middle;
 }
 
 .lucide[data-lucide="log-out"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .ds-icon-button {
@@ -109,21 +114,47 @@ textarea {
 .ds-inline-icon {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 }
 
 .ds-alert-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
+}
+
+/* Public discovery page: keep icons compact and close to the old glyph scale. */
+.discovery-hero .lucide,
+.hero-benefit-icon .lucide,
+.station-card-icon .lucide,
+.station-address .lucide,
+.station-hours .lucide,
+.station-card-arrow .lucide,
+.station-map-empty__icon .lucide,
+.empty-state-icon .lucide {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.1;
+}
+
+.hero-benefit-icon .lucide,
+.station-card-icon .lucide {
+  width: 16px;
+  height: 16px;
+}
+
+.station-card-arrow .lucide {
+  width: 14px;
+  height: 14px;
 }
 
 .btn .lucide,
 .btn-header .lucide,
 .st-nav-link .lucide,
 .st-sidebar__back .lucide {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.1;
 }
 
 .btn,
@@ -150,7 +181,13 @@ textarea {
   }
 
   .lucide {
-    width: 17px;
-    height: 17px;
+    width: 15px;
+    height: 15px;
+  }
+
+  .hero-benefit-icon .lucide,
+  .station-card-icon .lucide {
+    width: 15px;
+    height: 15px;
   }
 }
