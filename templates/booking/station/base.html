@@ -25,24 +25,49 @@
     <div class="st-sidebar__label">Рабочая область</div>
 
     <nav class="st-sidebar__nav" aria-label="Навигация станции">
-      <a href="{% url 'station_dashboard' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}">Обзор</a>
-      <a href="{% url 'station_day_calendar' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_day_calendar' %}st-nav-link--active{% endif %}">Календарь дня</a>
-      <a href="{% url 'station_appointments' station.pk %}" class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}">Записи</a>
-      <a href="{% url 'station_schedule' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}">Расписание</a>
-      <a href="{% url 'station_slot_blocks' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}">Блокировки</a>
+      <a href="{% url 'station_dashboard' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}">
+        <i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Обзор</span>
+      </a>
+      <a href="{% url 'station_day_calendar' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_day_calendar' %}st-nav-link--active{% endif %}">
+        <i data-lucide="calendar-days" aria-hidden="true"></i><span>Календарь дня</span>
+      </a>
+      <a href="{% url 'station_appointments' station.pk %}" class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}">
+        <i data-lucide="clipboard-list" aria-hidden="true"></i><span>Записи</span>
+      </a>
+      <a href="{% url 'station_schedule' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}">
+        <i data-lucide="clock-3" aria-hidden="true"></i><span>Расписание</span>
+      </a>
+      <a href="{% url 'station_slot_blocks' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}">
+        <i data-lucide="ban" aria-hidden="true"></i><span>Блокировки</span>
+      </a>
       {% if staff.role == 'OWNER' %}
-      <a href="{% url 'station_clients' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}">Клиенты</a>
+      <a href="{% url 'station_clients' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}">
+        <i data-lucide="users" aria-hidden="true"></i><span>Клиенты</span>
+      </a>
       {% endif %}
-      <a href="{% url 'station_staff' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}">Сотрудники</a>
+      <a href="{% url 'station_staff' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}">
+        <i data-lucide="user-round-cog" aria-hidden="true"></i><span>Сотрудники</span>
+      </a>
     </nav>
 
-    <a href="{% url 'station_select' %}" class="st-sidebar__back">← Все станции</a>
+    <a href="{% url 'station_select' %}" class="st-sidebar__back">
+      <i data-lucide="arrow-left" aria-hidden="true"></i><span>Все станции</span>
+    </a>
   </aside>
 
   <main class="st-main">
     {% if messages %}
       {% for msg in messages %}
-        <div class="alert alert-{{ msg.tags|default:'info' }}">{{ msg }}</div>
+        <div class="alert alert-{{ msg.tags|default:'info' }}">
+          {% if msg.tags == 'success' %}
+            <i class="ds-alert-icon" data-lucide="circle-check" aria-hidden="true"></i>
+          {% elif msg.tags == 'error' %}
+            <i class="ds-alert-icon" data-lucide="circle-alert" aria-hidden="true"></i>
+          {% else %}
+            <i class="ds-alert-icon" data-lucide="info" aria-hidden="true"></i>
+          {% endif %}
+          <span>{{ msg }}</span>
+        </div>
       {% endfor %}
     {% endif %}
     {% block station_content %}{% endblock %}
