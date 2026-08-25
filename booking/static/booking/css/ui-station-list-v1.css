@@ -73,6 +73,24 @@ body:has(.station-discovery-layout) .station-card .station-card-icon .lucide {
   stroke-width: 1.9 !important;
 }
 
+/*
+   Station cards need a little more vertical room for long addresses.
+   The map follows the same height on desktop so the two blocks remain aligned.
+*/
+body:has(.station-discovery-layout) .station-map-panel,
+body:has(.station-discovery-layout) .map-container {
+  height: 300px !important;
+  min-height: 300px !important;
+}
+
+body:has(.station-discovery-layout) .station-grid {
+  grid-auto-rows: 300px !important;
+}
+
+body:has(.station-discovery-layout) .station-card {
+  height: 300px !important;
+}
+
 /* Keep the schedule at the bottom of the content area and reserve space for it. */
 body:has(.station-discovery-layout) .station-card-content {
   display: flex !important;
@@ -84,7 +102,7 @@ body:has(.station-discovery-layout) .station-card-content {
 body:has(.station-discovery-layout) .station-card .station-address span {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 5;
   overflow: hidden;
 }
 
@@ -109,13 +127,15 @@ body:has(.station-discovery-layout) .station-card .station-card-footer {
   padding-top: 9px !important;
 }
 
-/* Keep the show-more chevron on the same text baseline. */
+/* Keep the show-more button centered in its old position below the station grid. */
 body:has(.station-discovery-layout) .station-show-more {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  gap: 6px !important;
   vertical-align: middle;
   line-height: 1;
+  margin: 18px auto 0 !important;
 }
 
 body:has(.station-discovery-layout) .station-show-more .lucide {
@@ -123,6 +143,23 @@ body:has(.station-discovery-layout) .station-show-more .lucide {
   height: 13px !important;
   margin: 0 !important;
   vertical-align: middle !important;
+}
+
+@media (max-width: 1050px) {
+  /* Tablet/mobile layout remains aligned: map and station cards use the same height. */
+  body:has(.station-discovery-layout) .station-map-panel,
+  body:has(.station-discovery-layout) .map-container {
+    height: 330px !important;
+    min-height: 330px !important;
+  }
+
+  body:has(.station-discovery-layout) .station-grid {
+    grid-auto-rows: 330px !important;
+  }
+
+  body:has(.station-discovery-layout) .station-card {
+    height: 330px !important;
+  }
 }
 
 @media (max-width: 720px) {
@@ -145,5 +182,10 @@ body:has(.station-discovery-layout) .station-show-more .lucide {
   body:has(.station-discovery-layout) .station-card .station-card-icon .lucide {
     width: 16px !important;
     height: 16px !important;
+  }
+
+  body:has(.station-discovery-layout) .station-show-more {
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 }
