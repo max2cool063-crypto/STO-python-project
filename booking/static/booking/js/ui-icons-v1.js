@@ -34,15 +34,19 @@
     'cabinet-close': 'x'
   };
 
+  function hasDeclaredIcon(element) {
+    return !!(element && (element.querySelector('.lucide') || element.querySelector('[data-lucide]')));
+  }
+
   function replaceLegacyIconElement(element, iconName) {
-    if (!element || element.querySelector('.lucide')) return;
+    if (!element || hasDeclaredIcon(element)) return;
     element.textContent = '';
     element.setAttribute('data-lucide', iconName);
     element.setAttribute('aria-hidden', 'true');
   }
 
   function replaceFirstTextWithIcon(element, iconName, glyphPattern) {
-    if (!element || element.querySelector('.lucide')) return;
+    if (!element || hasDeclaredIcon(element)) return;
     const icon = document.createElement('i');
     icon.setAttribute('data-lucide', iconName);
     icon.setAttribute('aria-hidden', 'true');
@@ -60,6 +64,7 @@
 
     scope.querySelectorAll('.discovery-hero__actions > a > span').forEach(el => replaceLegacyIconElement(el, legacyIconMap['discovery-action']));
     scope.querySelectorAll('.hero-benefit-icon').forEach(function (el) {
+      if (hasDeclaredIcon(el)) return;
       replaceLegacyIconElement(el, el.textContent.trim() === '⌂' ? legacyIconMap['hero-home'] : legacyIconMap['hero-clock']);
     });
     scope.querySelectorAll('.station-card-icon').forEach(el => replaceLegacyIconElement(el, legacyIconMap['station-building']));
