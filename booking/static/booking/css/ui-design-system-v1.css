@@ -1,0 +1,193 @@
+/* =========================================================
+   STO Booking — UI Design System v1
+   Shared visual primitives for the client and station cabinet.
+   Visual layer only: no business logic.
+   ========================================================= */
+
+:root {
+  --ds-font-body: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ds-font-display: Manrope, Inter, system-ui, sans-serif;
+
+  --ds-color-text: #101828;
+  --ds-color-text-secondary: #344054;
+  --ds-color-muted: #667085;
+  --ds-color-placeholder: #98a2b3;
+  --ds-color-border: #e4e7ec;
+  --ds-color-border-strong: #d0d5dd;
+  --ds-color-surface: #ffffff;
+  --ds-color-surface-subtle: #f8fafc;
+  --ds-color-page: #f5f7fb;
+  --ds-color-primary: #155eef;
+  --ds-color-primary-dark: #0b4acb;
+  --ds-color-primary-soft: #eef4ff;
+  --ds-color-success: #039855;
+  --ds-color-success-soft: #ecfdf3;
+  --ds-color-danger: #d92d20;
+  --ds-color-danger-soft: #fef3f2;
+  --ds-color-warning: #b54708;
+  --ds-color-warning-soft: #fffaeb;
+  --ds-color-info: #175cd3;
+  --ds-color-info-soft: #eff8ff;
+
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-lg: 16px;
+  --ds-radius-xl: 20px;
+
+  --ds-shadow-xs: 0 1px 2px rgba(16, 24, 40, .05);
+  --ds-shadow-sm: 0 4px 14px rgba(16, 24, 40, .06);
+  --ds-shadow-md: 0 12px 30px rgba(16, 24, 40, .09);
+
+  --ds-focus-ring: 0 0 0 4px rgba(21, 94, 239, .12);
+
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-space-10: 40px;
+  --ds-space-12: 48px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--ds-font-body);
+  color: var(--ds-color-text);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--ds-color-primary);
+  outline-offset: 2px;
+}
+
+/*
+   Lucide remains the icon system, but the icons intentionally use the
+   smaller, lighter proportions of the previous UI. This keeps the visual
+   language close to the legacy glyphs instead of making icons dominant.
+*/
+.lucide {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  stroke-width: 2.1;
+  vertical-align: middle;
+}
+
+.lucide[data-lucide="log-out"] {
+  width: 15px;
+  height: 15px;
+}
+
+.ds-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-muted);
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+.ds-icon-button:hover {
+  border-color: #b8c9ee;
+  background: var(--ds-color-primary-soft);
+  color: var(--ds-color-primary);
+}
+
+.ds-inline-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ds-alert-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+/* Public discovery page: keep icons compact and close to the old glyph scale. */
+.discovery-hero .lucide,
+.hero-benefit-icon .lucide,
+.station-card-icon .lucide,
+.station-address .lucide,
+.station-hours .lucide,
+.station-card-arrow .lucide,
+.station-map-empty__icon .lucide,
+.empty-state-icon .lucide {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.1;
+}
+
+.hero-benefit-icon .lucide,
+.station-card-icon .lucide {
+  width: 16px;
+  height: 16px;
+}
+
+.station-card-arrow .lucide {
+  width: 14px;
+  height: 14px;
+}
+
+.btn .lucide,
+.btn-header .lucide,
+.st-nav-link .lucide,
+.st-sidebar__back .lucide {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.1;
+}
+
+.btn,
+.btn-header,
+.st-nav-link,
+.st-sidebar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-nav-link .lucide {
+  opacity: .82;
+}
+
+.st-nav-link--active .lucide,
+.st-nav-link:hover .lucide {
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --ds-radius-xl: 18px;
+  }
+
+  .lucide {
+    width: 15px;
+    height: 15px;
+  }
+
+  .hero-benefit-icon .lucide,
+  .station-card-icon .lucide {
+    width: 15px;
+    height: 15px;
+  }
+}

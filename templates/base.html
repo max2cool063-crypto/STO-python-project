@@ -10,10 +10,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="{% static 'booking/css/site.css' %}">
   <link rel="stylesheet" href="{% static 'booking/css/ui-v3.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/css/ui-design-system-v1.css' %}">
   <link rel="stylesheet" href="{% static 'booking/css/ui-public-v3.css' %}">
   <link rel="stylesheet" href="{% static 'booking/css/ui-cabinet-v1.css' %}">
   <link rel="stylesheet" href="{% static 'booking/css/ui-auth-v1.css' %}">
   <link rel="stylesheet" href="{% static 'booking/css/ui-header-v1.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/css/ui-station-list-v1.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -61,7 +63,10 @@
       </a>
       <form method="post" action="{% url 'logout' %}" style="margin:0">
         {% csrf_token %}
-        <button type="submit" class="btn-header">Выйти</button>
+        <button type="submit" class="btn-header">
+          <i data-lucide="log-out" aria-hidden="true"></i>
+          <span>Выйти</span>
+        </button>
       </form>
     </div>
     {% else %}
@@ -78,7 +83,13 @@
   <div class="messages" aria-live="polite">
     {% for message in messages %}
     <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'success' %}success{% else %}info{% endif %}">
-      {% if message.tags == 'error' %}⚠️{% elif message.tags == 'success' %}✅{% else %}ℹ️{% endif %}
+      {% if message.tags == 'error' %}
+        <i class="ds-alert-icon" data-lucide="circle-alert" aria-hidden="true"></i>
+      {% elif message.tags == 'success' %}
+        <i class="ds-alert-icon" data-lucide="circle-check" aria-hidden="true"></i>
+      {% else %}
+        <i class="ds-alert-icon" data-lucide="info" aria-hidden="true"></i>
+      {% endif %}
       <span>{{ message }}</span>
     </div>
     {% endfor %}
@@ -87,6 +98,10 @@
 
   {% block content %}{% endblock %}
 </main>
+
+{# Lucide is loaded once globally; templates only declare data-lucide icons. #}
+<script src="https://unpkg.com/lucide@1.33.0/dist/umd/lucide.js"></script>
+<script src="{% static 'booking/js/ui-icons-v1.js' %}"></script>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>

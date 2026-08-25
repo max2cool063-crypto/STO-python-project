@@ -1,0 +1,83 @@
+/* =========================================================
+   STO Booking — station list visual refinements v1
+   Keeps Lucide while matching the established STO visual language.
+   ========================================================= */
+
+/* Primary CTA: blue background with white label/icon. */
+body:has(.discovery-hero) .discovery-hero__actions > a.btn.btn-primary {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #fff !important;
+}
+body:has(.discovery-hero) .discovery-hero__actions > a.btn.btn-primary:hover {
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+  color: #fff !important;
+}
+body:has(.discovery-hero) .discovery-hero__actions > a.btn.btn-primary .lucide { color: currentColor !important; stroke: currentColor !important; }
+
+/* Benefit icons: compact, vertically aligned, and visually distinct. */
+body:has(.discovery-hero) .hero-benefit { align-items: center !important; gap: 8px; }
+body:has(.discovery-hero) .hero-benefit-icon { flex: 0 0 22px !important; width: 22px !important; height: 22px !important; }
+body:has(.discovery-hero) .hero-benefit-icon .lucide { width: 20px !important; height: 20px !important; stroke-width: 2.15 !important; }
+
+/* Station address: the Lucide map-pin is the only visible address icon. */
+body:has(.station-discovery-layout) .station-card .station-address::before,
+body:has(.station-discovery-layout) .station-card .station-address::after { content: none !important; display: none !important; }
+body:has(.station-discovery-layout) .station-card .station-address .lucide { width: 13px !important; height: 13px !important; stroke-width: 1.9 !important; flex: 0 0 13px !important; margin-top: 2px !important; }
+
+/* Station action icon: small bookmark, not a large building/house glyph. */
+body:has(.station-discovery-layout) .station-card .station-card-icon::before,
+body:has(.station-discovery-layout) .station-card .station-card-icon::after { content: none !important; display: none !important; }
+body:has(.station-discovery-layout) .station-card .station-card-icon { width: 32px !important; height: 32px !important; border-radius: 50%; }
+body:has(.station-discovery-layout) .station-card .station-card-icon .lucide { width: 17px !important; height: 17px !important; stroke-width: 1.9 !important; }
+
+/* Station cards need a little more vertical room for long addresses. */
+body:has(.station-discovery-layout) .station-map-panel,
+body:has(.station-discovery-layout) .map-container { height: 300px !important; min-height: 300px !important; }
+body:has(.station-discovery-layout) .station-grid { grid-auto-rows: 300px !important; }
+body:has(.station-discovery-layout) .station-card { height: 300px !important; }
+
+/* Keep the schedule at the bottom of the content area and reserve space for it. */
+body:has(.station-discovery-layout) .station-card-content { display: flex !important; flex-direction: column !important; flex: 1 1 auto !important; min-height: 0 !important; }
+body:has(.station-discovery-layout) .station-card .station-address span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; }
+body:has(.station-discovery-layout) .station-card .station-hours { margin-top: auto !important; min-height: 30px; padding-top: 8px !important; line-height: 1.35; }
+body:has(.station-discovery-layout) .station-card .station-hours span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+body:has(.station-discovery-layout) .station-card .station-card-footer { flex: 0 0 auto !important; min-height: 28px; margin-top: 7px !important; padding-top: 9px !important; }
+
+/*
+   The show-more button is outside the two-column layout in the template.
+   Center it specifically under the right-hand station-card grid, not under
+   the map. On smaller screens the layout becomes one column and the button
+   returns to normal horizontal centering.
+*/
+body:has(.station-discovery-layout) .station-show-more {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  width: 314px !important;
+  box-sizing: border-box !important;
+  margin-top: 18px !important;
+  margin-right: 0 !important;
+  margin-bottom: 0 !important;
+  margin-left: calc(500px + 18px + (100% - 500px - 18px - 314px) / 2) !important;
+  line-height: 1;
+}
+body:has(.station-discovery-layout) .station-show-more .lucide { width: 13px !important; height: 13px !important; margin: 0 !important; vertical-align: middle !important; }
+
+@media (max-width: 1050px) {
+  body:has(.station-discovery-layout) .station-map-panel,
+  body:has(.station-discovery-layout) .map-container { height: 330px !important; min-height: 330px !important; }
+  body:has(.station-discovery-layout) .station-grid { grid-auto-rows: 330px !important; }
+  body:has(.station-discovery-layout) .station-card { height: 330px !important; }
+  body:has(.station-discovery-layout) .station-show-more { margin-left: auto !important; margin-right: auto !important; }
+}
+
+@media (max-width: 720px) {
+  body:has(.discovery-hero) .hero-benefit-icon { flex-basis: 21px !important; width: 21px !important; height: 21px !important; }
+  body:has(.discovery-hero) .hero-benefit-icon .lucide { width: 19px !important; height: 19px !important; }
+  body:has(.station-discovery-layout) .station-card .station-card-icon { width: 30px !important; height: 30px !important; }
+  body:has(.station-discovery-layout) .station-card .station-card-icon .lucide { width: 16px !important; height: 16px !important; }
+  body:has(.station-discovery-layout) .station-show-more { margin-left: auto !important; margin-right: auto !important; }
+}
