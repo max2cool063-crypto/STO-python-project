@@ -23,7 +23,7 @@
     'booking-truck': 'truck',
     'booking-camera': 'camera',
     'booking-arrow': 'arrow-right',
-    'booking-building': 'building-2',
+    'booking-building': 'bookmark',
     'booking-more': 'chevron-down',
     'auth-check': 'check',
     'auth-mail': 'mail',
@@ -85,6 +85,13 @@
     scope.querySelectorAll('.booking-photo-drop > span').forEach(el => replaceLegacyIconElement(el, legacyIconMap['booking-camera']));
     scope.querySelectorAll('#submit-btn > span').forEach(el => replaceLegacyIconElement(el, legacyIconMap['booking-arrow']));
     scope.querySelectorAll('.booking-other-card__icon').forEach(el => replaceLegacyIconElement(el, legacyIconMap['booking-building']));
+    scope.querySelectorAll('.booking-other-card .station-status').forEach(function (el) {
+      Array.from(el.childNodes).forEach(function (node) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.includes('Активна')) {
+          node.textContent = node.textContent.replace('Активна', 'Открыта');
+        }
+      });
+    });
     scope.querySelectorAll('.booking-other-card__address').forEach(el => replaceFirstTextWithIcon(el, legacyIconMap['booking-address']));
     scope.querySelectorAll('.booking-other-card__link b').forEach(el => replaceLegacyIconElement(el, legacyIconMap['booking-arrow']));
     scope.querySelectorAll('.booking-show-more span').forEach(el => replaceLegacyIconElement(el, legacyIconMap['booking-more']));
