@@ -75,7 +75,14 @@
     scope.querySelectorAll('.station-show-more span').forEach(el => replaceLegacyIconElement(el, legacyIconMap['station-more']));
 
     scope.querySelectorAll('.booking-back a').forEach(el => replaceFirstTextWithIcon(el, legacyIconMap['booking-back']));
-    scope.querySelectorAll('.booking-station-address').forEach(el => replaceFirstTextWithIcon(el, legacyIconMap['booking-address']));
+    scope.querySelectorAll('.booking-station-address').forEach(function (el) {
+      // The booking template used to contain a legacy pin span. Remove it first,
+      // otherwise the runtime adds a second map-pin before the address.
+      el.querySelectorAll(':scope > span[aria-hidden="true"]').forEach(function (legacyGlyph) {
+        legacyGlyph.remove();
+      });
+      replaceFirstTextWithIcon(el, legacyIconMap['booking-address']);
+    });
     scope.querySelectorAll('.booking-trust-icon').forEach(el => replaceLegacyIconElement(el, legacyIconMap['booking-trust']));
     scope.querySelectorAll('.booking-location-icon').forEach(el => replaceLegacyIconElement(el, legacyIconMap['booking-location']));
     scope.querySelectorAll('.booking-calendar-icon').forEach(function (el) {
@@ -118,10 +125,12 @@
 
     // Booking page: the other-stations bookmark must be much smaller than the container.
     scope.querySelectorAll('.booking-other-card__icon .lucide').forEach(function (icon) {
-      icon.style.width = '10px';
-      icon.style.height = '10px';
-      icon.style.strokeWidth = '2';
-      icon.style.flex = '0 0 auto';
+      icon.setAttribute('width', '8');
+      icon.setAttribute('height', '8');
+      icon.style.setProperty('width', '8px', 'important');
+      icon.style.setProperty('height', '8px', 'important');
+      icon.style.setProperty('stroke-width', '2', 'important');
+      icon.style.setProperty('flex', '0 0 auto', 'important');
     });
   }
 
