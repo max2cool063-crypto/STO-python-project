@@ -115,6 +115,16 @@
       root: scope,
       attrs: { 'aria-hidden': 'true', focusable: 'false' }
     });
+
+    // Booking page: the other-stations card uses a compact bookmark icon.
+    // Set the SVG dimensions explicitly because global Lucide rules may
+    // otherwise force the icon back to the default 20–24px size.
+    scope.querySelectorAll('.booking-other-card__icon .lucide').forEach(function (icon) {
+      icon.style.width = '14px';
+      icon.style.height = '14px';
+      icon.style.strokeWidth = '2';
+      icon.style.flex = '0 0 auto';
+    });
   }
 
   window.STOIcons = window.STOIcons || {};
