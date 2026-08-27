@@ -76,8 +76,6 @@
 
     scope.querySelectorAll('.booking-back a').forEach(el => replaceFirstTextWithIcon(el, legacyIconMap['booking-back']));
     scope.querySelectorAll('.booking-station-address').forEach(function (el) {
-      // The booking template used to contain a legacy pin span. Remove it first,
-      // otherwise the runtime adds a second map-pin before the address.
       el.querySelectorAll(':scope > span[aria-hidden="true"]').forEach(function (legacyGlyph) {
         legacyGlyph.remove();
       });
@@ -123,14 +121,17 @@
       attrs: { 'aria-hidden': 'true', focusable: 'false' }
     });
 
-    // Booking page: the other-stations bookmark must be much smaller than the container.
-    scope.querySelectorAll('.booking-other-card__icon .lucide').forEach(function (icon) {
-      icon.setAttribute('width', '8');
-      icon.setAttribute('height', '8');
-      icon.style.setProperty('width', '8px', 'important');
-      icon.style.setProperty('height', '8px', 'important');
+    // Booking page: make the bookmark itself visually small while keeping
+    // the 36px clickable/background container unchanged.
+    scope.querySelectorAll('.booking-other-card__icon').forEach(function (container) {
+      const icon = container.querySelector('svg');
+      if (!icon) return;
+      icon.style.setProperty('width', '24px', 'important');
+      icon.style.setProperty('height', '24px', 'important');
       icon.style.setProperty('stroke-width', '2', 'important');
       icon.style.setProperty('flex', '0 0 auto', 'important');
+      icon.style.setProperty('transform', 'scale(0.42)', 'important');
+      icon.style.setProperty('transform-origin', 'center center', 'important');
     });
   }
 
