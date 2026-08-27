@@ -143,29 +143,16 @@ textarea {
   height: 16px;
 }
 
+/* Booking alternatives: keep the bookmark visibly smaller than the card icon container. */
+.booking-other-card__icon .lucide {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.1;
+}
+
 .station-card-arrow .lucide {
   width: 14px;
   height: 14px;
-}
-
-/* Booking "other stations": match the compact bookmark treatment used
-   by the public station cards. */
-.booking-other-card__icon {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--ds-color-primary-soft);
-  color: var(--ds-color-primary);
-  font-size: 0;
-}
-
-.booking-other-card__icon .lucide {
-  width: 16px;
-  height: 16px;
-  stroke-width: 1.9;
 }
 
 .btn .lucide,
@@ -206,15 +193,13 @@ textarea {
   }
 
   .hero-benefit-icon .lucide,
-  .station-card-icon .lucide,
-  .booking-other-card__icon .lucide {
+  .station-card-icon .lucide {
     width: 15px;
     height: 15px;
   }
 
-  .booking-other-card__icon {
-    width: 30px;
-    height: 30px;
-    flex-basis: 30px;
+  .booking-other-card__icon .lucide {
+    width: 13px;
+    height: 13px;
   }
 }
