@@ -112,6 +112,11 @@
     scope.querySelectorAll('.cabinet-photo-lightbox__close').forEach(el => replaceLegacyIconElement(el, legacyIconMap['cabinet-close']));
   }
 
+  function renderSmallBookingBookmark(container) {
+    if (!container) return;
+    container.innerHTML = '<svg class="booking-small-bookmark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
+  }
+
   function refreshIcons(root) {
     const scope = root || document;
     migrateLegacyGlyphs(scope);
@@ -121,17 +126,10 @@
       attrs: { 'aria-hidden': 'true', focusable: 'false' }
     });
 
-    // Booking page: make the bookmark itself visually small while keeping
-    // the 36px clickable/background container unchanged.
+    // The bookmark in "Другие станции" is intentionally rendered as a
+    // dedicated 14x14 SVG. This avoids any global Lucide sizing rules.
     scope.querySelectorAll('.booking-other-card__icon').forEach(function (container) {
-      const icon = container.querySelector('svg');
-      if (!icon) return;
-      icon.style.setProperty('width', '24px', 'important');
-      icon.style.setProperty('height', '24px', 'important');
-      icon.style.setProperty('stroke-width', '2', 'important');
-      icon.style.setProperty('flex', '0 0 auto', 'important');
-      icon.style.setProperty('transform', 'scale(0.42)', 'important');
-      icon.style.setProperty('transform-origin', 'center center', 'important');
+      renderSmallBookingBookmark(container);
     });
   }
 
