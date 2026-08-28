@@ -115,19 +115,21 @@
   function renderSmallBookingBookmark(container) {
     if (!container) return;
 
-    // Match the public station-card bookmark: compact circular background.
+    // Match the public station-card bookmark exactly.
     container.style.setProperty('width', '32px', 'important');
     container.style.setProperty('height', '32px', 'important');
     container.style.setProperty('min-width', '32px', 'important');
     container.style.setProperty('min-height', '32px', 'important');
     container.style.setProperty('border-radius', '50%', 'important');
-    container.style.setProperty('display', 'grid', 'important');
-    container.style.setProperty('place-items', 'center', 'important');
+    container.style.setProperty('display', 'inline-flex', 'important');
+    container.style.setProperty('align-items', 'center', 'important');
+    container.style.setProperty('justify-content', 'center', 'important');
+    container.style.setProperty('box-sizing', 'border-box', 'important');
     container.style.setProperty('background', '#eef4ff', 'important');
     container.style.setProperty('color', '#155eef', 'important');
     container.style.setProperty('font-size', '0', 'important');
-
-    container.innerHTML = '<svg class="booking-small-bookmark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
+    container.style.setProperty('line-height', '0', 'important');
+    container.innerHTML = '<svg class="booking-small-bookmark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="width:17px;height:17px;display:block;flex:0 0 17px;"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
   }
 
   function refreshIcons(root) {
@@ -139,8 +141,8 @@
       attrs: { 'aria-hidden': 'true', focusable: 'false' }
     });
 
-    // The bookmark in "Другие станции" is intentionally rendered as a
-    // dedicated 14x14 SVG with a compact circular 32x32 background.
+    // The bookmark in "Другие станции" intentionally mirrors the public station card:
+    // 32x32 circular container and 17x17 bookmark SVG.
     scope.querySelectorAll('.booking-other-card__icon').forEach(function (container) {
       renderSmallBookingBookmark(container);
     });
