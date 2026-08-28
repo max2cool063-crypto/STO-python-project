@@ -1,0 +1,41 @@
+/* Booking station cards: match the public station-card bookmark geometry exactly. */
+.booking-other-card__icon {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 40px !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  border-radius: 50% !important;
+  background: #eff4ff !important;
+  color: #155eef !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+
+.booking-other-card__icon .booking-small-bookmark,
+.booking-other-card__icon > svg {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 19px !important;
+  height: 19px !important;
+  min-width: 19px !important;
+  min-height: 19px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  flex: none !important;
+  transform: translate(-50%, -50%) !important;
+  transform-origin: center center !important;
+  box-sizing: border-box !important;
+  stroke-width: 1.9 !important;
+}
