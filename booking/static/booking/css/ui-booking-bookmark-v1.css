@@ -1,4 +1,4 @@
-/* Booking station cards: use the exact same geometry as the public station-card bookmark. */
+/* Booking station cards: keep the same 32px circular container as the public card, but use a smaller bookmark icon. */
 .booking-other-card__icon {
   position: relative !important;
   display: grid !important;
@@ -20,10 +20,10 @@
 
 .booking-other-card__icon .lucide {
   position: static !important;
-  width: 17px !important;
-  height: 17px !important;
-  min-width: 17px !important;
-  min-height: 17px !important;
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
   margin: 0 !important;
   padding: 0 !important;
   display: block !important;
