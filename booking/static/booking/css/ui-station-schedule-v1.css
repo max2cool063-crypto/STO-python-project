@@ -1,0 +1,21 @@
+/*
+ * Station schedule page — v1
+ * Layout-only overrides for the weekly schedule cards.
+ */
+
+.st-week-day__head{
+  display:grid;
+  grid-template-columns:1fr;
+  align-items:start;
+  justify-content:initial;
+  gap:5px;
+  min-height:43px;
+}
+
+.st-week-day__name{
+  display:block;
+}
+
+.st-week-day__head .st-status-dot{
+  justify-self:start;
+}
