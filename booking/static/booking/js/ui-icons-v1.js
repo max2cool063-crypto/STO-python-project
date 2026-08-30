@@ -79,11 +79,28 @@
     scope.querySelectorAll('.cabinet-photo-lightbox__close').forEach(el => replaceLegacyIconElement(el, legacyIconMap['cabinet-close']));
   }
 
+  function normalizeBookingBookmarkIcons(root) {
+    const scope = root || document;
+    scope.querySelectorAll('.booking-other-card__icon .lucide').forEach(function (icon) {
+      icon.style.setProperty('width', '14px', 'important');
+      icon.style.setProperty('height', '14px', 'important');
+      icon.style.setProperty('min-width', '14px', 'important');
+      icon.style.setProperty('min-height', '14px', 'important');
+      icon.style.setProperty('margin', '0', 'important');
+      icon.style.setProperty('padding', '0', 'important');
+      icon.style.setProperty('display', 'block', 'important');
+      icon.style.setProperty('flex', 'none', 'important');
+      icon.style.setProperty('transform', 'none', 'important');
+      icon.style.setProperty('stroke-width', '1.9', 'important');
+    });
+  }
+
   function refreshIcons(root) {
     const scope = root || document;
     migrateLegacyGlyphs(scope);
     if (!window.lucide || typeof window.lucide.createIcons !== 'function') return;
     window.lucide.createIcons({ root: scope, attrs: { 'aria-hidden': 'true', focusable: 'false' } });
+    normalizeBookingBookmarkIcons(scope);
   }
 
   window.STOIcons = window.STOIcons || {};
