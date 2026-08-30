@@ -9,6 +9,9 @@
 {% if request.resolver_match.url_name == 'station_staff' %}
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-staff-v1.css' %}">
 {% endif %}
+{% if request.resolver_match.url_name == 'station_schedule' %}
+<link rel="stylesheet" href="{% static 'booking/css/ui-station-schedule-v1.css' %}">
+{% endif %}
 {% endblock %}
 {% block content %}
 <div class="st-layout">
