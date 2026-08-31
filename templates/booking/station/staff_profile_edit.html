@@ -25,11 +25,11 @@
         <div class="st-profile-edit-grid">
           <div class="st-form-group">
             <label for="first-name">Имя</label>
-            <input id="first-name" class="st-input" type="text" name="first_name" value="{{ profile.first_name }}" maxlength="100" autocomplete="given-name">
+            <input id="first-name" class="st-input" type="text" name="first_name" value="{{ member.user.first_name }}" maxlength="150" autocomplete="given-name">
           </div>
           <div class="st-form-group">
             <label for="last-name">Фамилия</label>
-            <input id="last-name" class="st-input" type="text" name="last_name" value="{{ profile.last_name }}" maxlength="100" autocomplete="family-name">
+            <input id="last-name" class="st-input" type="text" name="last_name" value="{{ member.user.last_name }}" maxlength="150" autocomplete="family-name">
           </div>
           <div class="st-form-group">
             <label for="email">Email</label>
