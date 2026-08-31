@@ -60,15 +60,11 @@
             <td>
               <div style="display:flex;align-items:center;gap:12px;min-width:210px">
                 <div style="width:42px;height:42px;flex:0 0 42px;border-radius:12px;background:#eef4ff;color:#155eef;display:grid;place-items:center;font-size:14px;font-weight:800">
-                  {% with p=client.profile %}
-                    {% if p.first_name %}{{ p.first_name|slice:':1'|upper }}{% elif p.last_name %}{{ p.last_name|slice:':1'|upper }}{% else %}К{% endif %}
-                  {% endwith %}
+                  {% if client.first_name %}{{ client.first_name|slice:':1'|upper }}{% elif client.last_name %}{{ client.last_name|slice:':1'|upper }}{% else %}К{% endif %}
                 </div>
                 <div>
                   <div class="st-appointment-client">
-                    {% with p=client.profile %}
-                      {% if p.last_name or p.first_name %}{{ p.last_name }} {{ p.first_name }}{% else %}Без имени{% endif %}
-                    {% endwith %}
+                    {% if client.last_name or client.first_name %}{{ client.last_name }} {{ client.first_name }}{% else %}Без имени{% endif %}
                   </div>
                   <span class="st-appointment-sub">Клиент №{{ client.pk }}</span>
                 </div>
