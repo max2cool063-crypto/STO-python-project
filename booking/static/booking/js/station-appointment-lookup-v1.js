@@ -16,6 +16,19 @@
     return match ? match[1] : '';
   }
 
+  function clearNewCarFields() {
+    ['new-email', 'vin-input'].forEach(function (id) {
+      var node = byId(id);
+      if (node) node.value = '';
+    });
+    var brand = byId('brand-select');
+    var model = byId('model-select');
+    if (brand) brand.value = '';
+    if (model) {
+      model.innerHTML = '<option value="">Сначала выберите марку</option>';
+    }
+  }
+
   function clearClientFields() {
     var name = byId('client-name');
     var phone = byId('client-phone');
@@ -86,7 +99,7 @@
     matches.forEach(function (car) {
       var title = (car.brand || '') + ' ' + (car.model || '');
       var owner = car.owner_name || 'Владелец не указан';
-      var details = [owner, car.owner_phone || '', car.vin ? 'VIN: ' + car.vin : ''].filter(Boolean).join(' · ');
+      var details = [owner, car.owner_phone || '', car.owner_email || '', car.vin ? 'VIN: ' + car.vin : ''].filter(Boolean).join(' · ');
       html += '<button type="button" class="st-btn st-btn--secondary station-plate-match" data-car-id="' + String(car.id) + '" style="justify-content:flex-start;text-align:left;padding:10px 12px">' +
         '<span><strong>' + escapeHtml(title) + '</strong><small style="display:block;color:#64748b;margin-top:3px">' + escapeHtml(details) + '</small></span>' +
         '</button>';
@@ -121,13 +134,17 @@
     var plate = input.value.trim().toUpperCase();
     if (!plate) {
       clearClientFields();
+      clearNewCarFields();
       info.textContent = 'Введите госномер.';
       info.style.color = '#b91c1c';
       showNewCar();
       return;
     }
 
+    // Each lookup starts from a clean state, so the second search cannot leave
+    // the previous car or client in the form.
     clearClientFields();
+    clearNewCarFields();
     hideNewCar();
     info.style.color = '#64748b';
     info.textContent = 'Ищем автомобиль…';
