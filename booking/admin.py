@@ -48,9 +48,7 @@ class AppointmentPhotoInline(admin.TabularInline):
 
     def image_preview(self, obj):
         if obj.image:
-            return mark_safe(
-                f'<img src="{obj.image.url}" height="80" style="border-radius:8px" />'
-            )
+            return mark_safe(f'<img src="{obj.image.url}" height="80" style="border-radius:8px" />')
         return "—"
     image_preview.short_description = "Фото"
 
@@ -61,7 +59,6 @@ class StationAdmin(admin.ModelAdmin):
     list_editable = ("is_active",)
     search_fields = ("rsa_id", "name", "address")
     list_filter = ("is_active",)
-
     fieldsets = (
         ("Основная информация", {"fields": ("name", "rsa_id", "address", "phone", "email", "is_active")}),
         ("Координаты и карта", {"fields": ("latitude", "longitude", "map_preview")}),
@@ -171,7 +168,10 @@ class StationAdmin(admin.ModelAdmin):
         except ImportError:
             messages.error(request, "Библиотека holidays не установлена.")
             return redirect(f"/admin/booking/station/{pk}/change/")
-        station = Station.objects.get(pk=pk); year = date_type.today().year; ru_holidays = holidays_lib.Russia(years=year); created = skipped = 0
+        station = Station.objects.get(pk=pk)
+        year = date_type.today().year
+        ru_holidays = holidays_lib.Russia(years=year)
+        created = skipped = 0
         for hdate, hname in sorted(ru_holidays.items()):
             _, was_created = StationSchedule.objects.get_or_create(station=station, date=hdate, defaults={"work_start": time(0, 0), "work_end": time(0, 0)})
             created += int(was_created); skipped += int(not was_created)
@@ -210,19 +210,19 @@ class AppointmentAdmin(admin.ModelAdmin):
     inlines = [AppointmentPhotoInline]
     date_hierarchy = "start"
 
+    @admin.display(description="Клиент")
     def client_name(self, obj):
-        p = getattr(obj.user, "profile", None)
-        return f"{p.last_name} {p.first_name}" if p else obj.name
-    client_name.short_description = "Клиент"
+        full_name = " ".join(filter(None, [obj.user.last_name, obj.user.first_name]))
+        return full_name or obj.name
 
+    @admin.display(description="Телефон")
     def client_phone(self, obj):
-        p = getattr(obj.user, "profile", None)
-        return p.phone if p and p.phone else "—"
-    client_phone.short_description = "Телефон"
+        profile = getattr(obj.user, "profile", None)
+        return profile.phone if profile and profile.phone else "—"
 
+    @admin.display(description="Тип ТС")
     def get_type(self, obj):
         return obj.car.model.get_vehicle_type_display()
-    get_type.short_description = "Тип ТС"
 
 
 class UserAdmin(DjangoUserAdmin):
@@ -239,15 +239,27 @@ admin.site.register(User, UserAdmin)
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ("username", "last_name", "first_name", "email", "phone")
-    search_fields = ("user__username", "user__email", "user__last_name", "user__first_name", "last_name", "first_name", "phone")
+    search_fields = ("user__username", "user__email", "user__last_name", "user__first_name", "phone")
 
     @admin.display(description="Логин", ordering="user__username")
     def username(self, obj):
         return obj.user.username
 
+    @admin.display(description="Фамилия", ordering="user__last_name")
+    def last_name(self, obj):
+        return obj.user.last_name
+
+    @admin.display(description="Имя", ordering="user__first_name")
+    def first_name(self, obj):
+        return obj.user.first_name
+
     @admin.display(description="Почта", ordering="user__email")
     def email(self, obj):
         return obj.user.email
+
+    @admin.display(description="Телефон")
+    def phone(self, obj):
+        return obj.phone
 
 
 @admin.register(Car)
