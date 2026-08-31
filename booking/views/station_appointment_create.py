@@ -12,7 +12,7 @@ from django.utils.dateparse import parse_datetime
 from django.utils.timezone import is_aware, make_aware
 
 from booking.forms import PhotosUploadForm
-from booking.models import Appointment, AppointmentPhoto, Car, CarModel, Station
+from booking.models import Appointment, AppointmentPhoto, Car, CarModel, Station, UserProfile
 from booking.notifications import notify_client_booked, notify_station_staff_booked
 from booking.station_access import require_station_access
 from booking.views.auth import send_password_setup_email
@@ -37,6 +37,35 @@ def _get_or_create_client(email):
     user.set_unusable_password()
     user.save(update_fields=["password"])
     return user, True
+
+
+def _split_client_name(value):
+    """Map the single manual-entry full-name field to Django User fields."""
+    parts = [part for part in (value or "").split() if part]
+    if not parts:
+        return "", ""
+    if len(parts) == 1:
+        return parts[0], ""
+    return " ".join(parts[1:]), parts[0]
+
+
+def _save_client_identity(user, name, phone):
+    """Persist the manually entered client identity in the canonical User/Profile records."""
+    first_name, last_name = _split_client_name(name)
+    changed = []
+    if user.first_name != first_name:
+        user.first_name = first_name
+        changed.append("first_name")
+    if user.last_name != last_name:
+        user.last_name = last_name
+        changed.append("last_name")
+    if changed:
+        user.save(update_fields=changed)
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    if profile.phone != (phone or ""):
+        profile.phone = phone or ""
+        profile.save(update_fields=["phone"])
 
 
 @login_required
@@ -94,6 +123,7 @@ def station_appointment_create(request, station_id, staff=None):
                         raise ValidationError("Выбрана некорректная модель автомобиля")
 
                     client_user, user_created = _get_or_create_client(email)
+                    _save_client_identity(client_user, client_name, client_phone)
                     car = Car.objects.create(
                         owner=client_user,
                         model=model,
@@ -106,11 +136,13 @@ def station_appointment_create(request, station_id, staff=None):
                         id=car_id,
                         is_active=True,
                     )
+                    client_user = car.owner
+                    _save_client_identity(client_user, client_name, client_phone)
 
                 locked_station = Station.objects.select_for_update().get(pk=station.pk)
                 appointment = Appointment.objects.create(
                     station=locked_station,
-                    user=car.owner,
+                    user=client_user,
                     car=car,
                     start=start,
                     end=start,
