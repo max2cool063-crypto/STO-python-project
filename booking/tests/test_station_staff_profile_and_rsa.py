@@ -35,8 +35,9 @@ class StationStaffProfileTests(TestCase):
         self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
         operator = User.objects.get(username="operator@example.com")
         self.assertEqual(operator.email, "operator@example.com")
-        self.assertEqual(operator.profile.first_name, "Иван")
-        self.assertEqual(operator.profile.last_name, "Иванов")
+        self.assertEqual(operator.first_name, "Иван")
+        self.assertEqual(operator.last_name, "Иванов")
+        self.assertEqual(operator.profile.phone, "")
         self.assertTrue(
             StationStaff.objects.filter(
                 station=self.station, user=operator, role=StationStaff.ROLE_OPERATOR
@@ -48,9 +49,9 @@ class StationStaffProfileTests(TestCase):
             username="operator2",
             email="old@example.com",
             password="Strong-operator-123!",
+            first_name="Старое",
+            last_name="Имя",
         )
-        operator.profile.first_name = "Старое"
-        operator.profile.last_name = "Имя"
         operator.profile.phone = "+70000000000"
         operator.profile.save()
         member = StationStaff.objects.create(
@@ -73,8 +74,8 @@ class StationStaffProfileTests(TestCase):
         self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
         operator.refresh_from_db()
         self.assertEqual(operator.email, "new@example.com")
-        self.assertEqual(operator.profile.first_name, "Пётр")
-        self.assertEqual(operator.profile.last_name, "Петров")
+        self.assertEqual(operator.first_name, "Пётр")
+        self.assertEqual(operator.last_name, "Петров")
         self.assertEqual(operator.profile.phone, "+79991234567")
 
     def test_owner_can_edit_own_profile(self):
@@ -90,8 +91,8 @@ class StationStaffProfileTests(TestCase):
         self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
         self.owner.refresh_from_db()
         self.assertEqual(self.owner.email, "owner-new@example.com")
-        self.assertEqual(self.owner.profile.first_name, "Александр")
-        self.assertEqual(self.owner.profile.last_name, "Николаев")
+        self.assertEqual(self.owner.first_name, "Александр")
+        self.assertEqual(self.owner.last_name, "Николаев")
         self.assertEqual(self.owner.profile.phone, "+79990001122")
 
 
