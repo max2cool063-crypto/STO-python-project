@@ -62,7 +62,7 @@ def car_api(request, car_id):
 @require_GET
 @login_required
 def car_by_plate_api(request):
-    """Search active cars by plate and return every matching record."""
+    """Search active cars by plate among clients known to the current station."""
     plate = request.GET.get("plate", "").strip().upper()
     station_id = request.GET.get("station_id", "").strip()
 
@@ -73,13 +73,19 @@ def car_by_plate_api(request):
     if not staff:
         return JsonResponse({"error": "forbidden"}, status=403)
 
-    # Do not silently choose the first car. A registration plate can be reused
-    # after a vehicle changes owner, so all active records are returned and the
-    # operator must explicitly choose the correct vehicle when ambiguous.
+    # A station employee must not be able to discover clients of another
+    # station. At the same time, a plate may legitimately occur on several
+    # active cars (for example after a change of owner). Therefore we search
+    # all active cars known to THIS station and return every matching record.
     cars = list(
         Car.objects
         .select_related("model__brand", "owner__profile")
-        .filter(plate_number=plate, is_active=True)
+        .filter(
+            plate_number=plate,
+            is_active=True,
+            appointments__station_id=station_id,
+        )
+        .distinct()
         .order_by("owner_id", "id")
     )
 
