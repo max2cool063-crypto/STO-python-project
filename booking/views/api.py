@@ -62,7 +62,7 @@ def car_api(request, car_id):
 @require_GET
 @login_required
 def car_by_plate_api(request):
-    """Поиск автомобиля по госномеру в рамках станции оператора."""
+    """Search active cars by plate and return every matching record."""
     plate = request.GET.get("plate", "").strip().upper()
     station_id = request.GET.get("station_id", "").strip()
 
@@ -73,33 +73,46 @@ def car_by_plate_api(request):
     if not staff:
         return JsonResponse({"error": "forbidden"}, status=403)
 
-    car = (
+    # Do not silently choose the first car. A registration plate can be reused
+    # after a vehicle changes owner, so all active records are returned and the
+    # operator must explicitly choose the correct vehicle when ambiguous.
+    cars = list(
         Car.objects
         .select_related("model__brand", "owner__profile")
-        .filter(
-            plate_number=plate,
-            is_active=True,
-            appointments__station=staff.station,
-        )
-        .distinct()
-        .first()
+        .filter(plate_number=plate, is_active=True)
+        .order_by("owner_id", "id")
     )
 
-    if not car:
+    if not cars:
         return JsonResponse({"error": "not found"}, status=404)
 
-    profile = getattr(car.owner, "profile", None)
-    owner_name = f"{car.owner.last_name} {car.owner.first_name}".strip() or car.owner.username
+    matches = []
+    for car in cars:
+        profile = getattr(car.owner, "profile", None)
+        owner_name = f"{car.owner.last_name} {car.owner.first_name}".strip() or car.owner.username
+        matches.append({
+            "id": car.id,
+            "vehicle_type": car.model.vehicle_type,
+            "brand": car.model.brand.name,
+            "model": car.model.name,
+            "vin": car.vin or "",
+            "owner_name": owner_name,
+            "owner_phone": profile.phone if profile else "",
+            "owner_email": car.owner.email or "",
+        })
 
-    return JsonResponse({
-        "id": car.id,
-        "vehicle_type": car.model.vehicle_type,
-        "brand": car.model.brand.name,
-        "model": car.model.name,
-        "vin": car.vin or "",
-        "owner_name": owner_name,
-        "owner_phone": profile.phone if profile else "",
-    })
+    response = {
+        "count": len(matches),
+        "ambiguous": len(matches) > 1,
+        "matches": matches,
+    }
+
+    # Keep the existing single-result response contract for the current form.
+    # The new UI uses matches when count > 1.
+    if len(matches) == 1:
+        response.update(matches[0])
+
+    return JsonResponse(response)
 
 
 @require_GET
