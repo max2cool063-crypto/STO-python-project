@@ -59,7 +59,7 @@ def book_station(request, pk):
                     start=start,
                     end=start,
                     name=(
-                        f"{profile.last_name or ''} {profile.first_name or ''}".strip()
+                        f"{request.user.last_name or ''} {request.user.first_name or ''}".strip()
                         or request.user.username
                     ),
                     phone=profile.phone,
