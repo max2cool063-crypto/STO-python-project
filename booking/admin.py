@@ -6,6 +6,8 @@ from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.urls import path
 from django.http import StreamingHttpResponse
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from datetime import time, date as date_type
 import json
 import time as time_mod
@@ -221,6 +223,17 @@ class AppointmentAdmin(admin.ModelAdmin):
     def get_type(self, obj):
         return obj.car.model.get_vehicle_type_display()
     get_type.short_description = "Тип ТС"
+
+
+class UserAdmin(DjangoUserAdmin):
+    list_display = ("username", "last_name", "first_name", "email", "is_staff", "is_active")
+    list_display_links = ("username",)
+    search_fields = ("username", "email", "first_name", "last_name")
+    ordering = ("username",)
+
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
 
 
 @admin.register(UserProfile)
