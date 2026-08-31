@@ -14,6 +14,7 @@ from booking.views.station_appointment_create import station_appointment_create
 from booking.views.station_appointment_detail import station_appointment_detail
 from booking.views.station_appointment_edit import station_appointment_edit
 from booking.views.station_calendar import station_day_calendar
+from booking.views.station_clients import station_clients
 from booking.views.station_staff_manage import (
     station_staff_create_operator,
     station_staff_edit_profile,
@@ -60,7 +61,7 @@ urlpatterns = [
     path("station/<int:station_id>/appointments/csv/", views.station_appointments_csv, name="station_appointments_csv"),
     path("station/<int:station_id>/schedule/", views.station_schedule, name="station_schedule"),
     path("station/<int:station_id>/slot-blocks/", views.station_slot_blocks, name="station_slot_blocks"),
-    path("station/<int:station_id>/clients/", views.station_clients, name="station_clients"),
+    path("station/<int:station_id>/clients/", station_clients, name="station_clients"),
     path("station/<int:station_id>/staff/", views.station_staff, name="station_staff"),
     path("station/<int:station_id>/staff/create-operator/", station_staff_create_operator, name="station_staff_create_operator"),
     path("station/<int:station_id>/staff/<int:member_id>/edit/", station_staff_edit_profile, name="station_staff_edit_profile"),
