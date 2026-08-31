@@ -75,17 +75,33 @@ class StationClientAndPlateLookupTests(TestCase):
             first_name="Пётр",
             last_name="Петров",
         )
-        Car.objects.create(
+        first_car = Car.objects.create(
             owner=first_owner,
             model=self.model,
             plate_number="A222AA63",
             vin="VINONE",
         )
-        Car.objects.create(
+        second_car = Car.objects.create(
             owner=second_owner,
             model=self.model,
             plate_number="A222AA63",
             vin="VINTWO",
+        )
+        Appointment.objects.create(
+            station=self.station,
+            user=first_owner,
+            car=first_car,
+            start=self.start_dt,
+            end=self.start_dt + timedelta(minutes=30),
+            name="Иванов Иван",
+        )
+        Appointment.objects.create(
+            station=self.station,
+            user=second_owner,
+            car=second_car,
+            start=self.start_dt + timedelta(hours=1),
+            end=self.start_dt + timedelta(hours=1, minutes=30),
+            name="Петров Пётр",
         )
 
         response = self.client.get(
@@ -102,8 +118,24 @@ class StationClientAndPlateLookupTests(TestCase):
     def test_plate_lookup_can_be_repeated_without_server_side_state(self):
         owner_one = User.objects.create_user(username="repeat-one", first_name="Один")
         owner_two = User.objects.create_user(username="repeat-two", first_name="Два")
-        Car.objects.create(owner=owner_one, model=self.model, plate_number="A333AA63")
-        Car.objects.create(owner=owner_two, model=self.model, plate_number="A444AA63")
+        car_one = Car.objects.create(owner=owner_one, model=self.model, plate_number="A333AA63")
+        car_two = Car.objects.create(owner=owner_two, model=self.model, plate_number="A444AA63")
+        Appointment.objects.create(
+            station=self.station,
+            user=owner_one,
+            car=car_one,
+            start=self.start_dt,
+            end=self.start_dt + timedelta(minutes=30),
+            name="Один",
+        )
+        Appointment.objects.create(
+            station=self.station,
+            user=owner_two,
+            car=car_two,
+            start=self.start_dt + timedelta(hours=1),
+            end=self.start_dt + timedelta(hours=1, minutes=30),
+            name="Два",
+        )
 
         first = self.client.get(
             reverse("car_by_plate_api"),
@@ -116,6 +148,30 @@ class StationClientAndPlateLookupTests(TestCase):
 
         self.assertEqual(first["owner_name"], "Один")
         self.assertEqual(second["owner_name"], "Два")
+
+    def test_plate_lookup_does_not_expose_car_known_only_to_another_station(self):
+        other_station = Station.objects.create(name="Other Lookup Station")
+        owner = User.objects.create_user(username="foreign-owner", first_name="Чужой")
+        car = Car.objects.create(
+            owner=owner,
+            model=self.model,
+            plate_number="A777AA63",
+        )
+        Appointment.objects.create(
+            station=other_station,
+            user=owner,
+            car=car,
+            start=self.start_dt,
+            end=self.start_dt + timedelta(minutes=30),
+            name="Чужой",
+        )
+
+        response = self.client.get(
+            reverse("car_by_plate_api"),
+            {"plate": "A777AA63", "station_id": self.station.id},
+        )
+
+        self.assertEqual(response.status_code, 404)
 
     def test_manual_booking_persists_client_name_to_user(self):
         response = self.client.post(
