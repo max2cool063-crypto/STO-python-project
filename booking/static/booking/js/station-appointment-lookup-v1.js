@@ -1,0 +1,179 @@
+(function () {
+  'use strict';
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function setText(id, value) {
+    var node = byId(id);
+    if (node) node.textContent = value || '';
+  }
+
+  function clearClientFields() {
+    var name = byId('client-name');
+    var phone = byId('client-phone');
+    var hidden = byId('car-id-input');
+    if (name) name.value = '';
+    if (phone) phone.value = '';
+    if (hidden) hidden.value = '';
+    setText('summary-client', 'Не указан');
+    setText('summary-car', 'Не выбран');
+    if (typeof currentCarId !== 'undefined') currentCarId = null;
+  }
+
+  function hideNewCar() {
+    var block = byId('new-car-block');
+    if (block) block.hidden = true;
+  }
+
+  function showNewCar() {
+    var block = byId('new-car-block');
+    if (block) block.hidden = false;
+  }
+
+  function setSelectedCar(car) {
+    var hidden = byId('car-id-input');
+    if (hidden) hidden.value = String(car.id);
+
+    // currentCarId is declared by the existing appointment page script.
+    // Assigning it here keeps the existing slot-loading logic working.
+    if (typeof currentCarId !== 'undefined') currentCarId = car.id;
+
+    var name = byId('client-name');
+    var phone = byId('client-phone');
+    var ownerName = car.owner_name || '';
+    if (name) name.value = ownerName;
+    if (phone) phone.value = car.owner_phone || '';
+
+    setText('summary-car', (car.brand || '') + ' ' + (car.model || '') + ' · ' + (car.plate || byId('plate-input').value.trim().toUpperCase()));
+    setText('summary-client', ownerName || 'Не указан');
+
+    if (typeof updateClientSummary === 'function') updateClientSummary();
+    if (typeof updateDurationSummary === 'function') updateDurationSummary(car.vehicle_type);
+
+    var dateInput = byId('date-input');
+    if (dateInput && dateInput.value) {
+      dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  function renderSingle(car) {
+    var info = byId('car-info');
+    if (!info) return;
+    info.style.color = '#15803d';
+    info.innerHTML = '<strong>Автомобиль найден:</strong> ' + escapeHtml(car.brand + ' ' + car.model) + ' · ' + escapeHtml(car.owner_name || 'Владелец не указан');
+    hideNewCar();
+    setSelectedCar(car);
+  }
+
+  function renderAmbiguous(matches) {
+    var info = byId('car-info');
+    if (!info) return;
+
+    info.style.color = '#92400e';
+    var html = '<div style="padding:12px;border:1px solid #fbbf24;background:#fffbeb;border-radius:12px">' +
+      '<strong>Найдено несколько автомобилей с этим госномером.</strong>' +
+      '<div style="margin-top:4px;font-size:12px">Номер мог перейти на другой автомобиль или собственника. Выберите нужную запись — автоматически выбирать первую нельзя.</div>' +
+      '<div style="display:grid;gap:8px;margin-top:10px">';
+
+    matches.forEach(function (car) {
+      var title = (car.brand || '') + ' ' + (car.model || '');
+      var owner = car.owner_name || 'Владелец не указан';
+      var details = [owner, car.owner_phone || '', car.vin ? 'VIN: ' + car.vin : ''].filter(Boolean).join(' · ');
+      html += '<button type="button" class="st-btn st-btn--secondary station-plate-match" data-car-id="' + String(car.id) + '" style="justify-content:flex-start;text-align:left;padding:10px 12px">' +
+        '<span><strong>' + escapeHtml(title) + '</strong><small style="display:block;color:#64748b;margin-top:3px">' + escapeHtml(details) + '</small></span>' +
+        '</button>';
+    });
+    html += '</div></div>';
+    info.innerHTML = html;
+    hideNewCar();
+
+    info.querySelectorAll('.station-plate-match').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var id = String(button.getAttribute('data-car-id'));
+        var selected = matches.find(function (car) { return String(car.id) === id; });
+        if (selected) {
+          info.innerHTML = '';
+          renderSingle(selected);
+        }
+      });
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  async function lookup() {
+    var input = byId('plate-input');
+    var info = byId('car-info');
+    if (!input || !info) return;
+
+    var plate = input.value.trim().toUpperCase();
+    if (!plate) {
+      clearClientFields();
+      info.textContent = 'Введите госномер.';
+      info.style.color = '#b91c1c';
+      showNewCar();
+      return;
+    }
+
+    // Every search starts from a clean state. This fixes the case where a
+    // second search left the previous client's car/name in the form.
+    clearClientFields();
+    hideNewCar();
+    info.style.color = '#64748b';
+    info.textContent = 'Ищем автомобиль…';
+
+    try {
+      var response = await fetch('/api/car-by-plate/?plate=' + encodeURIComponent(plate) + '&station_id=' + encodeURIComponent(String(window.STATION_ID || '')),
+        { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+
+      var data = await response.json();
+      if (response.status === 404 || data.error === 'not found') {
+        info.style.color = '#92400e';
+        info.textContent = 'Автомобиль с таким госномером не найден. Можно зарегистрировать новый.';
+        showNewCar();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка поиска');
+      }
+
+      if (data.ambiguous && Array.isArray(data.matches)) {
+        renderAmbiguous(data.matches);
+        return;
+      }
+
+      if (data.id) {
+        renderSingle(data);
+        return;
+      }
+
+      throw new Error('Некорректный ответ поиска');
+    } catch (error) {
+      console.error(error);
+      clearClientFields();
+      hideNewCar();
+      info.style.color = '#b91c1c';
+      info.textContent = 'Не удалось выполнить поиск автомобиля. Попробуйте ещё раз.';
+    }
+  }
+
+  // Capture phase runs before the legacy inline handler in appointment_create.html.
+  // We own the lookup flow so repeated searches and ambiguous plates cannot fall
+  // through to the old single-result logic.
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest ? event.target.closest('#lookup-btn') : null;
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    lookup();
+  }, true);
+})();
