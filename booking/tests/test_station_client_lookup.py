@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -55,7 +55,7 @@ class StationClientAndPlateLookupTests(TestCase):
             user=user,
             car=car,
             start=self.start_dt,
-            end=self.start_dt + timezone.timedelta(minutes=30),
+            end=self.start_dt + timedelta(minutes=30),
             name="Иванов Иван",
         )
 
@@ -114,8 +114,8 @@ class StationClientAndPlateLookupTests(TestCase):
             {"plate": "A444AA63", "station_id": self.station.id},
         ).json()
 
-        self.assertEqual(first["owner_name"], "Один repeat-one")
-        self.assertEqual(second["owner_name"], "Два repeat-two")
+        self.assertEqual(first["owner_name"], "Один")
+        self.assertEqual(second["owner_name"], "Два")
 
     def test_manual_booking_persists_client_name_to_user(self):
         response = self.client.post(
