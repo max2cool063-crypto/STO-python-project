@@ -226,10 +226,15 @@ class AppointmentAdmin(admin.ModelAdmin):
 
 
 class UserAdmin(DjangoUserAdmin):
-    list_display = ("username", "last_name", "first_name", "email", "is_staff", "is_active")
+    list_display = ("username", "last_name", "first_name", "email", "phone", "is_staff", "is_active")
     list_display_links = ("username",)
-    search_fields = ("username", "email", "first_name", "last_name")
+    search_fields = ("username", "email", "first_name", "last_name", "profile__phone")
     ordering = ("username",)
+
+    @admin.display(description="Телефон", ordering="profile__phone")
+    def phone(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.phone if profile and profile.phone else "—"
 
 
 admin.site.unregister(User)
