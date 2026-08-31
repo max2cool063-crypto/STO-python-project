@@ -73,9 +73,6 @@ def car_by_plate_api(request):
     if not staff:
         return JsonResponse({"error": "forbidden"}, status=403)
 
-    # Автомобиль доступен оператору только если у него уже есть запись
-    # на этой станции. Это не позволяет использовать endpoint как глобальный
-    # справочник персональных данных клиентов.
     car = (
         Car.objects
         .select_related("model__brand", "owner__profile")
@@ -92,11 +89,7 @@ def car_by_plate_api(request):
         return JsonResponse({"error": "not found"}, status=404)
 
     profile = getattr(car.owner, "profile", None)
-    owner_name = ""
-    if profile and (profile.last_name or profile.first_name):
-        owner_name = f"{profile.last_name} {profile.first_name}".strip()
-    else:
-        owner_name = car.owner.username
+    owner_name = f"{car.owner.last_name} {car.owner.first_name}".strip() or car.owner.username
 
     return JsonResponse({
         "id": car.id,
