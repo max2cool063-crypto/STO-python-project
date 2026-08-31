@@ -1,5 +1,4 @@
 from django import forms
-from django.core.exceptions import ValidationError
 from PIL import Image, UnidentifiedImageError
 
 from .models import Appointment, UserProfile, Car, StationWeeklySchedule, StationSchedule
@@ -47,29 +46,44 @@ class AppointmentForm(forms.ModelForm):
         station = cleaned.get("station")
         start = cleaned.get("start")
         end = cleaned.get("end")
-
         if station and start and end:
             exists = Appointment.objects.filter(
                 station=station,
                 start__lt=end,
                 end__gt=start,
             ).exclude(status="CANCELLED").exists()
-
             if exists:
                 raise forms.ValidationError("Выбранное время уже занято")
-
         return cleaned
 
 
-class ProfileForm(forms.ModelForm):
-    class Meta:
-        model = UserProfile
-        fields = ["first_name", "last_name", "phone"]
-        widgets = {
-            "first_name": forms.TextInput(attrs={"maxlength": 100}),
-            "last_name": forms.TextInput(attrs={"maxlength": 100}),
-            "phone": forms.TextInput(attrs={"maxlength": 30}),
-        }
+class ProfileForm(forms.Form):
+    """Редактирование имени/фамилии из User и телефона из UserProfile."""
+    first_name = forms.CharField(label="Имя", max_length=150, required=False)
+    last_name = forms.CharField(label="Фамилия", max_length=150, required=False)
+    phone = forms.CharField(label="Телефон", max_length=30, required=False)
+
+    def __init__(self, *args, user=None, profile=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user or (profile.user if profile else None)
+        self.profile = profile
+        if not self.is_bound and self.user is not None:
+            self.initial.update({
+                "first_name": self.user.first_name,
+                "last_name": self.user.last_name,
+                "phone": self.profile.phone if self.profile else "",
+            })
+
+    def save(self):
+        if self.user is None:
+            raise ValueError("ProfileForm requires a user")
+        self.user.first_name = self.cleaned_data["first_name"].strip()
+        self.user.last_name = self.cleaned_data["last_name"].strip()
+        self.user.save(update_fields=["first_name", "last_name"])
+        profile = self.profile or UserProfile.objects.get_or_create(user=self.user)[0]
+        profile.phone = self.cleaned_data["phone"].strip()
+        profile.save(update_fields=["phone"])
+        return profile
 
 
 class CarForm(forms.ModelForm):
@@ -98,16 +112,13 @@ class PhotosUploadForm:
         if len(files) > MAX_PHOTOS:
             errors.append(f"Максимум {MAX_PHOTOS} фото")
             return errors
-
         for uploaded in files:
             if uploaded.content_type not in ALLOWED_IMAGE_TYPES:
                 errors.append(f"Файл «{uploaded.name}»: допустимые форматы JPEG, PNG, WebP, GIF")
                 continue
-
             if uploaded.size > MAX_PHOTO_SIZE_MB * 1024 * 1024:
                 errors.append(f"Файл «{uploaded.name}»: размер превышает {MAX_PHOTO_SIZE_MB} МБ")
                 continue
-
             try:
                 uploaded.seek(0)
                 with Image.open(uploaded) as image:
@@ -116,5 +127,4 @@ class PhotosUploadForm:
                 errors.append(f"Файл «{uploaded.name}»: файл не является корректным изображением")
             finally:
                 uploaded.seek(0)
-
         return errors
