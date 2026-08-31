@@ -45,11 +45,14 @@ def station_staff_create_operator(request, station_id, staff=None):
         return redirect("station_staff", station_id=station_id)
 
     with transaction.atomic():
-        user = User.objects.create_user(username=login, email=email, password=password)
-        profile, _ = UserProfile.objects.get_or_create(user=user)
-        profile.first_name = first_name
-        profile.last_name = last_name
-        profile.save(update_fields=["first_name", "last_name"])
+        user = User.objects.create_user(
+            username=login,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        UserProfile.objects.get_or_create(user=user)
         StationStaff.objects.create(
             station=station,
             user=user,
@@ -89,8 +92,6 @@ def station_staff_edit_profile(request, station_id, member_id, staff=None):
         station=station,
     )
 
-    # Владелец может редактировать себя и операторов своей станции.
-    # Другого владельца станции редактировать через этот интерфейс нельзя.
     if member.user_id != request.user.id and member.role != StationStaff.ROLE_OPERATOR:
         messages.error(request, "Редактирование этого профиля недоступно")
         return redirect("station_staff", station_id=station_id)
@@ -108,11 +109,11 @@ def station_staff_edit_profile(request, station_id, member_id, staff=None):
             return redirect(request.path)
 
         member.user.email = email
-        member.user.save(update_fields=["email"])
-        profile.first_name = first_name
-        profile.last_name = last_name
+        member.user.first_name = first_name
+        member.user.last_name = last_name
+        member.user.save(update_fields=["email", "first_name", "last_name"])
         profile.phone = phone
-        profile.save(update_fields=["first_name", "last_name", "phone"])
+        profile.save(update_fields=["phone"])
 
         messages.success(request, f"Профиль «{member.user.username}» сохранён")
         return redirect("station_staff", station_id=station_id)
