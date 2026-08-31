@@ -19,13 +19,13 @@ from booking.notifications import notify_client_cancelled
 def cabinet_dashboard(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     if request.method == "POST":
-        form = ProfileForm(request.POST, instance=profile)
+        form = ProfileForm(request.POST, user=request.user, profile=profile)
         if form.is_valid():
             form.save()
             messages.success(request, "Профиль сохранён")
             return redirect("cabinet")
     else:
-        form = ProfileForm(instance=profile)
+        form = ProfileForm(user=request.user, profile=profile)
     return render(request, "booking/cabinet/dashboard.html", {"profile": profile, "form": form})
 
 
