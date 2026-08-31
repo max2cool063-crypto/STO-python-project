@@ -72,172 +72,95 @@ class StationAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom = [
-            path(
-                '<int:pk>/fill-holidays/',
-                self.admin_site.admin_view(self.fill_holidays_view),
-                name='station_fill_holidays'
-            ),
-            path(
-                'import-rsa/',
-                self.admin_site.admin_view(self.import_rsa_view),
-                name='station_import_rsa'
-            ),
-            path(
-                'import-rsa-stream/',
-                self.admin_site.admin_view(self.import_rsa_stream),
-                name='station_import_rsa_stream'
-            ),
+            path('<int:pk>/fill-holidays/', self.admin_site.admin_view(self.fill_holidays_view), name='station_fill_holidays'),
+            path('import-rsa/', self.admin_site.admin_view(self.import_rsa_view), name='station_import_rsa'),
+            path('import-rsa-stream/', self.admin_site.admin_view(self.import_rsa_stream), name='station_import_rsa_stream'),
         ]
         return custom + urls
-    
+
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         extra_context['import_rsa_url'] = '/admin/booking/station/import-rsa/'
         return super().changelist_view(request, extra_context=extra_context)
-    
+
     def import_rsa_view(self, request):
         return render(request, "admin/import_rsa.html", {"query": ""})
 
     def import_rsa_stream(self, request):
         from bs4 import BeautifulSoup
         import requests as req
-
         address = request.GET.get("address", "").strip()
         max_pages = min(int(request.GET.get("pages", 3)), 20)
-
         BASE = "https://oto-register.autoins.ru"
         HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         def event_stream():
             created = skipped = errors = 0
-
             for page in range(1, max_pages + 1):
                 yield f"data: {json.dumps({'type': 'progress', 'page': page, 'total_pages': max_pages})}\n\n"
-
                 try:
-                    r = req.get(
-                        f"{BASE}/search/pto/{page}",
-                        params={"otoId": "", "shortName": "", "address": address, "areasOfAccreditation": ""},
-                        headers=HEADERS, timeout=(5, 10)
-                    )
+                    r = req.get(f"{BASE}/search/pto/{page}", params={"otoId": "", "shortName": "", "address": address, "areasOfAccreditation": ""}, headers=HEADERS, timeout=(5, 10))
                     from bs4 import BeautifulSoup as BS
                     soup = BS(r.text, "html.parser")
                     rows = soup.select("tr.table_row")
-
                     if not rows:
                         yield f"data: {json.dumps({'type': 'log', 'message': f'📄 Страница {page}: записей нет, остановка'})}\n\n"
                         break
-
                     yield f"data: {json.dumps({'type': 'log', 'message': f'📄 Страница {page}: найдено {len(rows)} строк'})}\n\n"
-
                     for i, row in enumerate(rows, 1):
                         status_div = row.select_one(".status")
                         if status_div and "ok" not in status_div.get("class", []):
-                            yield f"data: {json.dumps({'type': 'log', 'message': f'  Строка {i}: пропущена (статус не OK)'})}\n\n"
                             continue
-                        
                         tds = row.select("td")
                         if len(tds) < 2:
-                            yield f"data: {json.dumps({'type': 'log', 'message': f'  Строка {i}: пропущена (нет второй колонки)'})}\n\n"
                             continue
-                        
                         rid = tds[1].text.strip()
                         if not rid:
-                            yield f"data: {json.dumps({'type': 'log', 'message': f'  Строка {i}: пропущена (пустой номер ОТО)'})}\n\n"
                             continue
-                        
-                        yield f"data: {json.dumps({'type': 'log', 'message': f'  🔍 Обработка № ОТО {rid}...'})}\n\n"
-
                         try:
                             request_id = row.get("data-request-id")
                             if not request_id:
-                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠️ № {rid}: нет data-request-id'})}\n\n"
                                 errors += 1
                                 continue
-                            
                             dr = req.get(f"{BASE}/modals/pto/{request_id}", headers=HEADERS, timeout=(5, 8))
                             ds = BS(dr.text, "html.parser")
-
                             detail = {}
                             for div in ds.select(".leftPanel div"):
                                 h4 = div.select_one("h4")
                                 p = div.select_one("p") or div.select_one("a")
                                 if h4 and p:
-                                    k = h4.text.strip()
-                                    v = p.text.strip()
-                                    if "Полное наименование" in k:
-                                        detail["name"] = v
-                                    elif k == "Адрес":
-                                        detail["address"] = v
-                                    elif "Телефон" in k:
-                                        detail["phone"] = v
-                                    elif "mail" in k.lower():
-                                        detail["email"] = v
-
+                                    k = h4.text.strip(); v = p.text.strip()
+                                    if "Полное наименование" in k: detail["name"] = v
+                                    elif k == "Адрес": detail["address"] = v
+                                    elif "Телефон" in k: detail["phone"] = v
+                                    elif "mail" in k.lower(): detail["email"] = v
                             if "name" not in detail or "address" not in detail:
-                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠️ № {rid}: не найдено название или адрес'})}\n\n"
                                 errors += 1
                                 continue
-
                             tds_modal = ds.select(".popupTable td")
                             if len(tds_modal) >= 2:
                                 try:
-                                    detail["lat"] = float(tds_modal[0].text.strip().replace(",", "."))
-                                    detail["lng"] = float(tds_modal[1].text.strip().replace(",", "."))
+                                    detail["lat"] = float(tds_modal[0].text.strip().replace(",", ".")); detail["lng"] = float(tds_modal[1].text.strip().replace(",", "."))
                                 except ValueError:
-                                    detail["lat"] = None
-                                    detail["lng"] = None
-
+                                    detail["lat"] = detail["lng"] = None
                             station_name = " ".join(detail["name"].split())
                             station_address = " ".join(detail["address"].split())
-                            
                             station = Station.objects.filter(rsa_id=rid).first()
-
                             if station:
-                                Station.objects.filter(pk=station.pk).update(
-                                    name=station_name,
-                                    address=station_address,
-                                    latitude=detail.get("lat"),
-                                    longitude=detail.get("lng"),
-                                    phone=detail.get("phone", ""),
-                                    email=detail.get("email", ""),
-                                )
+                                Station.objects.filter(pk=station.pk).update(name=station_name, address=station_address, latitude=detail.get("lat"), longitude=detail.get("lng"), phone=detail.get("phone", ""), email=detail.get("email", ""))
                                 was_created = False
-                                msg = f'⏭ Обновлена: {station_name} (№ ОТО: {rid})'
                             else:
-                                Station.objects.create(
-                                    name=station_name,
-                                    address=station_address,
-                                    rsa_id=rid,
-                                    latitude=detail.get("lat"),
-                                    longitude=detail.get("lng"),
-                                    phone=detail.get("phone", ""),
-                                    email=detail.get("email", ""),
-                                )
+                                Station.objects.create(name=station_name, address=station_address, rsa_id=rid, latitude=detail.get("lat"), longitude=detail.get("lng"), phone=detail.get("phone", ""), email=detail.get("email", ""))
                                 was_created = True
-                                msg = f'✅ Создана: {station_name} (№ ОТО: {rid})'
-
-                            if was_created:
-                                created += 1
-                            else:
-                                skipped += 1
-
-                            yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
+                            created += int(was_created); skipped += int(not was_created)
                             time_mod.sleep(0.3)
-
-                        except Exception as e:
+                        except Exception:
                             errors += 1
-                            yield f"data: {json.dumps({'type': 'log', 'message': f'  ❌ № {rid}: Ошибка: {str(e)}'})}\n\n"
-
-                except Exception as e:
-                    yield f"data: {json.dumps({'type': 'log', 'message': f'❌ Ошибка страницы {page}: {str(e)}'})}\n\n"
+                except Exception:
                     break
-
             yield f"data: {json.dumps({'type': 'done', 'message': f'Готово! Создано: {created}, Обновлено: {skipped}, Ошибок: {errors}'})}\n\n"
-
         response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
-        response["Cache-Control"] = "no-cache"
-        response["X-Accel-Buffering"] = "no"
+        response["Cache-Control"] = "no-cache"; response["X-Accel-Buffering"] = "no"
         return response
 
     def fill_holidays_view(self, request, pk):
@@ -246,49 +169,23 @@ class StationAdmin(admin.ModelAdmin):
         except ImportError:
             messages.error(request, "Библиотека holidays не установлена.")
             return redirect(f"/admin/booking/station/{pk}/change/")
-
-        station = Station.objects.get(pk=pk)
-        year = date_type.today().year
-        ru_holidays = holidays_lib.Russia(years=year)
-        created = skipped = 0
+        station = Station.objects.get(pk=pk); year = date_type.today().year; ru_holidays = holidays_lib.Russia(years=year); created = skipped = 0
         for hdate, hname in sorted(ru_holidays.items()):
-            _, was_created = StationSchedule.objects.get_or_create(
-                station=station,
-                date=hdate,
-                defaults={"work_start": time(0, 0), "work_end": time(0, 0)}
-            )
-            if was_created:
-                created += 1
-            else:
-                skipped += 1
-
-        if created:
-            messages.success(request, f"✅ Добавлено {created} праздничных дней на {year} год")
-        if skipped:
-            messages.info(request, f"ℹ️ Пропущено {skipped} дней (уже существуют)")
+            _, was_created = StationSchedule.objects.get_or_create(station=station, date=hdate, defaults={"work_start": time(0, 0), "work_end": time(0, 0)})
+            created += int(was_created); skipped += int(not was_created)
+        if created: messages.success(request, f"✅ Добавлено {created} праздничных дней на {year} год")
+        if skipped: messages.info(request, f"ℹ️ Пропущено {skipped} дней (уже существуют)")
         return redirect(f"/admin/booking/station/{pk}/change/")
 
     def fill_holidays_button(self, obj):
         if obj.pk:
-            return format_html(
-                '<a class="button" href="/admin/booking/station/{}/fill-holidays/" '
-                'style="background:#417690;color:white;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px">'
-                '🗓 Праздники {}</a>',
-                obj.pk, date_type.today().year
-            )
+            return format_html('<a class="button" href="/admin/booking/station/{}/fill-holidays/" style="background:#417690;color:white;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px">🗓 Праздники {}</a>', obj.pk, date_type.today().year)
         return "—"
     fill_holidays_button.short_description = "Праздники"
 
     def fill_holidays_link(self, obj):
         if obj.pk:
-            return format_html(
-                '<a class="button" href="/admin/booking/station/{}/fill-holidays/" '
-                'style="background:#417690;color:white;padding:8px 16px;border-radius:4px;text-decoration:none">'
-                ' Заполнить праздники {} года</a>'
-                '<p style="color:#666;margin-top:8px;font-size:12px">'
-                'Добавит все российские праздники как выходные в таблицу исключений</p>',
-                obj.pk, date_type.today().year
-            )
+            return format_html('<a class="button" href="/admin/booking/station/{}/fill-holidays/" style="background:#417690;color:white;padding:8px 16px;border-radius:4px;text-decoration:none"> Заполнить праздники {} года</a><p style="color:#666;margin-top:8px;font-size:12px">Добавит все российские праздники как выходные в таблицу исключений</p>', obj.pk, date_type.today().year)
         return "Сохраните станцию сначала"
     fill_holidays_link.short_description = "Автозаполнение праздников"
 
@@ -297,10 +194,7 @@ class StationAdmin(admin.ModelAdmin):
     map_preview.short_description = "Карта станции"
 
     class Media:
-        js = (
-            f"https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey={settings.YANDEX_MAPS_API_KEY}",
-            "booking/js/admin_station_map.js",
-        )
+        js = (f"https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey={settings.YANDEX_MAPS_API_KEY}", "booking/js/admin_station_map.js")
         css = {"all": ("booking/css/admin.css",)}
 
 
@@ -331,8 +225,16 @@ class AppointmentAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "last_name", "first_name", "phone")
-    search_fields = ("user__username", "last_name", "first_name", "phone")
+    list_display = ("username", "last_name", "first_name", "email", "phone")
+    search_fields = ("user__username", "user__email", "user__last_name", "user__first_name", "last_name", "first_name", "phone")
+
+    @admin.display(description="Логин", ordering="user__username")
+    def username(self, obj):
+        return obj.user.username
+
+    @admin.display(description="Почта", ordering="user__email")
+    def email(self, obj):
+        return obj.user.email
 
 
 @admin.register(Car)
@@ -364,8 +266,8 @@ class CarModelAdmin(admin.ModelAdmin):
 
 @admin.register(StationStaff)
 class StationStaffAdmin(admin.ModelAdmin):
-    list_display  = ("station", "user", "role", "is_active", "created_by", "created_at")
-    list_filter   = ("role", "is_active", "station")
+    list_display = ("station", "user", "role", "is_active", "created_by", "created_at")
+    list_filter = ("role", "is_active", "station")
     list_editable = ("role", "is_active")
     search_fields = ("user__email", "user__username", "station__name")
     autocomplete_fields = ("user", "station")
