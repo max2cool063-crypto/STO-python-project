@@ -10,6 +10,12 @@
     if (node) node.textContent = value || '';
   }
 
+  function getStationId() {
+    if (typeof STATION_ID !== 'undefined') return String(STATION_ID);
+    var match = window.location.pathname.match(/\/station\/(\d+)/);
+    return match ? match[1] : '';
+  }
+
   function clearClientFields() {
     var name = byId('client-name');
     var phone = byId('client-phone');
@@ -36,8 +42,6 @@
     var hidden = byId('car-id-input');
     if (hidden) hidden.value = String(car.id);
 
-    // currentCarId is declared by the existing appointment page script.
-    // Assigning it here keeps the existing slot-loading logic working.
     if (typeof currentCarId !== 'undefined') currentCarId = car.id;
 
     var name = byId('client-name');
@@ -46,7 +50,9 @@
     if (name) name.value = ownerName;
     if (phone) phone.value = car.owner_phone || '';
 
-    setText('summary-car', (car.brand || '') + ' ' + (car.model || '') + ' · ' + (car.plate || byId('plate-input').value.trim().toUpperCase()));
+    var plateInput = byId('plate-input');
+    var plate = car.plate || (plateInput ? plateInput.value.trim().toUpperCase() : '');
+    setText('summary-car', (car.brand || '') + ' ' + (car.model || '') + ' · ' + plate);
     setText('summary-client', ownerName || 'Не указан');
 
     if (typeof updateClientSummary === 'function') updateClientSummary();
@@ -93,10 +99,7 @@
       button.addEventListener('click', function () {
         var id = String(button.getAttribute('data-car-id'));
         var selected = matches.find(function (car) { return String(car.id) === id; });
-        if (selected) {
-          info.innerHTML = '';
-          renderSingle(selected);
-        }
+        if (selected) renderSingle(selected);
       });
     });
   }
@@ -124,15 +127,15 @@
       return;
     }
 
-    // Every search starts from a clean state. This fixes the case where a
-    // second search left the previous client's car/name in the form.
     clearClientFields();
     hideNewCar();
     info.style.color = '#64748b';
     info.textContent = 'Ищем автомобиль…';
 
     try {
-      var response = await fetch('/api/car-by-plate/?plate=' + encodeURIComponent(plate) + '&station_id=' + encodeURIComponent(String(window.STATION_ID || '')),
+      var stationId = getStationId();
+      if (!stationId) throw new Error('Не удалось определить станцию');
+      var response = await fetch('/api/car-by-plate/?plate=' + encodeURIComponent(plate) + '&station_id=' + encodeURIComponent(stationId),
         { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
 
       var data = await response.json();
@@ -142,9 +145,7 @@
         showNewCar();
         return;
       }
-      if (!response.ok) {
-        throw new Error(data.error || 'Ошибка поиска');
-      }
+      if (!response.ok) throw new Error(data.error || 'Ошибка поиска');
 
       if (data.ambiguous && Array.isArray(data.matches)) {
         renderAmbiguous(data.matches);
@@ -166,9 +167,6 @@
     }
   }
 
-  // Capture phase runs before the legacy inline handler in appointment_create.html.
-  // We own the lookup flow so repeated searches and ambiguous plates cannot fall
-  // through to the old single-result logic.
   document.addEventListener('click', function (event) {
     var button = event.target.closest ? event.target.closest('#lookup-btn') : null;
     if (!button) return;
