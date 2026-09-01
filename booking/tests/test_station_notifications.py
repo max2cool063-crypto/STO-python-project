@@ -40,7 +40,7 @@ class StationNotificationTests(TestCase):
             owner=self.client_user, model=self.model, plate_number="A123AA77", vin="TESTVIN123"
         )
 
-        target = (timezone.localdate() + timedelta(days=2))
+        target = timezone.localdate() + timedelta(days=2)
         StationWeeklySchedule.objects.create(
             station=self.station,
             weekday=target.weekday(),
@@ -53,10 +53,11 @@ class StationNotificationTests(TestCase):
     @patch("booking.views.booking.notify_station_staff_booked")
     def test_client_booking_creates_notifications_for_active_staff(self, _email_staff, _email_client):
         self.client.force_login(self.client_user)
-        response = self.client.post(
-            reverse("book_station", args=[self.station.pk]),
-            {"start": self.start.isoformat(), "car": self.car.pk},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("book_station", args=[self.station.pk]),
+                {"start": self.start.isoformat(), "car": self.car.pk},
+            )
 
         self.assertRedirects(response, reverse("cabinet_appointments"))
         appointment = Appointment.objects.get(station=self.station)
