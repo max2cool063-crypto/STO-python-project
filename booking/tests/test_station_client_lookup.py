@@ -162,6 +162,12 @@ class StationClientAndPlateLookupTests(TestCase):
 
     def test_plate_lookup_does_not_expose_car_known_only_to_another_station(self):
         other_station = Station.objects.create(name="Other Lookup Station")
+        StationWeeklySchedule.objects.create(
+            station=other_station,
+            weekday=self.start_dt.date().weekday(),
+            work_start=time(9, 0),
+            work_end=time(18, 0),
+        )
         owner = User.objects.create_user(username="foreign-owner", first_name="Чужой")
         car = Car.objects.create(owner=owner, model=self.model, plate_number="A777AA63")
         Appointment.objects.create(
@@ -182,6 +188,12 @@ class StationClientAndPlateLookupTests(TestCase):
 
     def test_same_plate_is_isolated_between_stations(self):
         other_station = Station.objects.create(name="Other Station")
+        StationWeeklySchedule.objects.create(
+            station=other_station,
+            weekday=self.start_dt.date().weekday(),
+            work_start=time(9, 0),
+            work_end=time(18, 0),
+        )
         owner_local = User.objects.create_user(username="local", first_name="Местный")
         owner_foreign = User.objects.create_user(username="foreign", first_name="Чужой")
         local_car = Car.objects.create(owner=owner_local, model=self.model, plate_number="A888AA63", vin="LOCAL")
