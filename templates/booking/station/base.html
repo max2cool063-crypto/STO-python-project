@@ -6,72 +6,46 @@
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-calendar-v1.css' %}">
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-appointments-v1.css' %}">
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-slot-blocks-v1.css' %}">
-{% if request.resolver_match.url_name == 'station_staff' %}
-<link rel="stylesheet" href="{% static 'booking/css/ui-station-staff-v1.css' %}">
-{% endif %}
-{% if request.resolver_match.url_name == 'station_schedule' %}
-<link rel="stylesheet" href="{% static 'booking/css/ui-station-schedule-v1.css' %}">
-{% endif %}
+<link rel="stylesheet" href="{% static 'booking/css/ui-station-notifications-v1.css' %}">
+{% if request.resolver_match.url_name == 'station_staff' %}<link rel="stylesheet" href="{% static 'booking/css/ui-station-staff-v1.css' %}">{% endif %}
+{% if request.resolver_match.url_name == 'station_schedule' %}<link rel="stylesheet" href="{% static 'booking/css/ui-station-schedule-v1.css' %}">{% endif %}
 {% endblock %}
 {% block content %}
 <div class="st-layout">
   <aside class="st-sidebar">
     <div class="st-brand">
       <img src="{% static 'booking/img/logo.png' %}" alt="СТО" class="st-brand__logo">
-      <div>
-        <div class="st-brand__title">СТО Онлайн</div>
-        <div class="st-brand__subtitle">Рабочее место станции</div>
-      </div>
+      <div><div class="st-brand__title">СТО Онлайн</div><div class="st-brand__subtitle">Рабочее место станции</div></div>
     </div>
-
     <div class="st-sidebar__name">{{ station.name }}</div>
     <div class="st-sidebar__label">Рабочая область</div>
-
     <nav class="st-sidebar__nav" aria-label="Навигация станции">
-      <a href="{% url 'station_dashboard' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}">
-        <i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Обзор</span>
-      </a>
-      <a href="{% url 'station_day_calendar' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_day_calendar' %}st-nav-link--active{% endif %}">
-        <i data-lucide="calendar-days" aria-hidden="true"></i><span>Календарь дня</span>
-      </a>
-      <a href="{% url 'station_appointments' station.pk %}" class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}">
-        <i data-lucide="clipboard-list" aria-hidden="true"></i><span>Записи</span>
-      </a>
-      <a href="{% url 'station_schedule' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}">
-        <i data-lucide="clock-3" aria-hidden="true"></i><span>Расписание</span>
-      </a>
-      <a href="{% url 'station_slot_blocks' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}">
-        <i data-lucide="ban" aria-hidden="true"></i><span>Блокировки</span>
-      </a>
-      <a href="{% url 'station_clients' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}">
-        <i data-lucide="users" aria-hidden="true"></i><span>Клиенты</span>
-      </a>
-      <a href="{% url 'station_staff' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}">
-        <i data-lucide="user-round-cog" aria-hidden="true"></i><span>Сотрудники</span>
-      </a>
+      <a href="{% url 'station_dashboard' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}"><i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Обзор</span></a>
+      <a href="{% url 'station_day_calendar' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_day_calendar' %}st-nav-link--active{% endif %}"><i data-lucide="calendar-days" aria-hidden="true"></i><span>Календарь дня</span></a>
+      <a href="{% url 'station_appointments' station.pk %}" class="st-nav-link {% if 'appointments' in request.resolver_match.url_name %}st-nav-link--active{% endif %}"><i data-lucide="clipboard-list" aria-hidden="true"></i><span>Записи</span></a>
+      <a href="{% url 'station_schedule' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}"><i data-lucide="clock-3" aria-hidden="true"></i><span>Расписание</span></a>
+      <a href="{% url 'station_slot_blocks' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}"><i data-lucide="ban" aria-hidden="true"></i><span>Блокировки</span></a>
+      <a href="{% url 'station_clients' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}"><i data-lucide="users" aria-hidden="true"></i><span>Клиенты</span></a>
+      <a href="{% url 'station_staff' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}"><i data-lucide="user-round-cog" aria-hidden="true"></i><span>Сотрудники</span></a>
     </nav>
-
-    <a href="{% url 'station_select' %}" class="st-sidebar__back">
-      <i data-lucide="arrow-left" aria-hidden="true"></i><span>Все станции</span>
-    </a>
+    <a href="{% url 'station_select' %}" class="st-sidebar__back"><i data-lucide="arrow-left" aria-hidden="true"></i><span>Все станции</span></a>
   </aside>
 
   <main class="st-main">
-    {% if messages %}
-      {% for msg in messages %}
-        <div class="alert alert-{{ msg.tags|default:'info' }}">
-          {% if msg.tags == 'success' %}
-            <i class="ds-alert-icon" data-lucide="circle-check" aria-hidden="true"></i>
-          {% elif msg.tags == 'error' %}
-            <i class="ds-alert-icon" data-lucide="circle-alert" aria-hidden="true"></i>
-          {% else %}
-            <i class="ds-alert-icon" data-lucide="info" aria-hidden="true"></i>
-          {% endif %}
-          <span>{{ msg }}</span>
-        </div>
-      {% endfor %}
-    {% endif %}
+    <div class="st-notification-wrap" data-station-notifications data-endpoint="{% url 'station_notifications' %}" data-read-all-url="{% url 'station_notifications_read_all' %}">
+      <button type="button" class="st-notification-button" data-notification-toggle aria-label="Уведомления" aria-expanded="false">
+        <i data-lucide="bell" aria-hidden="true"></i><span class="st-notification-badge" data-notification-count hidden>0</span>
+      </button>
+      <div class="st-notification-panel" data-notification-panel hidden>
+        <div class="st-notification-panel__head"><strong>Уведомления</strong><button type="button" data-notification-read-all>Прочитать все</button></div>
+        <div class="st-notification-list" data-notification-list><div class="st-notification-empty">Нет новых уведомлений</div></div>
+      </div>
+    </div>
+    {% if messages %}{% for msg in messages %}<div class="alert alert-{{ msg.tags|default:'info' }}">{% if msg.tags == 'success' %}<i class="ds-alert-icon" data-lucide="circle-check" aria-hidden="true"></i>{% elif msg.tags == 'error' %}<i class="ds-alert-icon" data-lucide="circle-alert" aria-hidden="true"></i>{% else %}<i class="ds-alert-icon" data-lucide="info" aria-hidden="true"></i>{% endif %}<span>{{ msg }}</span></div>{% endfor %}{% endif %}
     {% block station_content %}{% endblock %}
   </main>
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{% static 'booking/js/station-notifications-v1.js' %}?v=20260901-1"></script>
 {% endblock %}
