@@ -86,10 +86,7 @@ def notify_client_reminder(appointment):
 # ─── Уведомления персоналу станции ───────────────────────────────────────────
 
 def notify_station_staff_booked(appointment):
-    """
-    Новая запись на станцию — уведомляем всех активных сотрудников.
-    Вызывается из views/booking.py и views/station_cabinet.py.
-    """
+    """Новая запись на станцию — email всем активным сотрудникам."""
     from booking.models import StationStaff
     station = appointment.station
     recipients = list(
@@ -111,3 +108,37 @@ def notify_station_staff_booked(appointment):
         ),
         recipients=recipients,
     )
+
+
+def create_station_staff_notifications(appointment):
+    """Создаёт внутренние уведомления владельцу и активным операторам станции."""
+    from booking.models import Notification, StationStaff
+
+    station = appointment.station
+    staff_ids = list(
+        StationStaff.objects
+        .filter(station=station, is_active=True)
+        .values_list("user_id", flat=True)
+    )
+    if not staff_ids:
+        return 0
+
+    client = appointment.name or appointment.user.get_full_name() or appointment.user.username
+    message = (
+        f"Клиент: {client}\n"
+        f"Автомобиль: {appointment.car}\n"
+        f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}"
+    )
+    notifications = [
+        Notification(
+            recipient_id=user_id,
+            station=station,
+            appointment=appointment,
+            notification_type=Notification.TYPE_NEW_APPOINTMENT,
+            title="Новая запись",
+            message=message,
+        )
+        for user_id in staff_ids
+    ]
+    Notification.objects.bulk_create(notifications)
+    return len(notifications)
