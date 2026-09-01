@@ -89,15 +89,13 @@ def car_by_plate_api(request):
         .order_by("owner_id", "id")
     )
 
-    if not cars:
-        return JsonResponse({"error": "not found"}, status=404)
-
     matches = []
     for car in cars:
         profile = getattr(car.owner, "profile", None)
         owner_name = f"{car.owner.last_name} {car.owner.first_name}".strip() or car.owner.username
         matches.append({
             "id": car.id,
+            "plate": car.plate_number,
             "vehicle_type": car.model.vehicle_type,
             "brand": car.model.brand.name,
             "model": car.model.name,
@@ -107,18 +105,15 @@ def car_by_plate_api(request):
             "owner_email": car.owner.email or "",
         })
 
-    response = {
+    if not matches:
+        return JsonResponse({"error": "not found"}, status=404)
+
+    # Keep one stable response shape for both one and many results.
+    return JsonResponse({
         "count": len(matches),
         "ambiguous": len(matches) > 1,
         "matches": matches,
-    }
-
-    # Keep the existing single-result response contract for the current form.
-    # The new UI uses matches when count > 1.
-    if len(matches) == 1:
-        response.update(matches[0])
-
-    return JsonResponse(response)
+    })
 
 
 @require_GET
