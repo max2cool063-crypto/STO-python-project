@@ -78,12 +78,17 @@ def notify_client_reminder(appointment):
 
 
 def notify_station_staff_booked(appointment):
-    """Новая запись на станцию — email всем активным сотрудникам."""
+    """Новая запись на станцию — email всем активным сотрудникам с включёнными уведомлениями."""
     from booking.models import StationStaff
     station = appointment.station
     recipients = list(
-        StationStaff.objects.filter(station=station, is_active=True)
-        .exclude(user__email="").values_list("user__email", flat=True)
+        StationStaff.objects.filter(
+            station=station,
+            is_active=True,
+            receive_notifications=True,
+        )
+        .exclude(user__email="")
+        .values_list("user__email", flat=True)
     )
     if not recipients:
         return
@@ -101,12 +106,16 @@ def notify_station_staff_booked(appointment):
 
 
 def create_station_staff_notifications(appointment):
-    """Создаёт внутренние уведомления владельцу и активным операторам станции."""
+    """Создаёт внутренние уведомления активным сотрудникам станции, у которых они включены."""
     from booking.models import Notification, StationStaff
 
     station = appointment.station
     staff_ids = list(
-        StationStaff.objects.filter(station=station, is_active=True).values_list("user_id", flat=True)
+        StationStaff.objects.filter(
+            station=station,
+            is_active=True,
+            receive_notifications=True,
+        ).values_list("user_id", flat=True)
     )
     if not staff_ids:
         return 0
