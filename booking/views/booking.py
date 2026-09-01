@@ -7,20 +7,14 @@ from django.db import transaction
 
 from booking.models import Station, Appointment, Car, AppointmentPhoto, UserProfile
 from booking.forms import PhotosUploadForm
-from booking.notifications import notify_station_staff_booked, notify_client_booked
+from booking.notifications import notify_station_staff_booked, notify_client_booked, create_station_staff_notifications
 
 
 @login_required
 def book_station(request, pk):
     station = get_object_or_404(Station, pk=pk, is_active=True)
-    cars = Car.objects.filter(
-        owner=request.user, is_active=True
-    ).select_related("model__brand")
-    other_stations = (
-        Station.objects.filter(is_active=True)
-        .exclude(pk=station.pk)
-        .order_by("name")
-    )
+    cars = Car.objects.filter(owner=request.user, is_active=True).select_related("model__brand")
+    other_stations = Station.objects.filter(is_active=True).exclude(pk=station.pk).order_by("name")
 
     if request.method == "POST":
         start = parse_datetime(request.POST.get("start"))
@@ -29,15 +23,11 @@ def book_station(request, pk):
         if not start:
             messages.error(request, "Некорректная дата или время")
             return redirect(request.path)
-
         if start < timezone.now():
             messages.error(request, "Нельзя записаться в прошлое")
             return redirect(request.path)
 
-        # Защита от IDOR: машина должна принадлежать пользователю
         car = get_object_or_404(Car, id=car_id, owner=request.user, is_active=True)
-
-        # Валидация фото до создания записи
         files = request.FILES.getlist("photos")
         if files:
             photo_errors = PhotosUploadForm.validate_photos(files)
@@ -47,8 +37,6 @@ def book_station(request, pk):
                 return redirect(request.path)
 
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
-
-        # Блокировка строки станции исключает двойное бронирование одного слота.
         try:
             with transaction.atomic():
                 station = Station.objects.select_for_update().get(pk=station.pk)
@@ -58,16 +46,15 @@ def book_station(request, pk):
                     car=car,
                     start=start,
                     end=start,
-                    name=(
-                        f"{request.user.last_name or ''} {request.user.first_name or ''}".strip()
-                        or request.user.username
-                    ),
+                    name=f"{request.user.last_name or ''} {request.user.first_name or ''}".strip() or request.user.username,
                     phone=profile.phone,
                     vin=car.vin,
                 )
                 for f in files:
                     AppointmentPhoto.objects.create(appointment=appointment, image=f)
 
+            # Внутреннее уведомление создаётся только для самостоятельной записи клиента.
+            create_station_staff_notifications(appointment)
             notify_station_staff_booked(appointment)
             notify_client_booked(appointment)
 
