@@ -53,8 +53,12 @@ def book_station(request, pk):
                 for f in files:
                     AppointmentPhoto.objects.create(appointment=appointment, image=f)
 
-            # Внутреннее уведомление создаётся только для самостоятельной записи клиента.
-            create_station_staff_notifications(appointment)
+                # Внутреннее уведомление создаём только после успешного commit.
+                transaction.on_commit(
+                    lambda: create_station_staff_notifications(appointment),
+                    robust=True,
+                )
+
             notify_station_staff_booked(appointment)
             notify_client_booked(appointment)
 
