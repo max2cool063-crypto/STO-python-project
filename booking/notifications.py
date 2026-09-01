@@ -18,8 +18,6 @@ def _send(subject, body, recipients):
         pass
 
 
-# ─── Клиентские уведомления ───────────────────────────────────────────────────
-
 def notify_client_booked(appointment):
     """Клиент записался на ТО — подтверждение."""
     email = appointment.user.email
@@ -45,15 +43,11 @@ def notify_client_cancelled(appointment, cancelled_by_station=False):
     email = appointment.user.email
     if not email:
         return
-    if cancelled_by_station:
-        reason = "Запись была отменена сотрудником станции."
-    else:
-        reason = "Вы отменили запись."
+    reason = "Запись была отменена сотрудником станции." if cancelled_by_station else "Вы отменили запись."
     _send(
         subject=f"Запись на ТО отменена — {appointment.station.name}",
         body=(
-            f"Здравствуйте, {appointment.name}!\n\n"
-            f"{reason}\n\n"
+            f"Здравствуйте, {appointment.name}!\n\n{reason}\n\n"
             f"Станция: {appointment.station.name}\n"
             f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
             f"Автомобиль: {appointment.car}\n\n"
@@ -83,17 +77,13 @@ def notify_client_reminder(appointment):
     )
 
 
-# ─── Уведомления персоналу станции ───────────────────────────────────────────
-
 def notify_station_staff_booked(appointment):
     """Новая запись на станцию — email всем активным сотрудникам."""
     from booking.models import StationStaff
     station = appointment.station
     recipients = list(
-        StationStaff.objects
-        .filter(station=station, is_active=True)
-        .exclude(user__email="")
-        .values_list("user__email", flat=True)
+        StationStaff.objects.filter(station=station, is_active=True)
+        .exclude(user__email="").values_list("user__email", flat=True)
     )
     if not recipients:
         return
@@ -116,9 +106,7 @@ def create_station_staff_notifications(appointment):
 
     station = appointment.station
     staff_ids = list(
-        StationStaff.objects
-        .filter(station=station, is_active=True)
-        .values_list("user_id", flat=True)
+        StationStaff.objects.filter(station=station, is_active=True).values_list("user_id", flat=True)
     )
     if not staff_ids:
         return 0
@@ -129,16 +117,19 @@ def create_station_staff_notifications(appointment):
         f"Автомобиль: {appointment.car}\n"
         f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}"
     )
-    notifications = [
-        Notification(
-            recipient_id=user_id,
-            station=station,
-            appointment=appointment,
-            notification_type=Notification.TYPE_NEW_APPOINTMENT,
-            title="Новая запись",
-            message=message,
-        )
-        for user_id in staff_ids
-    ]
-    Notification.objects.bulk_create(notifications)
-    return len(notifications)
+    try:
+        Notification.objects.bulk_create([
+            Notification(
+                recipient_id=user_id,
+                station=station,
+                appointment=appointment,
+                notification_type=Notification.TYPE_NEW_APPOINTMENT,
+                title="Новая запись",
+                message=message,
+            )
+            for user_id in staff_ids
+        ])
+    except Exception:
+        # Внутреннее уведомление не должно отменять уже созданную запись.
+        return 0
+    return len(staff_ids)
