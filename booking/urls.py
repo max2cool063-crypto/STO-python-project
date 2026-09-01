@@ -16,7 +16,7 @@ from booking.views.station_appointment_edit import station_appointment_edit
 from booking.views.station_calendar import station_day_calendar
 from booking.views.station_clients import station_clients
 from booking.views.station_staff_manage import station_staff_create_operator, station_staff_edit_profile
-from booking.views.notifications import station_notifications, station_notification_read, station_notifications_read_all
+from booking.views.notifications import station_notifications, station_notifications_history, station_notification_read, station_notifications_read_all
 
 urlpatterns = [
     path("", views.station_list, name="home"),
@@ -58,6 +58,7 @@ urlpatterns = [
     path("station/<int:station_id>/staff/create-operator/", station_staff_create_operator, name="station_staff_create_operator"),
     path("station/<int:station_id>/staff/<int:member_id>/edit/", station_staff_edit_profile, name="station_staff_edit_profile"),
     path("station/notifications/", station_notifications, name="station_notifications"),
+    path("station/notifications/all/", station_notifications_history, name="station_notifications_history"),
     path("station/notifications/<int:pk>/read/", station_notification_read, name="station_notification_read"),
     path("station/notifications/read-all/", station_notifications_read_all, name="station_notifications_read_all"),
 ]
