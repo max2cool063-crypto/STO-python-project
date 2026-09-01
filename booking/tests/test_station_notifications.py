@@ -1,4 +1,4 @@
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -70,7 +70,25 @@ class StationNotificationTests(TestCase):
         self.assertFalse(Notification.objects.filter(recipient=self.inactive_operator).exists())
         self.assertTrue(all(n.notification_type == Notification.TYPE_NEW_APPOINTMENT for n in notifications))
 
-    def test_notification_list_returns_only_recipient_notifications(self):
+    @patch("booking.views.booking.notify_client_booked")
+    @patch("booking.views.booking.notify_station_staff_booked")
+    def test_client_booking_respects_staff_notification_preference(self, _email_staff, _email_client):
+        StationStaff.objects.filter(station=self.station, user=self.operator).update(receive_notifications=False)
+        self.client.force_login(self.client_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("book_station", args=[self.station.pk]),
+                {"start": self.start.isoformat(), "car": self.car.pk},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        appointment = Appointment.objects.get(station=self.station)
+        self.assertSetEqual(
+            set(Notification.objects.filter(appointment=appointment).values_list("recipient_id", flat=True)),
+            {self.owner.pk},
+        )
+
+    def test_notification_list_returns_only_unread_recipient_notifications(self):
         appointment = Appointment.objects.create(
             station=self.station,
             user=self.client_user,
@@ -90,6 +108,15 @@ class StationNotificationTests(TestCase):
             message="Клиент: Иванов Иван",
         )
         Notification.objects.create(
+            recipient=self.owner,
+            station=self.station,
+            appointment=appointment,
+            notification_type=Notification.TYPE_NEW_APPOINTMENT,
+            title="Новая запись",
+            message="Прочитано",
+            is_read=True,
+        )
+        Notification.objects.create(
             recipient=self.operator,
             station=self.station,
             appointment=appointment,
@@ -106,6 +133,37 @@ class StationNotificationTests(TestCase):
         self.assertEqual(response.json()["notifications"][0]["appointment_url"], reverse(
             "station_appointment_detail", args=[self.station.pk, appointment.pk]
         ))
+
+    def test_notification_history_supports_all_unread_and_read_filters(self):
+        appointment = Appointment.objects.create(
+            station=self.station,
+            user=self.client_user,
+            car=self.car,
+            start=self.start,
+            end=self.start,
+            name="Иванов Иван",
+        )
+        for is_read in (False, True):
+            Notification.objects.create(
+                recipient=self.owner,
+                station=self.station,
+                appointment=appointment,
+                notification_type=Notification.TYPE_NEW_APPOINTMENT,
+                title="Новая запись",
+                message="Тест",
+                is_read=is_read,
+            )
+
+        self.client.force_login(self.owner)
+        all_response = self.client.get(reverse("station_notifications_history"))
+        unread_response = self.client.get(reverse("station_notifications_history") + "?filter=unread")
+        read_response = self.client.get(reverse("station_notifications_history") + "?filter=read")
+        self.assertEqual(all_response.status_code, 200)
+        self.assertEqual(unread_response.status_code, 200)
+        self.assertEqual(read_response.status_code, 200)
+        self.assertEqual(len(all_response.context["notifications"]), 2)
+        self.assertEqual(len(unread_response.context["notifications"]), 1)
+        self.assertEqual(len(read_response.context["notifications"]), 1)
 
     def test_notification_read_requires_recipient(self):
         appointment = Appointment.objects.create(
