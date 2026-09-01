@@ -31,10 +31,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="notification",
-            index=models.Index(fields=["recipient", "is_read", "created_at"], name="booking_not_recipie_0f2b8d_idx"),
+            index=models.Index(fields=["recipient", "is_read", "created_at"], name="booking_not_recipie_a78cff_idx"),
         ),
         migrations.AddIndex(
             model_name="notification",
-            index=models.Index(fields=["station", "created_at"], name="booking_not_station_4e5a3f_idx"),
+            index=models.Index(fields=["station", "created_at"], name="booking_not_station_99eb13_idx"),
         ),
     ]
