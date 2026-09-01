@@ -24,9 +24,7 @@
     var brand = byId('brand-select');
     var model = byId('model-select');
     if (brand) brand.value = '';
-    if (model) {
-      model.innerHTML = '<option value="">Сначала выберите марку</option>';
-    }
+    if (model) model.innerHTML = '<option value="">Сначала выберите марку</option>';
   }
 
   function clearClientFields() {
@@ -141,8 +139,6 @@
       return;
     }
 
-    // Each lookup starts from a clean state, so the second search cannot leave
-    // the previous car or client in the form.
     clearClientFields();
     clearNewCarFields();
     hideNewCar();
@@ -164,13 +160,17 @@
       }
       if (!response.ok) throw new Error(data.error || 'Ошибка поиска');
 
-      if (data.ambiguous && Array.isArray(data.matches)) {
-        renderAmbiguous(data.matches);
+      if (!Array.isArray(data.matches)) {
+        throw new Error('Некорректный ответ поиска: отсутствует matches');
+      }
+
+      if (data.matches.length === 1 && !data.ambiguous) {
+        renderSingle(data.matches[0]);
         return;
       }
 
-      if (data.id) {
-        renderSingle(data);
+      if (data.matches.length > 1 && data.ambiguous) {
+        renderAmbiguous(data.matches);
         return;
       }
 
