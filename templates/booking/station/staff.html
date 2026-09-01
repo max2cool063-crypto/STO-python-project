@@ -57,9 +57,9 @@
           <tr class="{% if not member.is_active %}st-staff-row--inactive{% endif %}">
             <td>
               <div class="st-staff-user">
-                <div class="st-staff-avatar" aria-hidden="true">{% if member.user.profile.first_name %}{{ member.user.profile.first_name|first|upper }}{% else %}{{ member.user.username|slice:":1"|upper }}{% endif %}</div>
+                <div class="st-staff-avatar" aria-hidden="true">{% if member.user.first_name %}{{ member.user.first_name|first|upper }}{% else %}{{ member.user.username|slice:":1"|upper }}{% endif %}</div>
                 <div>
-                  <div class="st-staff-user__name">{% if member.user.profile.first_name or member.user.profile.last_name %}{{ member.user.profile.first_name }} {{ member.user.profile.last_name }}{% else %}{{ member.user.username }}{% endif %}</div>
+                  <div class="st-staff-user__name">{% if member.user.first_name or member.user.last_name %}{{ member.user.first_name }} {{ member.user.last_name }}{% else %}{{ member.user.username }}{% endif %}</div>
                   <div class="st-staff-user__meta">Логин: {{ member.user.username }}</div>
                 </div>
               </div>
@@ -108,5 +108,5 @@
 
 <script>
 (function(){const modal=document.getElementById('reset-modal');const memberId=document.getElementById('reset-member-id');const username=document.getElementById('reset-username');const password=document.getElementById('reset-password');window.showResetForm=function(id,name){memberId.value=id;username.textContent=name;password.value='';modal.classList.add('is-open');modal.setAttribute('aria-hidden','false');setTimeout(()=>password.focus(),50)};window.hideResetForm=function(){modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true')};modal.addEventListener('click',e=>{if(e.target===modal)window.hideResetForm()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('is-open'))window.hideResetForm()})})();
-+</script>
+</script>
 {% endblock %}
