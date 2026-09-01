@@ -280,6 +280,7 @@ class StationStaff(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="station_roles", verbose_name="Пользователь")
     role = models.CharField("Роль", max_length=10, choices=ROLE_CHOICES)
     is_active = models.BooleanField("Активен", default=True)
+    receive_notifications = models.BooleanField("Получать уведомления о новых записях", default=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_staff", verbose_name="Кто создал")
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
 
@@ -349,7 +350,7 @@ class Notification(models.Model):
     title = models.CharField("Заголовок", max_length=255)
     message = models.TextField("Сообщение")
     is_read = models.BooleanField("Прочитано", default=False, db_index=True)
-    created_at = models.DateTimeField("Создано", auto_now_add=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]
