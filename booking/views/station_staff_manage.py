@@ -103,6 +103,7 @@ def station_staff_edit_profile(request, station_id, member_id, staff=None):
         first_name = request.POST.get("first_name", "").strip()
         last_name = request.POST.get("last_name", "").strip()
         phone = request.POST.get("phone", "").strip()
+        receive_notifications = request.POST.get("receive_notifications") == "on"
 
         if email and User.objects.filter(email__iexact=email).exclude(pk=member.user_id).exists():
             messages.error(request, "Этот email уже используется другим пользователем")
@@ -114,6 +115,8 @@ def station_staff_edit_profile(request, station_id, member_id, staff=None):
         member.user.save(update_fields=["email", "first_name", "last_name"])
         profile.phone = phone
         profile.save(update_fields=["phone"])
+        member.receive_notifications = receive_notifications
+        member.save(update_fields=["receive_notifications"])
 
         messages.success(request, f"Профиль «{member.user.username}» сохранён")
         return redirect("station_staff", station_id=station_id)
