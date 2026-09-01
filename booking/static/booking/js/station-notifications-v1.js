@@ -40,7 +40,7 @@
 
   function render(items) {
     if (!items.length) {
-      list.innerHTML = '<div class="st-notification-empty">Нет уведомлений</div>';
+      list.innerHTML = '<div class="st-notification-empty">Нет новых уведомлений</div>';
       return;
     }
     list.innerHTML = items.map(function (item) {
@@ -49,9 +49,9 @@
         '<div class="st-notification-item__time">' + escapeHtml(formatTime(item.created_at)) + '</div>';
       if (item.appointment_url) {
         return '<form method="post" action="' + escapeHtml('/station/notifications/' + item.id + '/read/') + '" class="st-notification-item-form">' +
-          '<input type="hidden" name="csrfmiddlewaretoken" value="' + escapeHtml(csrfToken) + '"><button class="st-notification-item ' + (item.is_read ? '' : 'st-notification-item--unread') + '" type="submit">' + content + '</button></form>';
+          '<input type="hidden" name="csrfmiddlewaretoken" value="' + escapeHtml(csrfToken) + '"><button class="st-notification-item st-notification-item--unread" type="submit">' + content + '</button></form>';
       }
-      return '<div class="st-notification-item ' + (item.is_read ? '' : 'st-notification-item--unread') + '">' + content + '</div>';
+      return '<div class="st-notification-item st-notification-item--unread">' + content + '</div>';
     }).join('');
   }
 
