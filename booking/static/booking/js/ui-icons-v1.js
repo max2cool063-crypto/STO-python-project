@@ -103,10 +103,94 @@
     normalizeBookingBookmarkIcons(scope);
   }
 
+  function initPhotoLightbox(options) {
+    const cfg = Object.assign({
+      buttonSelector: '.appt-photo-thumb, .st-photo-button',
+      lightboxSelector: '.cabinet-photo-lightbox, .photo-lightbox',
+      imageSelector: '#cabinet-photo-lightbox-image, #photo-lightbox-image',
+      closeSelector: '.cabinet-photo-lightbox__close, .photo-lightbox__close'
+    }, options || {});
+    const buttons = Array.from(document.querySelectorAll(cfg.buttonSelector));
+    const lightboxes = Array.from(document.querySelectorAll(cfg.lightboxSelector));
+    if (!buttons.length || !lightboxes.length) return;
+
+    lightboxes.forEach(function (lightbox) {
+      if (lightbox.dataset.photoNavigationReady === '1') return;
+      lightbox.dataset.photoNavigationReady = '1';
+      const image = lightbox.querySelector(cfg.imageSelector);
+      const close = lightbox.querySelector(cfg.closeSelector);
+      const group = buttons.filter(function (button) {
+        return button.closest('article, section') === lightbox.previousElementSibling?.closest('article, section') || true;
+      });
+      const localButtons = group.length ? group : buttons;
+      let index = 0;
+
+      const render = function () {
+        const button = localButtons[index];
+        if (!button || !image) return;
+        image.src = button.dataset.photoUrl || '';
+        image.alt = button.dataset.photoAlt || '';
+      };
+      const move = function (delta) {
+        if (localButtons.length < 2) return;
+        index = (index + delta + localButtons.length) % localButtons.length;
+        render();
+      };
+      const open = function (button) {
+        index = localButtons.indexOf(button);
+        if (index < 0) index = 0;
+        render();
+        lightbox.hidden = false;
+        document.body.style.overflow = 'hidden';
+      };
+      const closeBox = function () {
+        lightbox.hidden = true;
+        if (image) image.src = '';
+        document.body.style.overflow = '';
+      };
+
+      buttons.forEach(function (button) {
+        button.addEventListener('click', function (event) {
+          event.preventDefault();
+          open(button);
+        });
+      });
+      close?.addEventListener('click', closeBox);
+      lightbox.addEventListener('click', function (event) {
+        if (event.target === lightbox) closeBox();
+      });
+
+      if (localButtons.length > 1) {
+        const prev = document.createElement('button');
+        prev.type = 'button';
+        prev.className = 'photo-lightbox__nav photo-lightbox__nav--prev';
+        prev.setAttribute('aria-label', 'Предыдущее фото');
+        prev.textContent = '‹';
+        const next = document.createElement('button');
+        next.type = 'button';
+        next.className = 'photo-lightbox__nav photo-lightbox__nav--next';
+        next.setAttribute('aria-label', 'Следующее фото');
+        next.textContent = '›';
+        lightbox.appendChild(prev);
+        lightbox.appendChild(next);
+        prev.addEventListener('click', function (event) { event.stopPropagation(); move(-1); });
+        next.addEventListener('click', function (event) { event.stopPropagation(); move(1); });
+      }
+
+      document.addEventListener('keydown', function (event) {
+        if (lightbox.hidden) return;
+        if (event.key === 'Escape') closeBox();
+        if (event.key === 'ArrowLeft') move(-1);
+        if (event.key === 'ArrowRight') move(1);
+      });
+    });
+  }
+
   window.STOIcons = window.STOIcons || {};
   window.STOIcons.refresh = refreshIcons;
   document.addEventListener('DOMContentLoaded', function () {
     refreshIcons(document);
+    initPhotoLightbox();
     if (window.MutationObserver) {
       const observer = new MutationObserver(function (mutations) {
         mutations.forEach(function (mutation) {
