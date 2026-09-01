@@ -32,20 +32,11 @@
   </aside>
 
   <main class="st-main">
-    <div class="st-notification-wrap" data-station-notifications data-endpoint="{% url 'station_notifications' %}" data-read-all-url="{% url 'station_notifications_read_all' %}">
-      <button type="button" class="st-notification-button" data-notification-toggle aria-label="Уведомления" aria-expanded="false">
-        <i data-lucide="bell" aria-hidden="true"></i><span class="st-notification-badge" data-notification-count hidden>0</span>
-      </button>
-      <div class="st-notification-panel" data-notification-panel hidden>
-        <div class="st-notification-panel__head"><strong>Уведомления</strong><button type="button" data-notification-read-all>Прочитать все</button></div>
-        <div class="st-notification-list" data-notification-list><div class="st-notification-empty">Нет новых уведомлений</div></div>
-      </div>
-    </div>
     {% if messages %}{% for msg in messages %}<div class="alert alert-{{ msg.tags|default:'info' }}">{% if msg.tags == 'success' %}<i class="ds-alert-icon" data-lucide="circle-check" aria-hidden="true"></i>{% elif msg.tags == 'error' %}<i class="ds-alert-icon" data-lucide="circle-alert" aria-hidden="true"></i>{% else %}<i class="ds-alert-icon" data-lucide="info" aria-hidden="true"></i>{% endif %}<span>{{ msg }}</span></div>{% endfor %}{% endif %}
     {% block station_content %}{% endblock %}
   </main>
 </div>
 {% endblock %}
 {% block extra_scripts %}
-<script src="{% static 'booking/js/station-notifications-v1.js' %}?v=20260901-1"></script>
+<script src="{% static 'booking/js/station-notifications-v1.js' %}?v=20260901-2"></script>
 {% endblock %}
