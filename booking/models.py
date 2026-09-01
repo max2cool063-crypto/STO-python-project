@@ -119,10 +119,6 @@ class StationWeeklySchedule(models.Model):
         return f"{self.station} — {self.get_weekday_display()}"
 
 
-# =========================
-# ИСКЛЮЧЕНИЯ (КОНКРЕТНЫЕ ДАТЫ)
-# =========================
-
 class StationSchedule(models.Model):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="schedules", verbose_name="Станция")
     date = models.DateField("Дата")
@@ -138,10 +134,6 @@ class StationSchedule(models.Model):
     def __str__(self):
         return f"{self.station} — {self.date}"
 
-
-# =========================
-# ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
-# =========================
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
@@ -161,10 +153,6 @@ def create_user_profile(sender, instance, created, **kwargs):
         UserProfile.objects.get_or_create(user=instance)
 
 
-# =========================
-# СПРАВОЧНИК МАРОК
-# =========================
-
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -176,10 +164,6 @@ class Brand(models.Model):
     def __str__(self):
         return self.name
 
-
-# =========================
-# СПРАВОЧНИК МОДЕЛЕЙ
-# =========================
 
 class CarModel(models.Model):
     VEHICLE_TYPES = [("CAR", "Легковой"), ("TRUCK", "Грузовой")]
@@ -195,10 +179,6 @@ class CarModel(models.Model):
     def __str__(self):
         return f"{self.brand} {self.name}"
 
-
-# =========================
-# АВТОМОБИЛЬ ПОЛЬЗОВАТЕЛЯ
-# =========================
 
 class Car(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -219,10 +199,6 @@ class Car(models.Model):
     def __str__(self):
         return f"{self.model.brand.name} {self.model.name} ({self.plate_number})"
 
-
-# =========================
-# ЗАПИСЬ НА ТО
-# =========================
 
 class Appointment(models.Model):
     STATUS_CHOICES = [
@@ -283,10 +259,6 @@ class Appointment(models.Model):
         super().save(*args, **kwargs)
 
 
-# =========================
-# ФОТО ПРИ ЗАПИСИ
-# =========================
-
 class AppointmentPhoto(models.Model):
     appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="photos")
     image = models.ImageField(upload_to="appointments/")
@@ -299,10 +271,6 @@ class AppointmentPhoto(models.Model):
     def __str__(self):
         return f"Фото #{self.pk} к записи #{self.appointment_id}"
 
-
-# =========================
-# ПЕРСОНАЛ СТАНЦИИ
-# =========================
 
 class StationStaff(models.Model):
     ROLE_OWNER = "OWNER"
@@ -331,10 +299,6 @@ class StationStaff(models.Model):
         return self.role == self.ROLE_OPERATOR
 
 
-# =========================
-# БЛОКИРОВКА СЛОТА
-# =========================
-
 class SlotBlock(models.Model):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="slot_blocks")
     start = models.DateTimeField("Начало блокировки")
@@ -357,10 +321,6 @@ class SlotBlock(models.Model):
             raise ValidationError("Конец блокировки должен быть позже начала")
 
 
-# =========================
-# ИСТОРИЯ СТАТУСОВ ЗАПИСИ
-# =========================
-
 class AppointmentLog(models.Model):
     appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="logs", verbose_name="Запись")
     changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Кто изменил")
@@ -376,3 +336,29 @@ class AppointmentLog(models.Model):
 
     def __str__(self):
         return f"#{self.appointment_id} {self.old_status}→{self.new_status} {self.created_at:%d.%m %H:%M}"
+
+
+class Notification(models.Model):
+    TYPE_NEW_APPOINTMENT = "NEW_APPOINTMENT"
+    TYPE_CHOICES = [(TYPE_NEW_APPOINTMENT, "Новая запись")]
+
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications", verbose_name="Получатель")
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="notifications", verbose_name="Станция")
+    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, null=True, blank=True, related_name="notifications", verbose_name="Запись")
+    notification_type = models.CharField("Тип", max_length=50, choices=TYPE_CHOICES)
+    title = models.CharField("Заголовок", max_length=255)
+    message = models.TextField("Сообщение")
+    is_read = models.BooleanField("Прочитано", default=False, db_index=True)
+    created_at = models.DateTimeField("Создано", auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "created_at"]),
+            models.Index(fields=["station", "created_at"]),
+        ]
+        verbose_name = "Уведомление"
+        verbose_name_plural = "Уведомления"
+
+    def __str__(self):
+        return f"{self.title} — {self.recipient}"
