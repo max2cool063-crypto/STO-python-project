@@ -1,0 +1,48 @@
+{% extends "booking/station/base.html" %}
+{% block station_content %}
+<div class="st-notifications-page">
+  <header class="st-page-head">
+    <div>
+      <div class="st-page-head__eyebrow">Рабочая область станции</div>
+      <h1>Уведомления</h1>
+      <p>История событий и новых записей для вашего рабочего места.</p>
+    </div>
+    {% if unread_count %}<div class="st-notifications-count">{{ unread_count }} непрочитанных</div>{% endif %}
+  </header>
+
+  <div class="st-notifications-tabs" role="tablist" aria-label="Фильтр уведомлений">
+    <a href="{% url 'station_notifications_history' %}?filter=all" class="{% if filter_value == 'all' %}is-active{% endif %}">Все</a>
+    <a href="{% url 'station_notifications_history' %}?filter=unread" class="{% if filter_value == 'unread' %}is-active{% endif %}">Непрочитанные{% if unread_count %} ({{ unread_count }}){% endif %}</a>
+    <a href="{% url 'station_notifications_history' %}?filter=read" class="{% if filter_value == 'read' %}is-active{% endif %}">Прочитанные</a>
+  </div>
+
+  <section class="st-card st-notifications-history-card">
+    {% for item in notifications %}
+      <div class="st-history-item {% if not item.is_read %}st-history-item--unread{% endif %}">
+        <div class="st-history-item__icon"><i data-lucide="bell" aria-hidden="true"></i></div>
+        <div class="st-history-item__body">
+          <div class="st-history-item__top"><strong>{{ item.title }}</strong><time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"d.m.Y H:i" }}</time></div>
+          <div class="st-history-item__message">{{ item.message|linebreaksbr }}</div>
+          <div class="st-history-item__station">{{ item.station.name }}{% if item.appointment %} · запись #{{ item.appointment_id }}{% endif %}</div>
+        </div>
+        {% if item.appointment_id %}
+          <form method="post" action="{% url 'station_notification_read' item.pk %}" class="st-history-item__action">
+            {% csrf_token %}
+            <button type="submit" class="st-btn st-btn--secondary st-btn--sm">Открыть запись</button>
+          </form>
+        {% endif %}
+      </div>
+    {% empty %}
+      <div class="st-notification-empty st-notification-empty--page">
+        <i data-lucide="bell-off" aria-hidden="true"></i>
+        <strong>Уведомлений нет</strong>
+        <span>Здесь появится история уведомлений о новых записях.</span>
+      </div>
+    {% endfor %}
+  </section>
+</div>
+
+<style>
+.st-notifications-page{max-width:1100px;margin:0 auto}.st-notifications-count{align-self:center;padding:8px 12px;border-radius:999px;background:#eef4ff;color:#155eef;font-size:12px;font-weight:700}.st-notifications-tabs{display:flex;gap:6px;margin:0 0 16px;padding:4px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc;width:max-content;max-width:100%;overflow:auto}.st-notifications-tabs a{padding:8px 12px;border-radius:8px;color:#64748b;text-decoration:none;font-size:13px;font-weight:700;white-space:nowrap}.st-notifications-tabs a:hover{background:#eef2f7;color:#172033}.st-notifications-tabs a.is-active{background:#fff;color:#155eef;box-shadow:0 1px 3px rgba(15,23,42,.08)}.st-notifications-history-card{padding:0;overflow:hidden}.st-history-item{display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-bottom:1px solid #eef2f7}.st-history-item:last-child{border-bottom:0}.st-history-item--unread{background:#f8fbff}.st-history-item__icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:50%;background:#eef4ff;color:#155eef}.st-history-item__icon .lucide{width:18px;height:18px}.st-history-item__body{min-width:0;flex:1}.st-history-item__top{display:flex;align-items:center;justify-content:space-between;gap:12px}.st-history-item__top strong{font-size:14px;color:#172033}.st-history-item__top time{color:#94a3b8;font-size:11px;white-space:nowrap}.st-history-item__message{margin-top:6px;color:#475569;font-size:13px;line-height:1.5}.st-history-item__station{margin-top:7px;color:#94a3b8;font-size:11px}.st-history-item__action{margin-left:auto}.st-notification-empty--page{min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.st-notification-empty--page .lucide{width:28px;height:28px}.st-notification-empty--page strong{color:#475569}.st-notification-empty--page span{font-size:12px}@media(max-width:650px){.st-notifications-tabs{width:100%}.st-history-item{flex-wrap:wrap}.st-history-item__action{width:100%;margin-left:52px}.st-history-item__action .st-btn{width:100%;justify-content:center}.st-history-item__top{align-items:flex-start;flex-direction:column;gap:3px}}
+</style>
+{% endblock %}
