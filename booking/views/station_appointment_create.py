@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 
 from django.contrib import messages
@@ -19,6 +20,32 @@ from booking.views.auth import send_password_setup_email
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+RUSSIAN_PLATE_RE = re.compile(r"^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}\d{2,3}$")
+VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
+
+
+def _normalize_ru_phone(value):
+    """Normalize a Russian phone to +7XXXXXXXXXX."""
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+
+    digits = re.sub(r"\D", "", raw)
+    if digits.startswith("8"):
+        digits = "7" + digits[1:]
+    elif len(digits) == 10:
+        digits = "7" + digits
+    elif digits.startswith("7"):
+        pass
+    else:
+        raise ValidationError("Телефон должен быть российским номером в формате +7 XXX XXX-XX-XX")
+
+    if len(digits) != 11 or not digits.startswith("7"):
+        raise ValidationError("Телефон должен содержать 10 цифр после кода +7")
+    if digits[1] not in "3-9":
+        raise ValidationError("Укажите корректный российский номер телефона")
+    return "+" + digits
 
 
 def _get_or_create_client(email):
@@ -82,6 +109,12 @@ def station_appointment_create(request, station_id, staff=None):
         email = request.POST.get("new_user_email", "").strip().lower()
         files = request.FILES.getlist("photos")
 
+        try:
+            client_phone = _normalize_ru_phone(client_phone)
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+            return redirect(request.path)
+
         start_raw = parse_datetime(start_s)
         start = make_aware(start_raw) if start_raw and not is_aware(start_raw) else start_raw
 
@@ -114,8 +147,14 @@ def station_appointment_create(request, station_id, staff=None):
                         raise ValidationError(
                             "Для нового автомобиля укажите госномер и модель автомобиля"
                         )
-                    if vin and len(vin) > 32:
-                        raise ValidationError("VIN не должен превышать 32 символа")
+                    if not RUSSIAN_PLATE_RE.fullmatch(plate):
+                        raise ValidationError(
+                            "Госномер должен соответствовать российскому формату: А123ВС77 или А123ВС777"
+                        )
+                    if vin and not VIN_RE.fullmatch(vin):
+                        raise ValidationError(
+                            "VIN должен содержать ровно 17 символов: латинские буквы и цифры, без I, O и Q"
+                        )
 
                     try:
                         model = CarModel.objects.get(pk=int(model_id))
