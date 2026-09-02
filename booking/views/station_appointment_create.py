@@ -43,7 +43,7 @@ def _normalize_ru_phone(value):
 
     if len(digits) != 11 or not digits.startswith("7"):
         raise ValidationError("Телефон должен содержать 10 цифр после кода +7")
-    if digits[1] not in "3-9":
+    if digits[1] not in "3456789":
         raise ValidationError("Укажите корректный российский номер телефона")
     return "+" + digits
 
