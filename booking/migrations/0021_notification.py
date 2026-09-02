@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                 ("title", models.CharField(max_length=255, verbose_name="Заголовок")),
                 ("message", models.TextField(verbose_name="Сообщение")),
                 ("is_read", models.BooleanField(db_index=True, default=False, verbose_name="Прочитано")),
-                ("created_at", models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Создано")),
+                ("created_at", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("appointment", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name="notifications", to="booking.appointment", verbose_name="Запись")),
                 ("recipient", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="notifications", to=settings.AUTH_USER_MODEL, verbose_name="Получатель")),
                 ("station", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="notifications", to="booking.station", verbose_name="Станция")),
