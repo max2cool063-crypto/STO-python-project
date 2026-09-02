@@ -10,6 +10,19 @@
     if (node) node.textContent = value || '';
   }
 
+  function setSelectedFieldsLocked(locked) {
+    var plate = byId('plate-input');
+    var name = byId('client-name');
+    var phone = byId('client-phone');
+    [plate, name, phone].forEach(function (node) {
+      if (!node) return;
+      node.readOnly = locked;
+      node.setAttribute('aria-readonly', locked ? 'true' : 'false');
+      node.title = locked ? 'Данные выбранного автомобиля нельзя изменить. Для нового автомобиля используйте кнопку «Добавить новый автомобиль с этим госномером».' : '';
+      node.classList.toggle('st-input--locked', locked);
+    });
+  }
+
   function getStationId() {
     if (typeof STATION_ID !== 'undefined') return String(STATION_ID);
     var match = window.location.pathname.match(/\/station\/(\d+)/);
@@ -34,6 +47,7 @@
     if (name) name.value = '';
     if (phone) phone.value = '';
     if (hidden) hidden.value = '';
+    setSelectedFieldsLocked(false);
     setText('summary-client', 'Не указан');
     setText('summary-car', 'Не выбран');
     if (typeof currentCarId !== 'undefined') currentCarId = null;
@@ -94,6 +108,9 @@
 
     var plateInput = byId('plate-input');
     var plate = car.plate || (plateInput ? plateInput.value.trim().toUpperCase() : '');
+    if (plateInput) plateInput.value = plate;
+    setSelectedFieldsLocked(true);
+
     setText('summary-car', (car.brand || '') + ' ' + (car.model || '') + ' · ' + plate);
     setText('summary-client', ownerName || 'Не указан');
 
@@ -151,7 +168,7 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+      .replace(/\"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
 
