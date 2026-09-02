@@ -90,7 +90,7 @@
     var phone = byId('client-phone');
     var ownerName = car.owner_name || '';
     if (name) name.value = ownerName;
-    if (phone) phone.value = car.owner_phone || '');
+    if (phone) phone.value = car.owner_phone || '';
 
     var plateInput = byId('plate-input');
     var plate = car.plate || (plateInput ? plateInput.value.trim().toUpperCase() : '');
