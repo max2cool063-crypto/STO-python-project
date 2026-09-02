@@ -17,10 +17,9 @@ from .models import (
     Brand, CarModel, Car,
     Station, StationWeeklySchedule, StationSchedule,
     Appointment, AppointmentPhoto,
-    StationStaff,
+    StationStaff, UserProfile,
 )
 from .forms import WeeklyScheduleInlineForm, ScheduleInlineForm
-from .models import UserProfile
 
 admin.site.site_header = "СТО — Панель управления"
 admin.site.site_title = "СТО"
@@ -337,14 +336,6 @@ class UserAdminChangeForm(UserChangeForm):
             profile = UserProfile.objects.filter(user=self.instance).first()
             self.initial["phone"] = profile.phone if profile else ""
 
-    def save(self, commit=True):
-        user = super().save(commit=commit)
-        if commit:
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            profile.phone = self.cleaned_data.get("phone", "").strip()
-            profile.save(update_fields=["phone"])
-        return user
-
 
 class UserAdminCreationForm(UserCreationForm):
     phone = forms.CharField(label="Телефон", max_length=30, required=False)
@@ -352,14 +343,6 @@ class UserAdminCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("username", "email", "first_name", "last_name", "phone")
-
-    def save(self, commit=True):
-        user = super().save(commit=commit)
-        if commit:
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            profile.phone = self.cleaned_data.get("phone", "").strip()
-            profile.save(update_fields=["phone"])
-        return user
 
 
 class UserAdmin(DjangoUserAdmin):
@@ -386,6 +369,15 @@ class UserAdmin(DjangoUserAdmin):
     def phone(self, obj):
         profile = getattr(obj, "profile", None)
         return profile.phone if profile and profile.phone else "—"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("profile")
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        profile, _ = UserProfile.objects.get_or_create(user=obj)
+        profile.phone = form.cleaned_data.get("phone", "").strip()
+        profile.save(update_fields=["phone"])
 
 
 admin.site.unregister(User)
