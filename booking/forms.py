@@ -157,7 +157,7 @@ class CarForm(forms.ModelForm):
         self.fields["vin"].required = False
 
     def clean_plate_number(self):
-        plate = self.cleaned_data.get("plate_number", "").strip().upper()
+        plate = (self.cleaned_data.get("plate_number") or "").strip().upper()
         if not RUSSIAN_PLATE_RE.fullmatch(plate):
             raise forms.ValidationError(
                 "Госномер должен соответствовать российскому формату: А123ВС77 или А123ВС777"
@@ -165,7 +165,7 @@ class CarForm(forms.ModelForm):
         return plate
 
     def clean_vin(self):
-        vin = self.cleaned_data.get("vin", "").strip().upper()
+        vin = (self.cleaned_data.get("vin") or "").strip().upper()
         if vin and not VIN_RE.fullmatch(vin):
             raise forms.ValidationError(
                 "VIN должен содержать ровно 17 символов: латинские буквы и цифры, без I, O и Q"
