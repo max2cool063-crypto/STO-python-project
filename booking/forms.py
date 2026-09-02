@@ -1,4 +1,7 @@
+import re
+
 from django import forms
+from django.core.exceptions import ValidationError
 from PIL import Image, UnidentifiedImageError
 
 from .models import Appointment, UserProfile, Car, StationWeeklySchedule, StationSchedule
@@ -35,6 +38,35 @@ MAX_PHOTO_SIZE_MB = 5
 MAX_PHOTOS = 5
 
 
+# Идентификаторы ТС и телефон: единые правила для кабинета клиента
+# и ручной записи оператором.
+RUSSIAN_PLATE_RE = re.compile(r"^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}\d{2,3}$")
+VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
+
+
+def normalize_ru_phone(value):
+    """Normalize a Russian phone to +7XXXXXXXXXX."""
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+
+    digits = re.sub(r"\D", "", raw)
+    if digits.startswith("8"):
+        digits = "7" + digits[1:]
+    elif len(digits) == 10:
+        digits = "7" + digits
+    elif digits.startswith("7"):
+        pass
+    else:
+        raise ValidationError("Телефон должен быть российским номером в формате +7 XXX XXX-XX-XX")
+
+    if len(digits) != 11 or not digits.startswith("7"):
+        raise ValidationError("Телефон должен содержать 10 цифр после кода +7")
+    if digits[1] not in "3456789":
+        raise ValidationError("Укажите корректный российский номер телефона")
+    return "+" + digits
+
+
 class AppointmentForm(forms.ModelForm):
     """Форма бронирования — используется в admin и потенциально в view."""
     class Meta:
@@ -61,7 +93,17 @@ class ProfileForm(forms.Form):
     """Редактирование имени/фамилии из User и телефона из UserProfile."""
     first_name = forms.CharField(label="Имя", max_length=150, required=False)
     last_name = forms.CharField(label="Фамилия", max_length=150, required=False)
-    phone = forms.CharField(label="Телефон", max_length=30, required=False)
+    phone = forms.CharField(
+        label="Телефон",
+        max_length=16,
+        required=False,
+        widget=forms.TextInput(attrs={
+            "inputmode": "tel",
+            "autocomplete": "tel",
+            "maxlength": "16",
+            "placeholder": "+7 900 000-00-00",
+        }),
+    )
 
     def __init__(self, *args, user=None, profile=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -74,6 +116,9 @@ class ProfileForm(forms.Form):
                 "phone": self.profile.phone if self.profile else "",
             })
 
+    def clean_phone(self):
+        return normalize_ru_phone(self.cleaned_data.get("phone", ""))
+
     def save(self):
         if self.user is None:
             raise ValueError("ProfileForm requires a user")
@@ -81,7 +126,7 @@ class ProfileForm(forms.Form):
         self.user.last_name = self.cleaned_data["last_name"].strip()
         self.user.save(update_fields=["first_name", "last_name"])
         profile = self.profile or UserProfile.objects.get_or_create(user=self.user)[0]
-        profile.phone = self.cleaned_data["phone"].strip()
+        profile.phone = self.cleaned_data["phone"]
         profile.save(update_fields=["phone"])
         return profile
 
@@ -93,14 +138,39 @@ class CarForm(forms.ModelForm):
         fields = ["plate_number", "vin"]
         widgets = {
             "plate_number": forms.TextInput(attrs={
+                "maxlength": "9",
+                "pattern": r"[АВЕКМНОРСТУХ]{1}[0-9]{3}[АВЕКМНОРСТУХ]{2}[0-9]{2,3}",
+                "placeholder": "А123ВС77",
                 "style": "text-transform:uppercase",
-                "oninput": "this.value=this.value.toUpperCase()"
+                "oninput": "this.value=this.value.toUpperCase()",
+            }),
+            "vin": forms.TextInput(attrs={
+                "maxlength": "17",
+                "pattern": r"[A-HJ-NPR-Z0-9]{17}",
+                "placeholder": "17 символов",
+                "style": "text-transform:uppercase",
             }),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["vin"].required = False
+
+    def clean_plate_number(self):
+        plate = self.cleaned_data.get("plate_number", "").strip().upper()
+        if not RUSSIAN_PLATE_RE.fullmatch(plate):
+            raise forms.ValidationError(
+                "Госномер должен соответствовать российскому формату: А123ВС77 или А123ВС777"
+            )
+        return plate
+
+    def clean_vin(self):
+        vin = self.cleaned_data.get("vin", "").strip().upper()
+        if vin and not VIN_RE.fullmatch(vin):
+            raise forms.ValidationError(
+                "VIN должен содержать ровно 17 символов: латинские буквы и цифры, без I, O и Q"
+            )
+        return vin or None
 
 
 class PhotosUploadForm:
