@@ -60,6 +60,28 @@ class StationAppointmentWorkflowTests(TestCase):
         self.assertEqual(appointment.car.vin, "XTA12345678901234")
         self.assertEqual(appointment.vin, "XTA12345678901234")
 
+    def test_operator_can_load_slots_for_saved_client_car(self):
+        client_user = User.objects.create_user(username="saved-client-workflow", email="saved@example.com")
+        car = Car.objects.create(owner=client_user, model=self.model, plate_number="С963УК763")
+        Appointment.objects.create(
+            station=self.station,
+            user=client_user,
+            car=car,
+            start=timezone.make_aware(datetime(2099, 2, 2, 10, 0)),
+            end=timezone.make_aware(datetime(2099, 2, 2, 10, 30)),
+            name="Клиент",
+        )
+
+        response = self.client.get(
+            reverse("station_slots_api", kwargs={"station_id": self.station.id}),
+            {"date": "2099-02-03", "car": car.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data["slots"]), 18)
+        self.assertEqual(data["slots"][0]["start"][:16], "2099-02-03T09:00")
+
     def test_station_detail_and_edit_are_available_to_operator(self):
         user = User.objects.create_user(username="client-workflow", email="client@example.com")
         car = Car.objects.create(owner=user, model=self.model, plate_number="B456BB")
