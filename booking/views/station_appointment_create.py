@@ -171,12 +171,17 @@ def station_appointment_create(request, station_id, staff=None):
                     )
                 else:
                     car = get_object_or_404(
-                        Car.objects.select_related("model", "owner"),
+                        Car.objects.select_related("model", "owner__profile"),
                         id=car_id,
                         is_active=True,
                     )
                     client_user = car.owner
-                    _save_client_identity(client_user, client_name, client_phone)
+                    profile = getattr(client_user, "profile", None)
+                    client_name = (
+                        f"{client_user.last_name} {client_user.first_name}".strip()
+                        or client_user.username
+                    )
+                    client_phone = profile.phone if profile else ""
 
                 locked_station = Station.objects.select_for_update().get(pk=station.pk)
                 appointment = Appointment.objects.create(
