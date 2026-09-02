@@ -101,12 +101,19 @@ class StationAppointmentWorkflowTests(TestCase):
             plate_number="С963УК763",
             vin="XTA210990Y1234567",
         )
+        previous_day = date(2099, 2, 2)
+        StationWeeklySchedule.objects.create(
+            station=self.station,
+            weekday=previous_day.weekday(),
+            work_start=time(9, 0),
+            work_end=time(18, 0),
+        )
         Appointment.objects.create(
             station=self.station,
             user=previous_owner,
             car=car,
-            start=self.start_dt,
-            end=self.start_dt + timedelta(minutes=30),
+            start=timezone.make_aware(datetime(2099, 2, 2, 10, 0)),
+            end=timezone.make_aware(datetime(2099, 2, 2, 10, 30)),
             name="Иванов Иван",
         )
 
@@ -130,7 +137,7 @@ class StationAppointmentWorkflowTests(TestCase):
         self.assertEqual(appointment.user_id, previous_owner.pk)
         self.assertEqual(appointment.car_id, car.pk)
         self.assertEqual(appointment.name, "Иванов Иван")
-        self.assertEqual(appointment.phone, "")
+        self.assertIsNone(appointment.phone)
         self.assertEqual(previous_owner.first_name, "Иван")
         self.assertEqual(previous_owner.last_name, "Иванов")
 
