@@ -219,7 +219,7 @@ class StationClientAndPlateLookupTests(TestCase):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
             {
-                "plate": "A555AA63",
+                "plate": "А555АА63",
                 "new_model_id": self.model.id,
                 "new_user_email": "new-client@example.com",
                 "client_name": "Сидоров Сергей",
