@@ -267,8 +267,6 @@ class BookingCoreTests(TestCase):
         )
         self.create_appointment(start_hour=9)
         self.client.login(username="other@example.com", password="test-password")
-        target = date(2099, 2, 3)
-        self.add_weekday_schedule(target, "09:00", "18:00")
 
         url = reverse("station_appointment_create", kwargs={"station_id": self.station.id})
         response = self.client.post(
@@ -415,7 +413,8 @@ class BookingCoreTests(TestCase):
         self.client.login(username="client@example.com", password="test-password")
 
         response = self.client.get(
-            reverse("station_staff", kwargs={"station_id": self.station.id})
+            reverse("station_staff", kwargs={"station_id": self.station.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)
