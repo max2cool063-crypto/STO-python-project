@@ -39,14 +39,45 @@
     if (typeof currentCarId !== 'undefined') currentCarId = null;
   }
 
+  function resetDurationSummary() {
+    var summary = byId('summary-type');
+    if (summary) {
+      summary.innerHTML = '<span>⏱</span><strong>Продолжительность определится по автомобилю</strong>';
+    }
+  }
+
   function hideNewCar() {
     var block = byId('new-car-block');
     if (block) block.hidden = true;
   }
 
-  function showNewCar() {
+  function showNewCar(existingPlate) {
     var block = byId('new-car-block');
-    if (block) block.hidden = false;
+    if (!block) return;
+
+    block.hidden = false;
+    var title = block.querySelector('h3');
+    var description = block.querySelector('p');
+    if (title) title.textContent = existingPlate ? 'Добавить новый автомобиль' : 'Автомобиль не найден';
+    if (description) {
+      description.textContent = existingPlate
+        ? 'Госномер уже есть в базе, но можно зарегистрировать ещё один автомобиль с этим номером.'
+        : 'Зарегистрируйте автомобиль прямо во время оформления записи.';
+    }
+  }
+
+  function prepareNewCar() {
+    clearClientFields();
+    clearNewCarFields();
+    resetDurationSummary();
+    showNewCar(true);
+
+    var block = byId('new-car-block');
+    if (block) block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function newCarButtonHtml() {
+    return '<button type="button" class="st-btn st-btn--secondary station-add-new-car" style="justify-content:center;margin-top:10px;width:100%">＋ Добавить новый автомобиль с этим госномером</button>';
   }
 
   function setSelectedCar(car) {
@@ -59,7 +90,7 @@
     var phone = byId('client-phone');
     var ownerName = car.owner_name || '';
     if (name) name.value = ownerName;
-    if (phone) phone.value = car.owner_phone || '';
+    if (phone) phone.value = car.owner_phone || '');
 
     var plateInput = byId('plate-input');
     var plate = car.plate || (plateInput ? plateInput.value.trim().toUpperCase() : '');
@@ -79,7 +110,7 @@
     var info = byId('car-info');
     if (!info) return;
     info.style.color = '#15803d';
-    info.innerHTML = '<strong>Автомобиль найден:</strong> ' + escapeHtml(car.brand + ' ' + car.model) + ' · ' + escapeHtml(car.owner_name || 'Владелец не указан');
+    info.innerHTML = '<strong>Автомобиль найден:</strong> ' + escapeHtml(car.brand + ' ' + car.model) + ' · ' + escapeHtml(car.owner_name || 'Владелец не указан') + newCarButtonHtml();
     hideNewCar();
     setSelectedCar(car);
   }
@@ -102,7 +133,7 @@
         '<span><strong>' + escapeHtml(title) + '</strong><small style="display:block;color:#64748b;margin-top:3px">' + escapeHtml(details) + '</small></span>' +
         '</button>';
     });
-    html += '</div></div>';
+    html += newCarButtonHtml() + '</div></div>';
     info.innerHTML = html;
     hideNewCar();
 
@@ -135,7 +166,7 @@
       clearNewCarFields();
       info.textContent = 'Введите госномер.';
       info.style.color = '#b91c1c';
-      showNewCar();
+      showNewCar(false);
       return;
     }
 
@@ -155,7 +186,7 @@
       if (response.status === 404 || data.error === 'not found') {
         info.style.color = '#92400e';
         info.textContent = 'Автомобиль с таким госномером не найден. Можно зарегистрировать новый.';
-        showNewCar();
+        showNewCar(false);
         return;
       }
       if (!response.ok) throw new Error(data.error || 'Ошибка поиска');
@@ -186,9 +217,18 @@
 
   document.addEventListener('click', function (event) {
     var button = event.target.closest ? event.target.closest('#lookup-btn') : null;
-    if (!button) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    lookup();
+    if (button) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      lookup();
+      return;
+    }
+
+    var addNewCarButton = event.target.closest ? event.target.closest('.station-add-new-car') : null;
+    if (addNewCarButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      prepareNewCar();
+    }
   }, true);
 })();
