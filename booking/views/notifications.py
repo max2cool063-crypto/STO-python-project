@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from booking.models import Notification
+from booking.station_access import get_user_stations
 
 
 @login_required
@@ -47,7 +48,14 @@ def station_notifications_history(request):
     elif filter_value == "read":
         notifications = notifications.filter(is_read=True)
 
+    # История уведомлений не содержит station_id в URL, поэтому для
+    # station/base.html нужен доступный пользователю контекст станции.
+    # Если станций несколько, выбираем первую активную — сама история
+    # при этом остаётся общей и содержит уведомления всех доступных станций.
+    station = get_user_stations(request.user).first()
+
     return render(request, "booking/station/notifications.html", {
+        "station": station,
         "notifications": notifications[:100],
         "filter_value": filter_value,
         "unread_count": Notification.objects.filter(recipient=request.user, is_read=False).count(),
