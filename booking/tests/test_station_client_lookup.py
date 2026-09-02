@@ -234,9 +234,17 @@ class StationClientAndPlateLookupTests(TestCase):
         self.assertEqual(appointment.user.first_name, "Сергей")
         self.assertEqual(appointment.user.profile.phone, "+79990001122")
 
-    def test_manual_booking_updates_existing_owner_identity(self):
+    def test_manual_booking_does_not_update_existing_owner_identity(self):
         owner = User.objects.create_user(username="existing-owner")
         car = Car.objects.create(owner=owner, model=self.model, plate_number="A666AA63")
+        Appointment.objects.create(
+            station=self.station,
+            user=owner,
+            car=car,
+            start=self.start_dt,
+            end=self.start_dt + timedelta(minutes=30),
+            name="Существующий владелец",
+        )
 
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
@@ -252,6 +260,11 @@ class StationClientAndPlateLookupTests(TestCase):
         self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
         owner.refresh_from_db()
         owner.profile.refresh_from_db()
-        self.assertEqual(owner.last_name, "Орлов")
-        self.assertEqual(owner.first_name, "Олег")
-        self.assertEqual(owner.profile.phone, "+79990003344")
+        appointment = Appointment.objects.filter(station=self.station, car=car).order_by("-id").first()
+        self.assertEqual(owner.last_name, "")
+        self.assertEqual(owner.first_name, "")
+        self.assertEqual(owner.profile.phone, "")
+        self.assertEqual(appointment.user_id, owner.pk)
+        self.assertEqual(appointment.car_id, car.pk)
+        self.assertEqual(appointment.name, owner.username)
+        self.assertEqual(appointment.phone, "")
