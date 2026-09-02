@@ -33,7 +33,7 @@ class StationAppointmentWorkflowTests(TestCase):
     def test_operator_can_create_client_without_email_and_attach_photo(self):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
-            {"plate": "A123AA", "new_model_id": self.model.id, "new_user_email": "", "client_name": "Иванов Иван", "client_phone": "+79990000000", "start": self.start, "photos": self.image_upload()},
+            {"plate": "А123АА77", "new_model_id": self.model.id, "new_user_email": "", "client_name": "Иванов Иван", "client_phone": "+79990000000", "start": self.start, "photos": self.image_upload()},
         )
         self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
         appointment = Appointment.objects.get(station=self.station)
@@ -46,7 +46,7 @@ class StationAppointmentWorkflowTests(TestCase):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
             {
-                "plate": "B456BB63",
+                "plate": "В456ВВ63",
                 "new_model_id": self.model.id,
                 "vin": "XTA12345678901234",
                 "new_user_email": "",
