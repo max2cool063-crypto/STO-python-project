@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Мои автомобили{% endblock %}
 {% block content %}
+<style>
+  .cabinet-form-grid {
+    align-items: start;
+  }
+  .cabinet-form-grid .form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cabinet-form-grid .form-group > label {
+    min-height: 20px;
+  }
+</style>
 <div class="cabinet-shell">
   <div class="cabinet-page-head">
     <div><h1>Мои автомобили</h1><p>Сохраните автомобили, чтобы записываться на ТО быстрее.</p></div>
