@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from io import BytesIO
 
 from django.contrib.auth.models import User
@@ -106,7 +106,7 @@ class StationAppointmentWorkflowTests(TestCase):
             user=previous_owner,
             car=car,
             start=self.start_dt,
-            end=self.start_dt + timezone.timedelta(minutes=30),
+            end=self.start_dt + timedelta(minutes=30),
             name="Иванов Иван",
         )
 
@@ -122,7 +122,9 @@ class StationAppointmentWorkflowTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
-        appointment = Appointment.objects.exclude(pk__in=Appointment.objects.filter(station=self.station, start=self.start_dt).values_list("pk", flat=True)).get(station=self.station)
+        appointments = list(Appointment.objects.filter(station=self.station).order_by("id"))
+        self.assertEqual(len(appointments), 2)
+        appointment = appointments[-1]
         previous_owner.refresh_from_db()
         self.assertEqual(User.objects.count(), 2)
         self.assertEqual(appointment.user_id, previous_owner.pk)
