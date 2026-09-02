@@ -174,6 +174,7 @@ def station_appointment_create(request, station_id, staff=None):
                         Car.objects.select_related("model", "owner__profile"),
                         id=car_id,
                         is_active=True,
+                        appointments__station_id=station.pk,
                     )
                     client_user = car.owner
                     profile = getattr(client_user, "profile", None)
