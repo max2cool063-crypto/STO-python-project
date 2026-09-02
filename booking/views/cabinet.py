@@ -36,15 +36,26 @@ def cabinet_cars(request):
     if request.method == "POST":
         model_id = request.POST.get("model")
         plate = request.POST.get("plate", "").strip()
-        vin = request.POST.get("vin", "").strip() or None
+        vin = request.POST.get("vin", "").strip()
         if not model_id or not plate:
             messages.error(request, "Выберите модель и укажите госномер")
             return redirect("cabinet_cars")
-        if len(plate) > 20:
-            messages.error(request, "Госномер слишком длинный")
+
+        car_form = CarForm({"plate_number": plate, "vin": vin})
+        if not car_form.is_valid():
+            errors = []
+            for field_errors in car_form.errors.values():
+                errors.extend(str(error) for error in field_errors)
+            messages.error(request, "; ".join(errors) or "Проверьте данные автомобиля")
             return redirect("cabinet_cars")
+
         try:
-            Car.objects.create(owner=request.user, model_id=int(model_id), plate_number=plate, vin=vin)
+            Car.objects.create(
+                owner=request.user,
+                model_id=int(model_id),
+                plate_number=car_form.cleaned_data["plate_number"],
+                vin=car_form.cleaned_data["vin"],
+            )
         except Exception:
             messages.error(request, "Не удалось добавить автомобиль")
             return redirect("cabinet_cars")
