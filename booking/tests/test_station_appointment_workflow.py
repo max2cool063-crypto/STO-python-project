@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule
+from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule, UserProfile
 
 
 class StationAppointmentWorkflowTests(TestCase):
@@ -91,6 +91,42 @@ class StationAppointmentWorkflowTests(TestCase):
         data = response.json()
         self.assertEqual(len(data["slots"]), 18)
         self.assertEqual(data["slots"][0]["start"][:16], "2099-02-03T09:00")
+
+    def test_operator_cannot_change_identity_of_selected_saved_car(self):
+        previous_owner = User.objects.create_user(
+            username="selected-owner",
+            first_name="Иван",
+            last_name="Иванов",
+        )
+        UserProfile.objects.create(user=previous_owner, phone="+79991112233")
+        car = Car.objects.create(
+            owner=previous_owner,
+            model=self.model,
+            plate_number="С963УК763",
+            vin="XTA210990Y1234567",
+        )
+
+        response = self.client.post(
+            reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
+            {
+                "car_id": car.id,
+                "client_name": "Петров Пётр",
+                "client_phone": "+79992223344",
+                "new_user_email": "new@example.com",
+                "start": self.start,
+            },
+        )
+
+        self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
+        appointment = Appointment.objects.get(station=self.station)
+        previous_owner.refresh_from_db()
+        self.assertEqual(User.objects.count(), 2)
+        self.assertEqual(appointment.user_id, previous_owner.pk)
+        self.assertEqual(appointment.car_id, car.pk)
+        self.assertEqual(appointment.name, "Иванов Иван")
+        self.assertEqual(appointment.phone, "+79991112233")
+        self.assertEqual(previous_owner.first_name, "Иван")
+        self.assertEqual(previous_owner.last_name, "Иванов")
 
     def test_station_detail_and_edit_are_available_to_operator(self):
         user = User.objects.create_user(username="client-workflow", email="client@example.com")
