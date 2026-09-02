@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule, UserProfile
+from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule
 
 
 class StationAppointmentWorkflowTests(TestCase):
@@ -63,9 +63,6 @@ class StationAppointmentWorkflowTests(TestCase):
     def test_operator_can_load_slots_for_saved_client_car(self):
         client_user = User.objects.create_user(username="saved-client-workflow", email="saved@example.com")
         car = Car.objects.create(owner=client_user, model=self.model, plate_number="С963УК763")
-        # The saved car must be known to this station, but the appointment used
-        # to establish that relation is placed on the previous day so it does
-        # not consume any slot on the date being tested.
         previous_day = date(2099, 2, 2)
         StationWeeklySchedule.objects.create(
             station=self.station,
@@ -92,18 +89,25 @@ class StationAppointmentWorkflowTests(TestCase):
         self.assertEqual(len(data["slots"]), 18)
         self.assertEqual(data["slots"][0]["start"][:16], "2099-02-03T09:00")
 
-    def test_operator_cannot_change_identity_of_selected_saved_car(self):
+    def test_operator_uses_canonical_identity_of_selected_saved_car(self):
         previous_owner = User.objects.create_user(
             username="selected-owner",
             first_name="Иван",
             last_name="Иванов",
         )
-        UserProfile.objects.create(user=previous_owner, phone="+79991112233")
         car = Car.objects.create(
             owner=previous_owner,
             model=self.model,
             plate_number="С963УК763",
             vin="XTA210990Y1234567",
+        )
+        Appointment.objects.create(
+            station=self.station,
+            user=previous_owner,
+            car=car,
+            start=self.start_dt,
+            end=self.start_dt + timezone.timedelta(minutes=30),
+            name="Иванов Иван",
         )
 
         response = self.client.post(
@@ -118,13 +122,13 @@ class StationAppointmentWorkflowTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
-        appointment = Appointment.objects.get(station=self.station)
+        appointment = Appointment.objects.exclude(pk__in=Appointment.objects.filter(station=self.station, start=self.start_dt).values_list("pk", flat=True)).get(station=self.station)
         previous_owner.refresh_from_db()
         self.assertEqual(User.objects.count(), 2)
         self.assertEqual(appointment.user_id, previous_owner.pk)
         self.assertEqual(appointment.car_id, car.pk)
         self.assertEqual(appointment.name, "Иванов Иван")
-        self.assertEqual(appointment.phone, "+79991112233")
+        self.assertEqual(appointment.phone, "")
         self.assertEqual(previous_owner.first_name, "Иван")
         self.assertEqual(previous_owner.last_name, "Иванов")
 
