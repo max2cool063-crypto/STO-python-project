@@ -237,12 +237,19 @@ class StationClientAndPlateLookupTests(TestCase):
     def test_manual_booking_does_not_update_existing_owner_identity(self):
         owner = User.objects.create_user(username="existing-owner")
         car = Car.objects.create(owner=owner, model=self.model, plate_number="A666AA63")
+        previous_day = date(2099, 3, 2)
+        StationWeeklySchedule.objects.create(
+            station=self.station,
+            weekday=previous_day.weekday(),
+            work_start=time(9, 0),
+            work_end=time(18, 0),
+        )
         Appointment.objects.create(
             station=self.station,
             user=owner,
             car=car,
-            start=self.start_dt,
-            end=self.start_dt + timedelta(minutes=30),
+            start=timezone.make_aware(datetime(2099, 3, 2, 10, 0)),
+            end=timezone.make_aware(datetime(2099, 3, 2, 10, 30)),
             name="Существующий владелец",
         )
 
@@ -267,4 +274,4 @@ class StationClientAndPlateLookupTests(TestCase):
         self.assertEqual(appointment.user_id, owner.pk)
         self.assertEqual(appointment.car_id, car.pk)
         self.assertEqual(appointment.name, owner.username)
-        self.assertEqual(appointment.phone, "")
+        self.assertIsNone(appointment.phone)
