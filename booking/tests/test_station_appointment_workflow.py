@@ -63,6 +63,16 @@ class StationAppointmentWorkflowTests(TestCase):
     def test_operator_can_load_slots_for_saved_client_car(self):
         client_user = User.objects.create_user(username="saved-client-workflow", email="saved@example.com")
         car = Car.objects.create(owner=client_user, model=self.model, plate_number="С963УК763")
+        # The saved car must be known to this station, but the appointment used
+        # to establish that relation is placed on the previous day so it does
+        # not consume any slot on the date being tested.
+        previous_day = date(2099, 2, 2)
+        StationWeeklySchedule.objects.create(
+            station=self.station,
+            weekday=previous_day.weekday(),
+            work_start=time(9, 0),
+            work_end=time(18, 0),
+        )
         Appointment.objects.create(
             station=self.station,
             user=client_user,
