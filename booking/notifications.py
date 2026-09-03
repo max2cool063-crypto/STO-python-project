@@ -105,6 +105,37 @@ def notify_station_staff_booked(appointment):
     )
 
 
+def notify_station_staff_cancelled(appointment):
+    """Клиент самостоятельно отменил запись — email активным сотрудникам станции."""
+    from booking.models import StationStaff
+
+    station = appointment.station
+    recipients = list(
+        StationStaff.objects.filter(
+            station=station,
+            is_active=True,
+            receive_notifications=True,
+        )
+        .exclude(user__email="")
+        .values_list("user__email", flat=True)
+    )
+    if not recipients:
+        return
+
+    _send(
+        subject=f"Клиент отменил запись — {station.name}",
+        body=(
+            f"Клиент самостоятельно отменил запись на технический осмотр.\n\n"
+            f"Клиент: {appointment.name}\n"
+            f"Телефон: {appointment.phone or '—'}\n"
+            f"Автомобиль: {appointment.car}\n"
+            f"VIN: {appointment.vin or '—'}\n"
+            f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
+        ),
+        recipients=recipients,
+    )
+
+
 def create_station_staff_notifications(appointment):
     """Создаёт внутренние уведомления активным сотрудникам станции, у которых они включены."""
     from booking.models import Notification, StationStaff
@@ -140,5 +171,44 @@ def create_station_staff_notifications(appointment):
         ])
     except Exception:
         # Внутреннее уведомление не должно отменять уже созданную запись.
+        return 0
+    return len(staff_ids)
+
+
+def create_station_staff_cancellation_notifications(appointment):
+    """Создаёт внутреннее уведомление владельцу/оператору о самостоятельной отмене клиентом."""
+    from booking.models import Notification, StationStaff
+
+    station = appointment.station
+    staff_ids = list(
+        StationStaff.objects.filter(
+            station=station,
+            is_active=True,
+            receive_notifications=True,
+        ).values_list("user_id", flat=True)
+    )
+    if not staff_ids:
+        return 0
+
+    message = (
+        f"Клиент: {appointment.name}\n"
+        f"Телефон: {appointment.phone or '—'}\n"
+        f"Автомобиль: {appointment.car}\n"
+        f"VIN: {appointment.vin or '—'}\n"
+        f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}"
+    )
+    try:
+        Notification.objects.bulk_create([
+            Notification(
+                recipient_id=user_id,
+                station=station,
+                appointment=appointment,
+                notification_type="APPOINTMENT_CANCELLED",
+                title="Клиент отменил запись",
+                message=message,
+            )
+            for user_id in staff_ids
+        ])
+    except Exception:
         return 0
     return len(staff_ids)
