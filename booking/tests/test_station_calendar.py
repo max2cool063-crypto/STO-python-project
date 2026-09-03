@@ -56,7 +56,7 @@ class StationCalendarTests(TestCase):
         )
 
         response = self.client.get(
-            reverse("station_calendar", kwargs={"station_id": self.station.pk}),
+            reverse("station_day_calendar", kwargs={"station_id": self.station.pk}),
             {"date": self.selected_date.isoformat()},
         )
 
