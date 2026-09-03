@@ -94,7 +94,7 @@ class ClientCancellationNotificationTests(TestCase):
         )
         self.assertEqual(set(notifications.values_list("title", flat=True)), {"Клиент отменил запись"})
 
-        recipients = {message.to[0] for message in mail.outbox}
+        recipients = {recipient for message in mail.outbox for recipient in message.to}
         self.assertIn("owner@example.com", recipients)
         self.assertIn("operator@example.com", recipients)
 
@@ -110,6 +110,6 @@ class ClientCancellationNotificationTests(TestCase):
             set(Notification.objects.filter(appointment=self.appointment).values_list("recipient_id", flat=True)),
             {self.owner.pk},
         )
-        recipients = {message.to[0] for message in mail.outbox}
+        recipients = {recipient for message in mail.outbox for recipient in message.to}
         self.assertNotIn("operator@example.com", recipients)
         self.assertIn("owner@example.com", recipients)
