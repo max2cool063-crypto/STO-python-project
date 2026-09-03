@@ -20,7 +20,7 @@
         </div>
       </div>
 
-      <form method="post">
+      <form method="post" id="staff-profile-form">
         {% csrf_token %}
         <div class="st-profile-edit-grid">
           <div class="st-form-group">
@@ -37,7 +37,7 @@
           </div>
           <div class="st-form-group">
             <label for="phone">Телефон</label>
-            <input id="phone" class="st-input" type="tel" name="phone" value="{{ profile.phone }}" maxlength="30" autocomplete="tel">
+            <input id="phone" class="st-input" type="tel" name="phone" value="{{ profile.phone }}" maxlength="16" autocomplete="tel" inputmode="tel" placeholder="+7 900 000-00-00">
           </div>
         </div>
 
@@ -81,4 +81,35 @@
 <style>
 .st-profile-edit-page{max-width:1100px;margin:0 auto}.st-profile-edit-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}.st-profile-edit-card{padding:24px}.st-profile-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.st-profile-login{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:13px;background:#f8fafc}.st-profile-login span{color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.st-profile-login strong{font-size:14px}.st-profile-login small{width:100%;color:#94a3b8;font-size:11px}.st-profile-notification-setting{margin-top:18px;padding:16px;border:1px solid #dbe4f0;border-radius:13px;background:#f8fbff}.st-profile-checkbox{display:flex;align-items:flex-start;gap:12px;cursor:pointer}.st-profile-checkbox input{width:18px;height:18px;flex:0 0 auto;margin-top:2px;accent-color:#155eef}.st-profile-checkbox span{display:flex;flex-direction:column;gap:5px}.st-profile-checkbox strong{font-size:14px;color:#172033}.st-profile-checkbox small{color:#64748b;font-size:12px;line-height:1.45}.st-profile-edit-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid #eef2f7}.st-profile-edit-side{position:sticky;top:20px;padding:22px}.st-profile-edit-side h2{margin:6px 0 7px;font-size:20px}.st-profile-edit-side p{margin:0 0 15px;color:#64748b;font-size:13px;line-height:1.5}.st-btn--wide{width:100%;justify-content:center}@media(max-width:850px){.st-profile-edit-layout{grid-template-columns:1fr}.st-profile-edit-side{position:static}}@media(max-width:600px){.st-profile-edit-grid{grid-template-columns:1fr}.st-profile-edit-actions{flex-direction:column-reverse}.st-profile-edit-actions .st-btn{width:100%;justify-content:center}}
 </style>
+
+<script>
+(function(){
+  const form=document.getElementById('staff-profile-form');
+  const phone=document.getElementById('phone');
+  function formatRuPhone(value){
+    let digits=(value||'').replace(/\D/g,'');
+    if(!digits)return '';
+    if(digits.startsWith('8'))digits='7'+digits.slice(1);
+    else if(!digits.startsWith('7'))digits='7'+digits;
+    digits=digits.slice(0,11);
+    let result='+7';
+    const rest=digits.slice(1);
+    if(rest.length)result+=' '+rest.slice(0,3);
+    if(rest.length>3)result+=' '+rest.slice(3,6);
+    if(rest.length>6)result+='-'+rest.slice(6,8);
+    if(rest.length>8)result+='-'+rest.slice(8,10);
+    return result;
+  }
+  function validatePhone(){
+    const digits=phone.value.replace(/\D/g,'');
+    const valid=!digits||(digits.length===11&&digits.startsWith('7')&&'3456789'.includes(digits[1]));
+    phone.setCustomValidity(valid?'':'Введите корректный российский номер телефона');
+    return valid;
+  }
+  phone.addEventListener('input',()=>{phone.value=formatRuPhone(phone.value);validatePhone()});
+  phone.addEventListener('blur',validatePhone);
+  form.addEventListener('submit',event=>{phone.value=formatRuPhone(phone.value);if(!validatePhone()){event.preventDefault();form.reportValidity()}});
+  if(phone.value){phone.value=formatRuPhone(phone.value);validatePhone()}
+})();
+</script>
 {% endblock %}
