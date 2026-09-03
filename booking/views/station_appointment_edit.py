@@ -7,7 +7,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django.utils.timezone import is_aware, make_aware
+from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
 from booking.models import Appointment, AppointmentLog, AppointmentPhoto
@@ -31,7 +31,11 @@ def station_appointment_edit(request, station_id, pk, staff=None):
         name = request.POST.get("client_name", "").strip()
         phone = request.POST.get("client_phone", "").strip()
         start_raw = parse_datetime(request.POST.get("start", ""))
-        start = make_aware(start_raw) if start_raw and not is_aware(start_raw) else start_raw
+        start = (
+            station.make_local_datetime(start_raw.date(), start_raw.time())
+            if start_raw and not is_aware(start_raw)
+            else start_raw
+        )
         notes = request.POST.get("notes", "").strip()
         files = request.FILES.getlist("photos")
 
@@ -76,8 +80,8 @@ def station_appointment_edit(request, station_id, pk, staff=None):
                         old_status=appointment.status,
                         new_status=appointment.status,
                         comment=(
-                            f"Перенесено с {old_start:%d.%m.%Y %H:%M} "
-                            f"на {appointment.start:%d.%m.%Y %H:%M}"
+                            f"Перенесено с {appointment.station.local_now().astimezone(old_start.tzinfo):%d.%m.%Y %H:%M} "
+                            f"на {appointment.local_start:%d.%m.%Y %H:%M}"
                         ),
                     )
 
@@ -96,5 +100,5 @@ def station_appointment_edit(request, station_id, pk, staff=None):
         "station": station,
         "staff": staff,
         "appointment": appointment,
-        "now": timezone.now(),
+        "now": station.local_now(),
     })
