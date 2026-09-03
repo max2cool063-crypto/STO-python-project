@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
@@ -47,3 +47,9 @@ def station_localtime(station, value=None):
 def station_localdate(station, value=None):
     """Return the station-local calendar date for an aware datetime."""
     return station_localtime(station, value).date()
+
+
+def station_day_bounds(station, value_date: date):
+    """Return the start/end aware datetimes for a station-local calendar day."""
+    start = make_station_datetime(station, value_date, time.min)
+    return start, start + timedelta(days=1)
