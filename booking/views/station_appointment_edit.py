@@ -12,6 +12,7 @@ from django.utils.timezone import is_aware
 from booking.forms import PhotosUploadForm
 from booking.models import Appointment, AppointmentLog, AppointmentPhoto
 from booking.station_access import require_station_access
+from booking.timezones import station_localtime
 
 logger = logging.getLogger(__name__)
 
@@ -74,14 +75,16 @@ def station_appointment_edit(request, station_id, pk, staff=None):
                     )
 
                 if old_start != appointment.start:
+                    old_local = station_localtime(station, old_start)
+                    new_local = station_localtime(station, appointment.start)
                     AppointmentLog.objects.create(
                         appointment=appointment,
                         changed_by=request.user,
                         old_status=appointment.status,
                         new_status=appointment.status,
                         comment=(
-                            f"Перенесено с {appointment.station.local_now().astimezone(old_start.tzinfo):%d.%m.%Y %H:%M} "
-                            f"на {appointment.local_start:%d.%m.%Y %H:%M}"
+                            f"Перенесено с {old_local:%d.%m.%Y %H:%M} "
+                            f"на {new_local:%d.%m.%Y %H:%M}"
                         ),
                     )
 
