@@ -10,7 +10,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django.utils.timezone import is_aware, make_aware
+from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
 from booking.models import Appointment, AppointmentPhoto, Car, CarModel, Station, UserProfile
@@ -116,7 +116,11 @@ def station_appointment_create(request, station_id, staff=None):
             return redirect(request.path)
 
         start_raw = parse_datetime(start_s)
-        start = make_aware(start_raw) if start_raw and not is_aware(start_raw) else start_raw
+        start = (
+            station.make_local_datetime(start_raw.date(), start_raw.time())
+            if start_raw and not is_aware(start_raw)
+            else start_raw
+        )
 
         if not start:
             messages.error(request, "Не выбрано время записи")
@@ -228,5 +232,5 @@ def station_appointment_create(request, station_id, staff=None):
     return render(request, "booking/station/appointment_create.html", {
         "station": station,
         "staff": staff,
-        "today": timezone.now().date(),
+        "today": station.local_date(),
     })
