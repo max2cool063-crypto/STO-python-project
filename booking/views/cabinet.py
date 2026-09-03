@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 
 from booking.forms import CarForm, ProfileForm
 from booking.models import UserProfile, Car, Brand, Appointment, AppointmentPhoto, StationStaff
-from booking.notifications import notify_client_cancelled
+from booking.notifications import notify_client_cancelled, create_station_staff_cancellation_notifications
 
 
 @login_required
@@ -107,6 +107,7 @@ def cabinet_cancel_appointment(request, pk):
     appt.status = "CANCELLED"
     appt.save()
     notify_client_cancelled(appt, cancelled_by_station=False)
+    create_station_staff_cancellation_notifications(appt)
     messages.success(request, "Запись отменена")
     return redirect("cabinet_appointments")
 
