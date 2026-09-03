@@ -43,7 +43,7 @@
 </div>
 
 <div class="st-day-calendar">
-  {% for slot in slots %}
+  {% for slot in calendar_slots %}
   <div class="st-day-slot st-day-slot--{{ slot.state }}">
     <div class="st-day-slot__time">
       <strong>{{ slot.start|date:"H:i" }}</strong>
