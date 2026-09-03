@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.dateparse import parse_datetime
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.timezone import is_aware
 from django.db import transaction
 
 from booking.models import Station, Appointment, Car, AppointmentPhoto, UserProfile
@@ -18,6 +19,8 @@ def book_station(request, pk):
 
     if request.method == "POST":
         start = parse_datetime(request.POST.get("start"))
+        if start and not is_aware(start):
+            start = station.make_local_datetime(start.date(), start.time())
         car_id = request.POST.get("car")
 
         if not start:
@@ -72,6 +75,6 @@ def book_station(request, pk):
     return render(request, "booking/book_station.html", {
         "station": station,
         "cars": cars,
-        "today": timezone.now().date(),
+        "today": station.local_date(),
         "other_stations": other_stations,
     })
