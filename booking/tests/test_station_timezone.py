@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timezone as dt_timezone
 from unittest.mock import patch
 
+from django.contrib import admin
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
@@ -32,6 +33,15 @@ class StationTimezoneTests(TestCase):
         self.samars_station.save()
         self.samars_station.refresh_from_db()
         self.assertEqual(self.samars_station.timezone, "Asia/Yekaterinburg")
+
+    def test_timezone_is_editable_in_station_admin(self):
+        station_admin = admin.site._registry[Station]
+        field_names = [
+            field
+            for _, options in station_admin.fieldsets
+            for field in options.get("fields", ())
+        ]
+        self.assertIn("timezone", field_names)
 
     def test_available_slots_use_station_local_current_time(self):
         selected_date = date(2026, 9, 3)
