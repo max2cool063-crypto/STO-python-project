@@ -53,6 +53,25 @@ def station_day_calendar(request, station_id, staff=None):
             slots.append({"start": cursor, "end": slot_end, "state": state, "appointment": appointment, "block": block})
             cursor += step
 
+    # The booking logic keeps each base slot occupied, but the UI should show
+    # one card per appointment. This is especially important for trucks, which
+    # occupy two consecutive base slots.
+    calendar_slots = []
+    rendered_appointment_ids = set()
+    for slot in slots:
+        appointment = slot["appointment"]
+        if appointment:
+            if appointment.pk in rendered_appointment_ids:
+                continue
+            rendered_appointment_ids.add(appointment.pk)
+            calendar_slots.append({
+                **slot,
+                "start": appointment.start,
+                "end": appointment.end,
+            })
+        else:
+            calendar_slots.append(slot)
+
     summary = {
         "appointments": len({slot["appointment"].pk for slot in slots if slot["appointment"]}),
         "free": sum(1 for slot in slots if slot["state"] == "free"),
@@ -72,5 +91,6 @@ def station_day_calendar(request, station_id, staff=None):
         "work_start": work_start,
         "work_end": work_end,
         "slots": slots,
+        "calendar_slots": calendar_slots,
         "summary": summary,
     })
