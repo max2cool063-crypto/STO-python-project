@@ -30,6 +30,7 @@ class StationStaffProfileTests(TestCase):
                 "first_name": "Иван",
                 "last_name": "Иванов",
                 "email": "operator@example.com",
+                "phone": "89001234567",
             },
         )
         self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
@@ -37,12 +38,27 @@ class StationStaffProfileTests(TestCase):
         self.assertEqual(operator.email, "operator@example.com")
         self.assertEqual(operator.first_name, "Иван")
         self.assertEqual(operator.last_name, "Иванов")
-        self.assertEqual(operator.profile.phone, "")
+        self.assertEqual(operator.profile.phone, "+79001234567")
         self.assertTrue(
             StationStaff.objects.filter(
                 station=self.station, user=operator, role=StationStaff.ROLE_OPERATOR
             ).exists()
         )
+
+    def test_owner_cannot_create_operator_with_invalid_phone(self):
+        response = self.client.post(
+            reverse("station_staff_create_operator", kwargs={"station_id": self.station.pk}),
+            {
+                "login": "operator-invalid-phone",
+                "password": "Strong-operator-123!",
+                "first_name": "Иван",
+                "last_name": "Иванов",
+                "email": "operator-invalid-phone@example.com",
+                "phone": "12345678901",
+            },
+        )
+        self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
+        self.assertFalse(User.objects.filter(username="operator-invalid-phone").exists())
 
     def test_owner_can_edit_operator_profile(self):
         operator = User.objects.create_user(
@@ -68,7 +84,7 @@ class StationStaffProfileTests(TestCase):
                 "first_name": "Пётр",
                 "last_name": "Петров",
                 "email": "new@example.com",
-                "phone": "+79991234567",
+                "phone": "89991234567",
             },
         )
         self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
