@@ -22,14 +22,17 @@ class ClientCancellationNotificationTests(TestCase):
     def setUp(self):
         self.client_user = User.objects.create_user(
             username="cancel-client",
+            password="test-password",
             email="client@example.com",
         )
         self.owner = User.objects.create_user(
             username="cancel-owner",
+            password="test-password",
             email="owner@example.com",
         )
         self.operator = User.objects.create_user(
             username="cancel-operator",
+            password="test-password",
             email="operator@example.com",
         )
         self.station = Station.objects.create(name="Cancellation Station")
