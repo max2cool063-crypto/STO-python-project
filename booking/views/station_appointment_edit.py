@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @login_required
 @require_station_access()
 def station_appointment_edit(request, station_id, pk, staff=None):
-    """Редактирование данных записи сотрудником только своей станции."""
+    """Редактирование записи без изменения персональных данных клиента."""
     station = staff.station
     appointment = get_object_or_404(
         Appointment.objects.select_related("car__model__brand", "user"),
@@ -29,8 +29,6 @@ def station_appointment_edit(request, station_id, pk, staff=None):
     )
 
     if request.method == "POST":
-        name = request.POST.get("client_name", "").strip()
-        phone = request.POST.get("client_phone", "").strip()
         start_raw = parse_datetime(request.POST.get("start", ""))
         start = (
             station.make_local_datetime(start_raw.date(), start_raw.time())
@@ -40,9 +38,6 @@ def station_appointment_edit(request, station_id, pk, staff=None):
         notes = request.POST.get("notes", "").strip()
         files = request.FILES.getlist("photos")
 
-        if not name:
-            messages.error(request, "Укажите имя клиента")
-            return redirect(request.path)
         if not start:
             messages.error(request, "Укажите дату и время")
             return redirect(request.path)
@@ -62,8 +57,8 @@ def station_appointment_edit(request, station_id, pk, staff=None):
         old_start = appointment.start
         try:
             with transaction.atomic():
-                appointment.name = name
-                appointment.phone = phone or None
+                # Имя и телефон намеренно не читаются из POST: они являются
+                # зафиксированными данными клиента этой записи.
                 appointment.start = start
                 appointment.end = start
                 appointment.notes = notes
