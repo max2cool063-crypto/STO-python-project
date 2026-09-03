@@ -1,12 +1,11 @@
-from datetime import date, time
+from datetime import date, time, timezone as dt_timezone
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
-from django.utils import timezone
 
-from booking.models import Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule
+from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule
 
 
 class StationTimezoneTests(TestCase):
@@ -44,7 +43,7 @@ class StationTimezoneTests(TestCase):
         )
 
         # 08:01 UTC = 12:01 in Samara. 12:00 must be past, 12:30 future.
-        mocked_now = timezone.datetime(2026, 9, 3, 8, 1, tzinfo=timezone.utc)
+        mocked_now = timezone_datetime(2026, 9, 3, 8, 1)
         with patch("booking.timezones.timezone.now", return_value=mocked_now):
             slots = self.samars_station.get_available_slots(selected_date)
 
@@ -66,7 +65,6 @@ class StationTimezoneTests(TestCase):
         car = Car.objects.create(owner=user, model=model, plate_number="А123АА63")
 
         start = self.samars_station.make_local_datetime(selected_date, time(9, 30))
-        from booking.models import Appointment
         appointment = Appointment.objects.create(
             station=self.samars_station,
             user=user,
@@ -86,7 +84,7 @@ class StationTimezoneTests(TestCase):
             role=StationStaff.ROLE_OWNER,
             is_active=True,
         )
-        mocked_now = timezone.datetime(2026, 9, 3, 20, 30, tzinfo=timezone.utc)
+        mocked_now = timezone_datetime(2026, 9, 3, 20, 30)
         self.client.login(username="tz-owner", password="Strong-owner-123!")
 
         with patch("booking.timezones.timezone.now", return_value=mocked_now):
@@ -96,3 +94,7 @@ class StationTimezoneTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["today"], date(2026, 9, 4))
+
+
+def timezone_datetime(year, month, day, hour, minute):
+    return __import__("datetime").datetime(year, month, day, hour, minute, tzinfo=dt_timezone.utc)
