@@ -242,7 +242,15 @@ class Appointment(models.Model):
         indexes = [models.Index(fields=["station", "start", "end"]), models.Index(fields=["user", "start"])]
 
     def __str__(self):
-        return f"{self.station} — {station_localtime(self.station, self.start):%d.%m %H:%M}"
+        return f"{self.station} — {self.local_start:%d.%m %H:%M}"
+
+    @property
+    def local_start(self):
+        return station_localtime(self.station, self.start)
+
+    @property
+    def local_end(self):
+        return station_localtime(self.station, self.end)
 
     def get_required_duration(self):
         base = timedelta(minutes=self.station.slot_duration)
@@ -252,8 +260,7 @@ class Appointment(models.Model):
         if self.start >= self.end:
             raise ValidationError("Время окончания должно быть позже начала")
 
-        local_start = station_localtime(self.station, self.start)
-        local_end = station_localtime(self.station, self.end)
+        local_start = self.local_start
         date = local_start.date()
         work_start, work_end = self.station.get_working_hours(date)
         if not work_start or not work_end:
@@ -360,7 +367,7 @@ class AppointmentLog(models.Model):
         verbose_name_plural = "Журнал записей"
 
     def __str__(self):
-        return f"#{self.appointment_id} {self.old_status}→{self.new_status} {station_localtime(self.appointment.station, self.created_at):%d.%m %H:%M}"
+        return f"#{self.appointment_id} {self.old_status}→{self.new_status} {self.created_at:%d.%m %H:%M}"
 
 
 class Notification(models.Model):
