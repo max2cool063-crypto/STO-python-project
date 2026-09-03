@@ -1,31 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Редактировать автомобиль{% endblock %}
 {% block content %}
-
-<div style="margin-bottom:20px">
-  <a href="{% url 'cabinet_cars' %}" style="color:var(--text-muted); text-decoration:none; font-size:14px">← Назад к автомобилям</a>
-</div>
-
+<div style="margin-bottom:20px"><a href="{% url 'cabinet_cars' %}" style="color:var(--text-muted);text-decoration:none;font-size:14px">← Назад к автомобилям</a></div>
 <div class="page-title">✏️ Редактировать автомобиль</div>
 <div class="page-subtitle">{{ car }}</div>
-
 <div class="card card-accent" style="max-width:480px">
-  <form method="post">
+  <form method="post" id="edit-car-form">
     {% csrf_token %}
-    {% for field in form %}
-    <div class="form-group">
-      <label>{{ field.label }}</label>
-      {{ field }}
-      {% if field.errors %}
-        <p style="color:var(--danger); font-size:12px; margin-top:4px">{{ field.errors.0 }}</p>
-      {% endif %}
-    </div>
-    {% endfor %}
-    <div style="display:flex; gap:10px; margin-top:8px">
-      <button type="submit" class="btn btn-primary">Сохранить</button>
-      <a href="{% url 'cabinet_cars' %}" class="btn btn-secondary">Отмена</a>
-    </div>
+    <div class="form-group"><label for="id_plate_number">Государственный номер</label>{{ form.plate_number }}<span class="form-hint">8–9 знаков, например А123ВС77</span>{% if form.plate_number.errors %}<p style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.plate_number.errors.0 }}</p>{% endif %}</div>
+    <div class="form-group"><label for="id_vin">VIN</label>{{ form.vin }}<span class="form-hint">17 символов: латинские буквы и цифры, без I, O и Q</span>{% if form.vin.errors %}<p style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.vin.errors.0 }}</p>{% endif %}</div>
+    <div style="display:flex;gap:10px;margin-top:8px"><button type="submit" class="btn btn-primary">Сохранить</button><a href="{% url 'cabinet_cars' %}" class="btn btn-secondary">Отмена</a></div>
   </form>
 </div>
-
+<script>
+const editCarForm=document.getElementById("edit-car-form"),editPlate=document.getElementById("id_plate_number"),editVin=document.getElementById("id_vin");
+const plateLetterMap={A:"А",B:"В",E:"Е",K:"К",M:"М",H:"Н",O:"О",P:"Р",C:"С",T:"Т",Y:"У",X:"Х"};
+const allowedPlateLetters="АВЕКМНОРСТУХ",allowedVinChars=/[A-HJ-NPR-Z0-9]/;
+function normalizePlate(value){let result="";for(const char of (value||"").toUpperCase()){if(plateLetterMap[char])result+=plateLetterMap[char];else if(/\d/.test(char)||allowedPlateLetters.includes(char))result+=char;if(result.length>=9)break}return result}
+function normalizeVin(value){let result="";for(const char of (value||"").toUpperCase()){if(allowedVinChars.test(char))result+=char;if(result.length>=17)break}return result}
+editPlate.addEventListener("input",()=>{editPlate.value=normalizePlate(editPlate.value)});editVin.addEventListener("input",()=>{editVin.value=normalizeVin(editVin.value)});
+editCarForm.addEventListener("submit",event=>{editPlate.value=normalizePlate(editPlate.value);editVin.value=normalizeVin(editVin.value);const plateValid=/^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}\d{2,3}$/.test(editPlate.value),vinValid=!editVin.value||/^[A-HJ-NPR-Z0-9]{17}$/.test(editVin.value);if(!plateValid||!vinValid){event.preventDefault();editPlate.setCustomValidity(plateValid?"":"Государственный номер должен быть в формате А123ВС77 или А123ВС777");editVin.setCustomValidity(vinValid?"":"VIN должен содержать ровно 17 символов, без I, O и Q");editCarForm.reportValidity()}else{editPlate.setCustomValidity("");editVin.setCustomValidity("")}});
+</script>
 {% endblock %}
