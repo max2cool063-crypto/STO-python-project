@@ -22,7 +22,7 @@ class PasswordChangeHardeningTests(TestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("change_password"))
+        self.assertRedirects(response, reverse("cabinet"))
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("Current-password-123!"))
         self.assertFalse(self.user.check_password("12345678"))
