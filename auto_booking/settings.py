@@ -28,6 +28,23 @@ INSTALLED_APPS = [
     "booking",
 ]
 
+# Apply Django's standard password quality checks to flows that call
+# django.contrib.auth.password_validation.validate_password().
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
 JAZZMIN_SETTINGS = {
     "site_title": "СТО Бронирование",
     "site_header": "Администрирование СТО",
