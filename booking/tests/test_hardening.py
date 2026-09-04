@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -74,6 +75,73 @@ class PasswordSetupTests(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.has_usable_password())
         self.assertTrue(user.check_password("Strong-password-123!"))
+
+
+class AuthRateLimitTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+
+    @patch("booking.views.auth.send_mail")
+    def test_registration_is_throttled_after_five_requests(self, send_mail):
+        for index in range(5):
+            response = self.client.post(reverse("register"), {"email": f"user{index}@example.com"})
+            self.assertNotEqual(response.status_code, 429)
+
+        response = self.client.post(reverse("register"), {"email": "blocked@example.com"})
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.headers["Retry-After"], "3600")
+        self.assertFalse(User.objects.filter(email="blocked@example.com").exists())
+
+    def test_login_is_throttled_after_ten_failed_attempts(self):
+        User.objects.create_user(
+            username="login@example.com",
+            email="login@example.com",
+            password="Correct-password-123!",
+        )
+
+        for _ in range(10):
+            response = self.client.post(
+                reverse("login"),
+                {"username": "login@example.com", "password": "Wrong-password-123!"},
+            )
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "login@example.com", "password": "Wrong-password-123!"},
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.headers["Retry-After"], "900")
+
+    def test_successful_login_clears_failed_attempts(self):
+        user = User.objects.create_user(
+            username="success@example.com",
+            email="success@example.com",
+            password="Correct-password-123!",
+        )
+
+        for _ in range(3):
+            response = self.client.post(
+                reverse("login"),
+                {"username": "success@example.com", "password": "Wrong-password-123!"},
+            )
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "success@example.com", "password": "Correct-password-123!"},
+        )
+        self.assertRedirects(response, reverse("post_login_redirect"))
+
+        self.client.logout()
+        response = self.client.post(
+            reverse("login"),
+            {"username": "success@example.com", "password": "Wrong-password-123!"},
+        )
+        self.assertEqual(response.status_code, 200)
 
 
 class ProtectedMediaStaffTests(TestCase):
