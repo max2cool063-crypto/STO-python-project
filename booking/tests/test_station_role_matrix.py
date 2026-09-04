@@ -1,11 +1,19 @@
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff
+from booking.models import (
+    Appointment,
+    Brand,
+    Car,
+    CarModel,
+    Station,
+    StationStaff,
+    StationWeeklySchedule,
+)
 
 
 class StationRoleMatrixTests(TestCase):
@@ -69,6 +77,11 @@ class StationRoleMatrixTests(TestCase):
 
     def create_appointment(self, station, user, car, hour=10):
         target = date(2099, 2, 3)
+        StationWeeklySchedule.objects.get_or_create(
+            station=station,
+            weekday=target.weekday(),
+            defaults={"work_start": time(9, 0), "work_end": time(18, 0)},
+        )
         start = timezone.make_aware(timezone.datetime(2099, 2, 3, hour, 0))
         return Appointment.objects.create(
             station=station,
