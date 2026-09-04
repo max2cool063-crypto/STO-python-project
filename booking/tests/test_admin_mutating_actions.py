@@ -1,7 +1,7 @@
 from datetime import date
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.http import HttpResponse
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -83,6 +83,38 @@ class AdminMutatingActionsTests(TestCase):
     def test_rsa_import_post_requires_csrf(self):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.admin_user)
+        url = reverse("station_import_rsa_stream")
+
+        response = client.post(url, {"address": "Москва", "pages": "1"})
+
+        self.assertEqual(response.status_code, 403)
+
+    def _create_staff_without_station_change_permission(self):
+        user = User.objects.create_user(
+            username="limited-admin@example.com",
+            password="Admin-password-123!",
+            is_staff=True,
+        )
+        user.user_permissions.add(
+            Permission.objects.get(codename="view_station", content_type__app_label="booking")
+        )
+        return user
+
+    def test_fill_holidays_requires_station_change_permission(self):
+        user = self._create_staff_without_station_change_permission()
+        client = Client()
+        client.force_login(user)
+        url = reverse("station_fill_holidays", args=[self.station.pk])
+
+        response = client.get(url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(StationSchedule.objects.filter(station=self.station).count(), 0)
+
+    def test_rsa_import_requires_station_change_permission(self):
+        user = self._create_staff_without_station_change_permission()
+        client = Client()
+        client.force_login(user)
         url = reverse("station_import_rsa_stream")
 
         response = client.post(url, {"address": "Москва", "pages": "1"})
