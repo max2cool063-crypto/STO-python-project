@@ -1,4 +1,5 @@
 from pathlib import Path
+import ipaddress
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,23 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "booking",
+]
+
+# Apply Django's standard password quality checks to flows that call
+# django.contrib.auth.password_validation.validate_password().
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
 ]
 
 JAZZMIN_SETTINGS = {
@@ -92,6 +110,28 @@ DATABASES = {
         "PORT": int(os.getenv("POSTGRES_PORT", 5432)),
     }
 }
+
+# Authentication rate limiting must use a cache shared by all Gunicorn workers.
+# Docker Compose provides REDIS_URL=redis://redis:6379/1. Local non-Docker
+# development can leave it unset and use Django's default local cache.
+REDIS_URL = os.getenv("REDIS_URL", "")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+
+# X-Forwarded-For is ignored by default. If a reverse proxy is configured,
+# explicitly enable trust and list only the proxy networks that are allowed
+# to provide the header.
+RATE_LIMIT_TRUST_X_FORWARDED_FOR = os.getenv("RATE_LIMIT_TRUST_X_FORWARDED_FOR", "False") == "True"
+RATE_LIMIT_TRUSTED_PROXIES = tuple(
+    ipaddress.ip_network(value.strip(), strict=False)
+    for value in os.getenv("RATE_LIMIT_TRUSTED_PROXIES", "").split(",")
+    if value.strip()
+)
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

@@ -26,7 +26,9 @@
       <a href="{% url 'station_schedule' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_schedule' %}st-nav-link--active{% endif %}"><i data-lucide="clock-3" aria-hidden="true"></i><span>Расписание</span></a>
       <a href="{% url 'station_slot_blocks' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_slot_blocks' %}st-nav-link--active{% endif %}"><i data-lucide="ban" aria-hidden="true"></i><span>Блокировки</span></a>
       <a href="{% url 'station_clients' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_clients' %}st-nav-link--active{% endif %}"><i data-lucide="users" aria-hidden="true"></i><span>Клиенты</span></a>
+      {% if staff.role == 'OWNER' %}
       <a href="{% url 'station_staff' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}"><i data-lucide="user-round-cog" aria-hidden="true"></i><span>Сотрудники</span></a>
+      {% endif %}
     </nav>
     <a href="{% url 'station_select' %}" class="st-sidebar__back"><i data-lucide="arrow-left" aria-hidden="true"></i><span>Все станции</span></a>
   </aside>

@@ -12,6 +12,17 @@ services:
       retries: 10
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
   web:
     build: .
     restart: unless-stopped
@@ -30,6 +41,8 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/1
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)\" || exit 1"]
       interval: 10s
@@ -38,6 +51,8 @@ services:
       start_period: 30s
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   cron:
@@ -59,8 +74,12 @@ services:
         done
       "
     env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/1
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       web:
         condition: service_healthy
