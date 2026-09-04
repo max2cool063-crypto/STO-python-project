@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.core.cache import cache
-from django.http import HttpResponseTooManyRequests
+from django.http import HttpResponse
 
 
 class RateLimit:
@@ -37,8 +37,11 @@ class RateLimit:
         return int(current)
 
     def retry_response(self):
-        response = HttpResponseTooManyRequests(
+        # Django does not provide a dedicated HttpResponseTooManyRequests
+        # class, so construct the standard HTTP 429 response explicitly.
+        response = HttpResponse(
             "Слишком много попыток. Попробуйте позже.",
+            status=429,
             content_type="text/plain; charset=utf-8",
         )
         response["Retry-After"] = str(self.window)
