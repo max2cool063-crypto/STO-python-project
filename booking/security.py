@@ -54,15 +54,11 @@ class RateLimit:
 
     def hit(self, request, identity: str = "") -> int:
         key = self._key(request, identity)
-        try:
-            current = cache.incr(key)
-        except ValueError:
-            cache.add(key, 1, timeout=self.window)
-            current = 1
-        return int(current)
-
-    def reset(self, request, identity: str = "") -> None:
-        cache.delete(self._key(request, identity))
+        # add() is atomic for Redis and LocMemCache. Only the request that
+        # creates the key gets value 1; concurrent requests increment it.
+        if cache.add(key, 1, timeout=self.window):
+            return 1
+        return int(cache.incr(key))
 
     def retry_response(self):
         response = HttpResponse(
