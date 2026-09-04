@@ -8,3 +8,4 @@ holidays>=0.95
 beautifulsoup4>=4.15.0
 requests>=2.34.0
 timezonefinder==8.3.0
+redis>=6.0,<7.0
