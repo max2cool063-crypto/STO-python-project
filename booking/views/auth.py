@@ -10,6 +10,10 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.views import LoginView
+from django.core.cache import cache
+
+from booking.security import LOGIN_RATE_LIMIT, REGISTRATION_RATE_LIMIT
 
 User = get_user_model()
 
@@ -38,6 +42,10 @@ def send_password_setup_email(request, user):
 def register(request):
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
+
+        if not REGISTRATION_RATE_LIMIT.allowed(request):
+            return REGISTRATION_RATE_LIMIT.retry_response()
+        REGISTRATION_RATE_LIMIT.hit(request)
 
         if not email:
             messages.error(request, "Введите email")
@@ -115,6 +123,27 @@ def set_password(request, uidb64, token):
     return render(request, "registration/set_password.html")
 
 
+class RateLimitedLoginView(LoginView):
+    """Django login view with a cache-backed failed-attempt limit."""
+
+    template_name = "registration/login.html"
+
+    def post(self, request, *args, **kwargs):
+        identity = request.POST.get("username", "")
+        if not LOGIN_RATE_LIMIT.allowed(request, identity):
+            return LOGIN_RATE_LIMIT.retry_response()
+        return super().post(request, *args, **kwargs)
+
+    def form_invalid(self, form):
+        identity = self.request.POST.get("username", "")
+        LOGIN_RATE_LIMIT.hit(self.request, identity)
+        return super().form_invalid(form)
+
+    def form_valid(self, form):
+        cache.delete(LOGIN_RATE_LIMIT._key(self.request, self.request.POST.get("username", "")))
+        return super().form_valid(form)
+
+
 @login_required
 def post_login_redirect(request):
     """
@@ -127,7 +156,6 @@ def post_login_redirect(request):
     stations = get_user_stations(request.user)
     if stations.exists():
         if stations.count() == 1:
-            from django.urls import reverse
             return redirect(reverse("station_dashboard", kwargs={"station_id": stations.first().pk}))
         return redirect("station_select")
     return redirect("cabinet")
