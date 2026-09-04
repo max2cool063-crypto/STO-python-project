@@ -10,6 +10,7 @@ from booking.views.api import (
     car_by_plate_api,
     brands_with_models_api,
 )
+from booking.views.auth import RateLimitedLoginView
 from booking.views.station_appointment_create import station_appointment_create
 from booking.views.station_appointment_detail import station_appointment_detail
 from booking.views.station_appointment_edit import station_appointment_edit
@@ -40,7 +41,7 @@ urlpatterns = [
     path("accounts/post-login/", views.post_login_redirect, name="post_login_redirect"),
     path("accounts/set-password/<uidb64>/<token>/", views.set_password, name="set_password"),
     path("cabinet/password/", views.change_password, name="change_password"),
-    path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
+    path("accounts/login/", RateLimitedLoginView.as_view(), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("station/", views.station_select, name="station_select"),
     path("station/<int:station_id>/", views.station_dashboard, name="station_dashboard"),
