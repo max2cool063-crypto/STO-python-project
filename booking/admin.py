@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.conf import settings
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.contrib.auth.models import User
+from django import forms
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html
 from django.shortcuts import redirect, render
@@ -12,10 +14,10 @@ from datetime import time, date as date_type
 import json
 import time as time_mod
 from .models import (
-    Brand, CarModel, Car, UserProfile,
+    Brand, CarModel, Car,
     Station, StationWeeklySchedule, StationSchedule,
     Appointment, AppointmentPhoto,
-    StationStaff,
+    StationStaff, UserProfile,
 )
 from .forms import WeeklyScheduleInlineForm, ScheduleInlineForm
 
@@ -321,42 +323,65 @@ class AppointmentAdmin(admin.ModelAdmin):
     get_type.short_description = "Тип ТС"
 
 
+class UserAdminChangeForm(UserChangeForm):
+    phone = forms.CharField(label="Телефон", max_length=30, required=False)
+
+    class Meta:
+        model = User
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            profile = UserProfile.objects.filter(user=self.instance).first()
+            self.initial["phone"] = profile.phone if profile else ""
+
+
+class UserAdminCreationForm(UserCreationForm):
+    phone = forms.CharField(label="Телефон", max_length=30, required=False)
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "first_name", "last_name", "phone")
+
+
 class UserAdmin(DjangoUserAdmin):
+    form = UserAdminChangeForm
+    add_form = UserAdminCreationForm
     list_display = ("username", "last_name", "first_name", "email", "phone", "is_staff", "is_active")
     list_display_links = ("username",)
     search_fields = ("username", "email", "first_name", "last_name", "profile__phone")
     ordering = ("username",)
+    fieldsets = (
+        (None, {"fields": ("username", "password")}),
+        ("Персональные данные", {"fields": ("last_name", "first_name", "email", "phone")}),
+        ("Права доступа", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Важные даты", {"fields": ("last_login", "date_joined")}),
+    )
+    add_fieldsets = (
+        (None, {
+            "classes": ("wide",),
+            "fields": ("username", "email", "first_name", "last_name", "phone", "password1", "password2"),
+        }),
+    )
 
     @admin.display(description="Телефон", ordering="profile__phone")
     def phone(self, obj):
         profile = getattr(obj, "profile", None)
         return profile.phone if profile and profile.phone else "—"
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("profile")
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        profile, _ = UserProfile.objects.get_or_create(user=obj)
+        profile.phone = form.cleaned_data.get("phone", "").strip()
+        profile.save(update_fields=["phone"])
+
 
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
-
-
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("username", "last_name", "first_name", "email", "phone")
-    search_fields = ("user__username", "user__email", "user__last_name", "user__first_name", "phone")
-
-    @admin.display(description="Логин", ordering="user__username")
-    def username(self, obj):
-        return obj.user.username
-
-    @admin.display(description="Фамилия", ordering="user__last_name")
-    def last_name(self, obj):
-        return obj.user.last_name
-
-    @admin.display(description="Имя", ordering="user__first_name")
-    def first_name(self, obj):
-        return obj.user.first_name
-
-    @admin.display(description="Почта", ordering="user__email")
-    def email(self, obj):
-        return obj.user.email
 
 
 @admin.register(Car)

@@ -43,7 +43,7 @@
 </div>
 
 <div class="st-day-calendar">
-  {% for slot in slots %}
+  {% for slot in calendar_slots %}
   <div class="st-day-slot st-day-slot--{{ slot.state }}">
     <div class="st-day-slot__time">
       <strong>{{ slot.start|date:"H:i" }}</strong>
@@ -60,7 +60,7 @@
         <div class="st-day-slot__details">
           <span>{{ slot.appointment.car }}</span>
           <span>{{ slot.appointment.car.model }}</span>
-          <span>{% if slot.appointment.car.vehicle_type == "TRUCK" %}Грузовой · 60 мин{% else %}Легковой · 30 мин{% endif %}</span>
+          <span>{% if slot.appointment.car.model.vehicle_type == "TRUCK" %}Грузовой · 60 мин{% else %}Легковой · 30 мин{% endif %}</span>
           {% if slot.appointment.phone %}<a href="tel:{{ slot.appointment.phone }}">{{ slot.appointment.phone }}</a>{% endif %}
         </div>
         <a href="{% url 'station_appointment_detail' station.pk slot.appointment.pk %}" class="st-btn st-btn--secondary st-btn--sm">Открыть запись →</a>

@@ -5,7 +5,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils.timezone import make_aware
+from django.utils import timezone
+
+from booking.timezones import detect_timezone, get_timezone, make_station_datetime, station_localtime
 
 
 # =========================
@@ -18,6 +20,7 @@ class Station(models.Model):
     rsa_id = models.CharField("ID из реестра РСА (№ ОТО)", max_length=20, blank=True, null=True, db_index=True, unique=True)
     latitude = models.FloatField("Широта", null=True, blank=True)
     longitude = models.FloatField("Долгота", null=True, blank=True)
+    timezone = models.CharField("Часовой пояс", max_length=64, blank=True, default="")
     phone = models.CharField("Телефон", max_length=50, blank=True, default="")
     email = models.EmailField("Email", blank=True, default="")
 
@@ -30,6 +33,23 @@ class Station(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.timezone and self.latitude is not None and self.longitude is not None:
+            self.timezone = detect_timezone(self.latitude, self.longitude) or ""
+        super().save(*args, **kwargs)
+
+    def get_timezone(self):
+        return get_timezone(self.timezone)
+
+    def local_now(self):
+        return station_localtime(self)
+
+    def local_date(self):
+        return self.local_now().date()
+
+    def make_local_datetime(self, value_date, value_time):
+        return make_station_datetime(self, value_date, value_time)
 
     def get_working_hours(self, date):
         schedule = self.schedules.filter(date=date).first()
@@ -55,10 +75,9 @@ class Station(models.Model):
         slot_mins = self.slot_duration
         required_mins = slot_mins * 2 if vehicle_type == "TRUCK" else slot_mins
 
-        from django.utils import timezone
-        start_dt = make_aware(datetime.combine(date, work_start))
-        end_dt = make_aware(datetime.combine(date, work_end))
-        current_time = timezone.now()
+        start_dt = self.make_local_datetime(date, work_start)
+        end_dt = self.make_local_datetime(date, work_end)
+        current_time = self.local_now()
 
         appointments = list(
             Appointment.objects.filter(
@@ -119,10 +138,6 @@ class StationWeeklySchedule(models.Model):
         return f"{self.station} — {self.get_weekday_display()}"
 
 
-# =========================
-# ИСКЛЮЧЕНИЯ (КОНКРЕТНЫЕ ДАТЫ)
-# =========================
-
 class StationSchedule(models.Model):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="schedules", verbose_name="Станция")
     date = models.DateField("Дата")
@@ -138,10 +153,6 @@ class StationSchedule(models.Model):
     def __str__(self):
         return f"{self.station} — {self.date}"
 
-
-# =========================
-# ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
-# =========================
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
@@ -161,10 +172,6 @@ def create_user_profile(sender, instance, created, **kwargs):
         UserProfile.objects.get_or_create(user=instance)
 
 
-# =========================
-# СПРАВОЧНИК МАРОК
-# =========================
-
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -176,10 +183,6 @@ class Brand(models.Model):
     def __str__(self):
         return self.name
 
-
-# =========================
-# СПРАВОЧНИК МОДЕЛЕЙ
-# =========================
 
 class CarModel(models.Model):
     VEHICLE_TYPES = [("CAR", "Легковой"), ("TRUCK", "Грузовой")]
@@ -195,10 +198,6 @@ class CarModel(models.Model):
     def __str__(self):
         return f"{self.brand} {self.name}"
 
-
-# =========================
-# АВТОМОБИЛЬ ПОЛЬЗОВАТЕЛЯ
-# =========================
 
 class Car(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -219,10 +218,6 @@ class Car(models.Model):
     def __str__(self):
         return f"{self.model.brand.name} {self.model.name} ({self.plate_number})"
 
-
-# =========================
-# ЗАПИСЬ НА ТО
-# =========================
 
 class Appointment(models.Model):
     STATUS_CHOICES = [
@@ -247,7 +242,15 @@ class Appointment(models.Model):
         indexes = [models.Index(fields=["station", "start", "end"]), models.Index(fields=["user", "start"])]
 
     def __str__(self):
-        return f"{self.station} — {self.start:%d.%m %H:%M}"
+        return f"{self.station} — {self.local_start:%d.%m %H:%M}"
+
+    @property
+    def local_start(self):
+        return station_localtime(self.station, self.start)
+
+    @property
+    def local_end(self):
+        return station_localtime(self.station, self.end)
 
     def get_required_duration(self):
         base = timedelta(minutes=self.station.slot_duration)
@@ -256,16 +259,20 @@ class Appointment(models.Model):
     def clean(self):
         if self.start >= self.end:
             raise ValidationError("Время окончания должно быть позже начала")
-        date = self.start.date()
+
+        local_start = self.local_start
+        date = local_start.date()
         work_start, work_end = self.station.get_working_hours(date)
         if not work_start or not work_end:
             raise ValidationError("Станция не работает в этот день")
-        if not (work_start <= self.start.time() < work_end):
+        if not (work_start <= local_start.time() < work_end):
             raise ValidationError("Запись вне графика работы станции")
+
         expected_end = self.start + self.get_required_duration()
-        if expected_end.date() != date or expected_end.time() > work_end:
+        expected_end_local = station_localtime(self.station, expected_end)
+        if expected_end_local.date() != date or expected_end_local.time() > work_end:
             raise ValidationError(
-                f"Запись заканчивается в {expected_end.strftime('%H:%M')}, "
+                f"Запись заканчивается в {expected_end_local.strftime('%H:%M')}, "
                 f"станция работает до {work_end.strftime('%H:%M')}"
             )
         conflict = Appointment.objects.filter(
@@ -283,10 +290,6 @@ class Appointment(models.Model):
         super().save(*args, **kwargs)
 
 
-# =========================
-# ФОТО ПРИ ЗАПИСИ
-# =========================
-
 class AppointmentPhoto(models.Model):
     appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="photos")
     image = models.ImageField(upload_to="appointments/")
@@ -300,10 +303,6 @@ class AppointmentPhoto(models.Model):
         return f"Фото #{self.pk} к записи #{self.appointment_id}"
 
 
-# =========================
-# ПЕРСОНАЛ СТАНЦИИ
-# =========================
-
 class StationStaff(models.Model):
     ROLE_OWNER = "OWNER"
     ROLE_OPERATOR = "OPERATOR"
@@ -312,6 +311,7 @@ class StationStaff(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="station_roles", verbose_name="Пользователь")
     role = models.CharField("Роль", max_length=10, choices=ROLE_CHOICES)
     is_active = models.BooleanField("Активен", default=True)
+    receive_notifications = models.BooleanField("Получать уведомления о новых записях", default=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_staff", verbose_name="Кто создал")
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
 
@@ -331,10 +331,6 @@ class StationStaff(models.Model):
         return self.role == self.ROLE_OPERATOR
 
 
-# =========================
-# БЛОКИРОВКА СЛОТА
-# =========================
-
 class SlotBlock(models.Model):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="slot_blocks")
     start = models.DateTimeField("Начало блокировки")
@@ -350,16 +346,12 @@ class SlotBlock(models.Model):
         verbose_name_plural = "Блокировки слотов"
 
     def __str__(self):
-        return f"{self.station} — {self.start:%d.%m %H:%M}–{self.end:%H:%M}"
+        return f"{self.station} — {station_localtime(self.station, self.start):%d.%m %H:%M}–{station_localtime(self.station, self.end):%H:%M}"
 
     def clean(self):
         if self.start >= self.end:
             raise ValidationError("Конец блокировки должен быть позже начала")
 
-
-# =========================
-# ИСТОРИЯ СТАТУСОВ ЗАПИСИ
-# =========================
 
 class AppointmentLog(models.Model):
     appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="logs", verbose_name="Запись")
@@ -376,3 +368,29 @@ class AppointmentLog(models.Model):
 
     def __str__(self):
         return f"#{self.appointment_id} {self.old_status}→{self.new_status} {self.created_at:%d.%m %H:%M}"
+
+
+class Notification(models.Model):
+    TYPE_NEW_APPOINTMENT = "NEW_APPOINTMENT"
+    TYPE_CHOICES = [(TYPE_NEW_APPOINTMENT, "Новая запись")]
+
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications", verbose_name="Получатель")
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="notifications", verbose_name="Станция")
+    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, null=True, blank=True, related_name="notifications", verbose_name="Запись")
+    notification_type = models.CharField("Тип", max_length=50, choices=TYPE_CHOICES)
+    title = models.CharField("Заголовок", max_length=255)
+    message = models.TextField("Сообщение")
+    is_read = models.BooleanField("Прочитано", default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "created_at"]),
+            models.Index(fields=["station", "created_at"]),
+        ]
+        verbose_name = "Уведомление"
+        verbose_name_plural = "Уведомления"
+
+    def __str__(self):
+        return f"{self.title} — {self.recipient}"

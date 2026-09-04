@@ -23,7 +23,7 @@
         <div><strong>Создать учётную запись</strong><span>Оператор получит доступ только к рабочей области этой станции.</span></div>
       </div>
 
-      <form method="post" action="{% url 'station_staff_create_operator' station.pk %}" class="st-staff-form">
+      <form method="post" action="{% url 'station_staff_create_operator' station.pk %}" class="st-staff-form" id="staff-create-form">
         {% csrf_token %}
         <div class="st-form-group"><label for="staff-login">Логин *</label><input id="staff-login" type="text" name="login" class="st-input" placeholder="ivanov_op" autocomplete="username" required></div>
         <div class="st-form-group"><label for="staff-password">Пароль *</label><input id="staff-password" type="password" name="password" class="st-input" placeholder="минимум 8 символов" autocomplete="new-password" required minlength="8"></div>
@@ -32,7 +32,8 @@
           <div class="st-form-group"><label for="staff-last-name">Фамилия</label><input id="staff-last-name" type="text" name="last_name" class="st-input" placeholder="Иванов" autocomplete="family-name" maxlength="100"></div>
         </div>
         <div class="st-form-group"><label for="staff-email">Email</label><input id="staff-email" type="email" name="email" class="st-input" placeholder="operator@example.com" autocomplete="email"></div>
-        <div class="st-staff-help">Имя и фамилия сохраняются в профиле оператора. Email необязателен.</div>
+        <div class="st-form-group"><label for="staff-phone">Телефон</label><input id="staff-phone" type="tel" name="phone" class="st-input" placeholder="+7 900 000-00-00" autocomplete="tel" inputmode="tel" maxlength="16"></div>
+        <div class="st-staff-help">Имя и фамилия сохраняются в профиле оператора. Email и телефон необязательны.</div>
         <button type="submit" class="st-btn st-btn--primary st-staff-submit">Добавить оператора</button>
       </form>
     </div>
@@ -107,6 +108,41 @@
 </div>
 
 <script>
-(function(){const modal=document.getElementById('reset-modal');const memberId=document.getElementById('reset-member-id');const username=document.getElementById('reset-username');const password=document.getElementById('reset-password');window.showResetForm=function(id,name){memberId.value=id;username.textContent=name;password.value='';modal.classList.add('is-open');modal.setAttribute('aria-hidden','false');setTimeout(()=>password.focus(),50)};window.hideResetForm=function(){modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true')};modal.addEventListener('click',e=>{if(e.target===modal)window.hideResetForm()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('is-open'))window.hideResetForm()})})();
+(function(){
+  const modal=document.getElementById('reset-modal');
+  const memberId=document.getElementById('reset-member-id');
+  const username=document.getElementById('reset-username');
+  const password=document.getElementById('reset-password');
+  window.showResetForm=function(id,name){memberId.value=id;username.textContent=name;password.value='';modal.classList.add('is-open');modal.setAttribute('aria-hidden','false');setTimeout(()=>password.focus(),50)};
+  window.hideResetForm=function(){modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true')};
+  modal.addEventListener('click',e=>{if(e.target===modal)window.hideResetForm()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('is-open'))window.hideResetForm()});
+
+  const form=document.getElementById('staff-create-form');
+  const phone=document.getElementById('staff-phone');
+  function formatRuPhone(value){
+    let digits=(value||'').replace(/\D/g,'');
+    if(!digits)return '';
+    if(digits.startsWith('8'))digits='7'+digits.slice(1);
+    else if(!digits.startsWith('7'))digits='7'+digits;
+    digits=digits.slice(0,11);
+    let result='+7';
+    const rest=digits.slice(1);
+    if(rest.length)result+=' '+rest.slice(0,3);
+    if(rest.length>3)result+=' '+rest.slice(3,6);
+    if(rest.length>6)result+='-'+rest.slice(6,8);
+    if(rest.length>8)result+='-'+rest.slice(8,10);
+    return result;
+  }
+  function validatePhone(){
+    const digits=phone.value.replace(/\D/g,'');
+    const valid=!digits||(digits.length===11&&digits.startsWith('7')&&'3456789'.includes(digits[1]));
+    phone.setCustomValidity(valid?'':'Введите корректный российский номер телефона');
+    return valid;
+  }
+  phone.addEventListener('input',()=>{phone.value=formatRuPhone(phone.value);validatePhone()});
+  phone.addEventListener('blur',validatePhone);
+  form.addEventListener('submit',event=>{phone.value=formatRuPhone(phone.value);if(!validatePhone()){event.preventDefault();form.reportValidity()}});
+})();
 </script>
 {% endblock %}

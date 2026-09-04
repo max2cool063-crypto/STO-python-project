@@ -40,11 +40,11 @@ class SecurityCompletionTests(TestCase):
         response = client.post(reverse("cabinet_cars"), {
             "owner": self.other_user.id,
             "model": self.model.id,
-            "plate": "A999AA",
-            "vin": "VIN999",
+            "plate": "А999АА77",
+            "vin": "XTA210990Y1234567",
         })
         self.assertEqual(response.status_code, 302)
-        created = Car.objects.get(plate_number="A999AA")
+        created = Car.objects.get(plate_number="А999АА77")
         self.assertEqual(created.owner_id, self.user.id)
 
     def test_inactive_car_is_rejected_by_station_slots_api(self):

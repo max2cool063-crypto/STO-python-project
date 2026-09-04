@@ -219,7 +219,7 @@ class StationClientAndPlateLookupTests(TestCase):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
             {
-                "plate": "A555AA63",
+                "plate": "А555АА63",
                 "new_model_id": self.model.id,
                 "new_user_email": "new-client@example.com",
                 "client_name": "Сидоров Сергей",
@@ -234,9 +234,24 @@ class StationClientAndPlateLookupTests(TestCase):
         self.assertEqual(appointment.user.first_name, "Сергей")
         self.assertEqual(appointment.user.profile.phone, "+79990001122")
 
-    def test_manual_booking_updates_existing_owner_identity(self):
+    def test_manual_booking_does_not_update_existing_owner_identity(self):
         owner = User.objects.create_user(username="existing-owner")
         car = Car.objects.create(owner=owner, model=self.model, plate_number="A666AA63")
+        previous_day = date(2099, 3, 2)
+        StationWeeklySchedule.objects.create(
+            station=self.station,
+            weekday=previous_day.weekday(),
+            work_start=time(9, 0),
+            work_end=time(18, 0),
+        )
+        Appointment.objects.create(
+            station=self.station,
+            user=owner,
+            car=car,
+            start=timezone.make_aware(datetime(2099, 3, 2, 10, 0)),
+            end=timezone.make_aware(datetime(2099, 3, 2, 10, 30)),
+            name="Существующий владелец",
+        )
 
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
@@ -252,6 +267,11 @@ class StationClientAndPlateLookupTests(TestCase):
         self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
         owner.refresh_from_db()
         owner.profile.refresh_from_db()
-        self.assertEqual(owner.last_name, "Орлов")
-        self.assertEqual(owner.first_name, "Олег")
-        self.assertEqual(owner.profile.phone, "+79990003344")
+        appointment = Appointment.objects.filter(station=self.station, car=car).order_by("-id").first()
+        self.assertEqual(owner.last_name, "")
+        self.assertEqual(owner.first_name, "")
+        self.assertEqual(owner.profile.phone, "")
+        self.assertEqual(appointment.user_id, owner.pk)
+        self.assertEqual(appointment.car_id, car.pk)
+        self.assertEqual(appointment.name, owner.username)
+        self.assertIsNone(appointment.phone)

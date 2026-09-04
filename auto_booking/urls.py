@@ -3,6 +3,10 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+# Add the per-station timezone field to the existing Station admin without
+# changing the existing RSA import/admin implementation.
+import booking.admin_timezone  # noqa: F401
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("booking.urls")),

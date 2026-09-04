@@ -3,8 +3,9 @@
 Использовать во всех views /station/.
 """
 from functools import wraps
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect
 from django.contrib import messages
+from django.utils import timezone
 from booking.models import StationStaff, Station
 
 
@@ -38,6 +39,8 @@ def require_station_access(role=None):
     role='OPERATOR' — только оператор
 
     Прокидывает staff_record в kwargs чтобы не делать повторный запрос в view.
+    Также активирует часовой пояс самой станции на время выполнения view,
+    чтобы timezone.now(), date-фильтры и шаблоны использовали местное время станции.
     """
     def decorator(view_func):
         @wraps(view_func)
@@ -55,6 +58,7 @@ def require_station_access(role=None):
                 return redirect("station_dashboard", station_id=station_id)
 
             kwargs["staff"] = staff
-            return view_func(request, station_id, *args, **kwargs)
+            with timezone.override(staff.station.get_timezone()):
+                return view_func(request, station_id, *args, **kwargs)
         return wrapper
     return decorator

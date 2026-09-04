@@ -265,9 +265,8 @@ class BookingCoreTests(TestCase):
             role=StationStaff.ROLE_OPERATOR,
             is_active=True,
         )
+        self.create_appointment(start_hour=9)
         self.client.login(username="other@example.com", password="test-password")
-        target = date(2099, 2, 3)
-        self.add_weekday_schedule(target, "09:00", "18:00")
 
         url = reverse("station_appointment_create", kwargs={"station_id": self.station.id})
         response = self.client.post(
@@ -284,9 +283,10 @@ class BookingCoreTests(TestCase):
             response,
             reverse("station_appointments", kwargs={"station_id": self.station.id}),
         )
-        appointment = Appointment.objects.get(station=self.station, car=self.car)
+        appointment = Appointment.objects.filter(station=self.station, car=self.car).order_by("-id").first()
         self.assertEqual(appointment.user, self.car.owner)
-        self.assertEqual(appointment.name, "Test Client")
+        self.assertEqual(appointment.name, "client@example.com")
+        self.assertIsNone(appointment.phone)
         self.assertEqual(appointment.start, timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0)))
         self.assertEqual(appointment.end, appointment.start + timedelta(minutes=30))
         notify_staff.assert_called_once_with(appointment)
@@ -413,7 +413,8 @@ class BookingCoreTests(TestCase):
         self.client.login(username="client@example.com", password="test-password")
 
         response = self.client.get(
-            reverse("station_staff", kwargs={"station_id": self.station.id})
+            reverse("station_staff", kwargs={"station_id": self.station.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)

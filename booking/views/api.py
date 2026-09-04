@@ -27,7 +27,7 @@ def models_api(request, brand_id):
 @require_GET
 @login_required
 def station_slots_api(request, station_id):
-    """Return available station slots for the authenticated user's car."""
+    """Return available station slots for the authenticated user's or station's car."""
     station = get_object_or_404(Station, id=station_id, is_active=True)
     date = parse_date(request.GET.get("date"))
     car_id = request.GET.get("car")
@@ -37,12 +37,24 @@ def station_slots_api(request, station_id):
 
     vehicle_type = None
     if car_id:
-        car = get_object_or_404(
-            Car.objects.select_related("model"),
-            id=car_id,
-            owner=request.user,
-            is_active=True,
-        )
+        staff = get_staff_record(request.user, station_id)
+        if staff:
+            # Station operators work with client cars belonging to this station.
+            # Do not expose cars known only to another station.
+            car = get_object_or_404(
+                Car.objects.select_related("model"),
+                id=car_id,
+                is_active=True,
+                appointments__station_id=station_id,
+            )
+        else:
+            # Regular clients may request slots only for their own cars.
+            car = get_object_or_404(
+                Car.objects.select_related("model"),
+                id=car_id,
+                owner=request.user,
+                is_active=True,
+            )
         vehicle_type = car.model.vehicle_type
 
     slots = station.get_available_slots(date, vehicle_type=vehicle_type)
