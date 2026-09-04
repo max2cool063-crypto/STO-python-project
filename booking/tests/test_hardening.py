@@ -117,7 +117,7 @@ class AuthRateLimitTests(TestCase):
         self.assertEqual(response.headers["Retry-After"], "900")
 
     def test_successful_login_clears_failed_attempts(self):
-        user = User.objects.create_user(
+        User.objects.create_user(
             username="success@example.com",
             email="success@example.com",
             password="Correct-password-123!",
@@ -134,7 +134,9 @@ class AuthRateLimitTests(TestCase):
             reverse("login"),
             {"username": "success@example.com", "password": "Correct-password-123!"},
         )
-        self.assertRedirects(response, reverse("post_login_redirect"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("post_login_redirect"))
+        self.assertTrue("_auth_user_id" in self.client.session)
 
         self.client.logout()
         response = self.client.post(
