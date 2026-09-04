@@ -5,6 +5,8 @@ import zipfile
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -172,22 +174,25 @@ def protected_media(request, path):
 
 @login_required
 def change_password(request):
-    from django.contrib.auth import update_session_auth_hash
     if request.method == "POST":
         current = request.POST.get("current_password", "")
-        new_pwd = request.POST.get("new_password", "").strip()
-        confirm = request.POST.get("confirm_password", "").strip()
+        new_pwd = request.POST.get("new_password", "")
+        confirm = request.POST.get("confirm_password", "")
         if not request.user.check_password(current):
             messages.error(request, "Неверный текущий пароль")
-            return redirect("change_password")
-        if len(new_pwd) < 8:
-            messages.error(request, "Новый пароль должен быть не менее 8 символов")
             return redirect("change_password")
         if new_pwd != confirm:
             messages.error(request, "Пароли не совпадают")
             return redirect("change_password")
+        try:
+            validate_password(new_pwd, request.user)
+        except ValidationError as exc:
+            for error in exc.messages:
+                messages.error(request, error)
+            return redirect("change_password")
         request.user.set_password(new_pwd)
         request.user.save()
+        from django.contrib.auth import update_session_auth_hash
         update_session_auth_hash(request, request.user)
         messages.success(request, "Пароль успешно изменён")
         return redirect("cabinet")
