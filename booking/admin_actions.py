@@ -10,7 +10,14 @@ def _station_admin():
     return admin.site._registry[Station]
 
 
+def _can_change_station(request):
+    return request.user.has_perm("booking.change_station")
+
+
 def fill_holidays(request, pk):
+    if not _can_change_station(request):
+        return HttpResponse("Forbidden", status=403)
+
     station = get_object_or_404(Station, pk=pk)
     if request.method == "GET":
         from datetime import date as date_type
@@ -29,6 +36,9 @@ def fill_holidays(request, pk):
 
 
 def import_rsa_stream(request):
+    if not _can_change_station(request):
+        return HttpResponse("Forbidden", status=403)
+
     if request.method != "POST":
         return HttpResponse("Method Not Allowed", status=405)
 
