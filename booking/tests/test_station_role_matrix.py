@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -69,14 +69,13 @@ class StationRoleMatrixTests(TestCase):
 
     def create_appointment(self, station, user, car, hour=10):
         target = date(2099, 2, 3)
-        Station.objects.filter(pk=station.pk).update(timezone="Europe/Samara")
         start = timezone.make_aware(timezone.datetime(2099, 2, 3, hour, 0))
         return Appointment.objects.create(
             station=station,
             user=user,
             car=car,
             start=start,
-            end=start + timezone.timedelta(hours=1),
+            end=start + timedelta(hours=1),
             name="Client",
             phone="123",
         )
