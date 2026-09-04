@@ -1,15 +1,42 @@
 from __future__ import annotations
 
+import ipaddress
+
+from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse
 
 
-class RateLimit:
-    """Small cache-backed rate limiter for public authentication endpoints.
+def _client_ip(request) -> str:
+    """Return the client IP, trusting X-Forwarded-For only from configured proxies."""
+    remote_addr = request.META.get("REMOTE_ADDR", "unknown").strip()
 
-    The limiter intentionally uses Django's cache abstraction so production can
-    use a shared backend (for example Redis) without changing application code.
-    """
+    if not getattr(settings, "RATE_LIMIT_TRUST_X_FORWARDED_FOR", False):
+        return remote_addr or "unknown"
+
+    trusted_proxies = getattr(settings, "RATE_LIMIT_TRUSTED_PROXIES", ())
+    try:
+        remote_ip = ipaddress.ip_address(remote_addr)
+    except ValueError:
+        return remote_addr or "unknown"
+
+    if not any(remote_ip in network for network in trusted_proxies):
+        return remote_addr or "unknown"
+
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    for candidate in (part.strip() for part in forwarded.split(",")):
+        if candidate:
+            try:
+                ipaddress.ip_address(candidate)
+                return candidate
+            except ValueError:
+                continue
+
+    return remote_addr or "unknown"
+
+
+class RateLimit:
+    """Cache-backed rate limiter for public authentication endpoints."""
 
     def __init__(self, prefix: str, limit: int, window: int):
         self.prefix = prefix
@@ -17,10 +44,8 @@ class RateLimit:
         self.window = window
 
     def _key(self, request, identity: str = "") -> str:
-        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-        ip = forwarded.split(",", 1)[0].strip() if forwarded else request.META.get("REMOTE_ADDR", "unknown")
         identity = identity.strip().lower()
-        return f"sto:ratelimit:{self.prefix}:{ip}:{identity}"
+        return f"sto:ratelimit:{self.prefix}:{_client_ip(request)}:{identity}"
 
     def allowed(self, request, identity: str = "") -> bool:
         key = self._key(request, identity)
@@ -36,9 +61,10 @@ class RateLimit:
             current = 1
         return int(current)
 
+    def reset(self, request, identity: str = "") -> None:
+        cache.delete(self._key(request, identity))
+
     def retry_response(self):
-        # Django does not provide a dedicated HttpResponseTooManyRequests
-        # class, so construct the standard HTTP 429 response explicitly.
         response = HttpResponse(
             "Слишком много попыток. Попробуйте позже.",
             status=429,
