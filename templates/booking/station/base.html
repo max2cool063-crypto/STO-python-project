@@ -30,6 +30,7 @@
       <a href="{% url 'station_staff' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_staff' %}st-nav-link--active{% endif %}"><i data-lucide="user-round-cog" aria-hidden="true"></i><span>Сотрудники</span></a>
       {% endif %}
     </nav>
+    <a href="{% url 'station_change_password' %}" class="st-sidebar__back"><i data-lucide="key-round" aria-hidden="true"></i><span>Сменить пароль</span></a>
     <a href="{% url 'station_select' %}" class="st-sidebar__back"><i data-lucide="arrow-left" aria-hidden="true"></i><span>Все станции</span></a>
   </aside>
 
