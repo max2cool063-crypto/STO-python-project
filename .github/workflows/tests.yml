@@ -58,3 +58,20 @@ jobs:
 
       - name: Run tests
         run: python manage.py test booking.tests --verbosity 2
+
+  container:
+    name: Production container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Prepare compose environment
+        run: cp .env.example .env
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Build production image
+        run: docker build --tag sto-ci:${{ github.sha }} .
