@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
+from django.db import transaction
 
 from booking.admin import (
     AppointmentAdmin as BaseAppointmentAdmin,
@@ -10,7 +11,15 @@ from booking.admin import (
     UserAdmin as BaseUserAdmin,
 )
 from booking.admin_timezone import StationTimezoneAdmin as BaseStationAdmin
-from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff
+from booking.models import (
+    Appointment,
+    AppointmentLog,
+    Brand,
+    Car,
+    CarModel,
+    Station,
+    StationStaff,
+)
 
 
 class NoHardDeleteAdminMixin:
@@ -43,6 +52,27 @@ class SafeAppointmentAdmin(NoHardDeleteAdminMixin, BaseAppointmentAdmin):
     # station cabinet, where logging/notifications are applied. Keep the status
     # visible here, but remove changelist mass/quick editing.
     list_editable = ()
+
+    def save_model(self, request, obj, form, change):
+        """Keep emergency Admin status corrections inside the audit trail."""
+        old_status = None
+        if change and obj.pk:
+            old_status = (
+                Appointment.objects.filter(pk=obj.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+
+        with transaction.atomic():
+            super().save_model(request, obj, form, change)
+            if old_status is not None and old_status != obj.status:
+                AppointmentLog.objects.create(
+                    appointment=obj,
+                    changed_by=request.user,
+                    old_status=old_status,
+                    new_status=obj.status,
+                    comment="Изменено через Django Admin",
+                )
 
 
 class SafeCarAdmin(NoHardDeleteAdminMixin, BaseCarAdmin):
