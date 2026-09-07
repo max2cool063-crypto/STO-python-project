@@ -45,6 +45,7 @@ class StationStaffPasswordSecurityTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.id}))
+        self.operator.refresh_from_db()
         self.assertTrue(self.operator.check_password("OperatorPassword!42"))
         self.assertFalse(self.operator.check_password("12345678"))
 
