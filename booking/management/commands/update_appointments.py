@@ -6,7 +6,10 @@ from booking.models import Appointment, AppointmentLog
 
 
 class Command(BaseCommand):
-    help = "Автоматически переводит прошедшие записи в статус DONE. Запускать через cron каждые 15 минут."
+    help = (
+        "Переводит прошедшие BOOKED-записи в AWAITING_RESULT, чтобы оператор "
+        "явно зафиксировал DONE или NO_SHOW. Запускать через cron каждые 15 минут."
+    )
 
     def handle(self, *args, **options):
         now = timezone.now()
@@ -20,15 +23,15 @@ class Command(BaseCommand):
             )
 
             for appointment in appointments:
-                appointment.status = "DONE"
+                appointment.status = "AWAITING_RESULT"
                 appointment.save(update_fields=["status"])
                 AppointmentLog.objects.create(
                     appointment=appointment,
                     changed_by=None,
                     old_status="BOOKED",
-                    new_status="DONE",
-                    comment="Автоматически завершено после окончания времени записи",
+                    new_status="AWAITING_RESULT",
+                    comment="Время записи завершилось — требуется результат визита",
                 )
                 count += 1
 
-        self.stdout.write(self.style.SUCCESS(f"Обновлено записей: {count}"))
+        self.stdout.write(self.style.SUCCESS(f"Ожидают результата: {count}"))
