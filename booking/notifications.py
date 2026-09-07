@@ -29,6 +29,7 @@ def notify_client_booked(appointment):
     email = appointment.user.email
     if not email:
         return
+    local_start = appointment.local_start
     _send(
         subject=f"Запись на ТО подтверждена — {appointment.station.name}",
         body=(
@@ -36,7 +37,7 @@ def notify_client_booked(appointment):
             f"Ваша запись на технический осмотр подтверждена.\n\n"
             f"Станция: {appointment.station.name}\n"
             f"Адрес: {appointment.station.address}\n"
-            f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
+            f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}\n"
             f"Автомобиль: {appointment.car}\n\n"
             f"Если вы не сможете приехать — отмените запись в личном кабинете.\n"
         ),
@@ -49,13 +50,14 @@ def notify_client_cancelled(appointment, cancelled_by_station=False):
     email = appointment.user.email
     if not email:
         return
+    local_start = appointment.local_start
     reason = "Запись была отменена сотрудником станции." if cancelled_by_station else "Вы отменили запись."
     _send(
         subject=f"Запись на ТО отменена — {appointment.station.name}",
         body=(
             f"Здравствуйте, {appointment.name}!\n\n{reason}\n\n"
             f"Станция: {appointment.station.name}\n"
-            f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
+            f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}\n"
             f"Автомобиль: {appointment.car}\n\n"
             f"Вы можете записаться на другое время на нашем сайте.\n"
         ),
@@ -68,6 +70,7 @@ def notify_client_reminder(appointment):
     email = appointment.user.email
     if not email:
         return False
+    local_start = appointment.local_start
     return _send(
         subject=f"Напоминание: завтра ТО — {appointment.station.name}",
         body=(
@@ -75,7 +78,7 @@ def notify_client_reminder(appointment):
             f"Напоминаем, что завтра у вас запись на технический осмотр.\n\n"
             f"Станция: {appointment.station.name}\n"
             f"Адрес: {appointment.station.address}\n"
-            f"Время: {appointment.start.strftime('%H:%M')}\n"
+            f"Время: {local_start.strftime('%H:%M')}\n"
             f"Автомобиль: {appointment.car}\n\n"
             f"Если вы не сможете приехать — отмените запись в личном кабинете.\n"
         ),
@@ -98,10 +101,11 @@ def notify_station_staff_booked(appointment):
     )
     if not recipients:
         return
+    local_start = appointment.local_start
     _send(
         subject=f"Новая запись на ТО — {station.name}",
         body=(
-            f"Новая запись на {appointment.start.strftime('%d.%m.%Y в %H:%M')}.\n\n"
+            f"Новая запись на {local_start.strftime('%d.%m.%Y в %H:%M')}.\n\n"
             f"Клиент: {appointment.name}\n"
             f"Телефон: {appointment.phone or '—'}\n"
             f"Автомобиль: {appointment.car}\n"
@@ -128,6 +132,7 @@ def notify_station_staff_cancelled(appointment):
     if not recipients:
         return
 
+    local_start = appointment.local_start
     _send(
         subject=f"Клиент отменил запись — {station.name}",
         body=(
@@ -136,7 +141,7 @@ def notify_station_staff_cancelled(appointment):
             f"Телефон: {appointment.phone or '—'}\n"
             f"Автомобиль: {appointment.car}\n"
             f"VIN: {appointment.vin or '—'}\n"
-            f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
+            f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}\n"
         ),
         recipients=recipients,
     )
@@ -157,11 +162,12 @@ def create_station_staff_notifications(appointment):
     if not staff_ids:
         return 0
 
+    local_start = appointment.local_start
     client = appointment.name or appointment.user.get_full_name() or appointment.user.username
     message = (
         f"Клиент: {client}\n"
         f"Автомобиль: {appointment.car}\n"
-        f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}"
+        f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}"
     )
     try:
         Notification.objects.bulk_create([
@@ -196,12 +202,13 @@ def create_station_staff_cancellation_notifications(appointment):
     if not staff_ids:
         return 0
 
+    local_start = appointment.local_start
     message = (
         f"Клиент: {appointment.name}\n"
         f"Телефон: {appointment.phone or '—'}\n"
         f"Автомобиль: {appointment.car}\n"
         f"VIN: {appointment.vin or '—'}\n"
-        f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}"
+        f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}"
     )
     try:
         Notification.objects.bulk_create([
