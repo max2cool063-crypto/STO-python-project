@@ -38,6 +38,12 @@ def station_slots_api(request, station_id):
 
     vehicle_type = None
     staff = get_staff_record(request.user, station_id)
+    has_station_account = StationStaff.objects.filter(user=request.user).exists()
+    if has_station_account and not staff:
+        # A station identity must never silently fall back to client behavior
+        # when it requests slots for an unrelated station.
+        return JsonResponse({"error": "forbidden"}, status=403)
+
     if car_id:
         if staff:
             # Station operators work with client cars belonging to this station.
@@ -70,6 +76,9 @@ def station_slots_api(request, station_id):
 @require_GET
 @login_required
 def car_api(request, car_id):
+    if StationStaff.objects.filter(user=request.user).exists():
+        return JsonResponse({"error": "forbidden"}, status=403)
+
     car = get_object_or_404(Car, id=car_id, owner=request.user, is_active=True)
     return JsonResponse({
         "id": car.id,
