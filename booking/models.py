@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -293,9 +293,12 @@ class Appointment(models.Model):
         if self.status in ("CANCELLED", "DONE", "NO_SHOW"):
             super().save(*args, **kwargs)
             return
-        self.end = self.start + self.get_required_duration()
-        self.full_clean()
-        super().save(*args, **kwargs)
+
+        with transaction.atomic():
+            Station.objects.select_for_update().get(pk=self.station_id)
+            self.end = self.start + self.get_required_duration()
+            self.full_clean()
+            super().save(*args, **kwargs)
 
 
 class AppointmentPhoto(models.Model):
@@ -321,7 +324,7 @@ class StationStaff(models.Model):
     is_active = models.BooleanField("Активен", default=True)
     receive_notifications = models.BooleanField("Получать уведомления о новых записях", default=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_staff", verbose_name="Кто создал")
-    created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("station", "user")
