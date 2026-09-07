@@ -20,7 +20,7 @@ YANDEX_MAPS_API_KEY = os.getenv("YANDEX_MAPS_API_KEY", "")
 
 INSTALLED_APPS = [
     "jazzmin",
-    "django.contrib.admin",
+    "auto_booking.apps.SuperuserOnlyAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
