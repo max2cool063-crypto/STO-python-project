@@ -216,7 +216,7 @@ def create_station_staff_cancellation_notifications(appointment):
                 recipient_id=user_id,
                 station=station,
                 appointment=appointment,
-                notification_type="APPOINTMENT_CANCELLED",
+                notification_type=Notification.TYPE_APPOINTMENT_CANCELLED,
                 title="Клиент отменил запись",
                 message=message,
             )
