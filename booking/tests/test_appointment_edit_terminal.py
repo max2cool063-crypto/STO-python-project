@@ -70,5 +70,5 @@ class TerminalAppointmentEditTests(TestCase):
         )
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, "DONE")
-        self.assertEqual(self.appointment.start.hour, 10)
+        self.assertEqual(self.appointment.local_start.hour, 10)
         self.assertEqual(self.appointment.notes, "")
