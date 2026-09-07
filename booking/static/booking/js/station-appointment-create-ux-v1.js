@@ -3,6 +3,28 @@
   const modelSelect = document.getElementById('model-select');
   if (!dateInput || !modelSelect || typeof STATION_ID === 'undefined' || typeof loadSlots !== 'function') return;
 
+  function localTodayIso() {
+    const now = new Date();
+    const pad = value => String(value).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  // The native date picker keeps the original UI, but it only dims/disables
+  // past days when min contains a valid ISO date. Django localization may
+  // render a date object differently, so normalize the constraint here.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput.min || '')) {
+    dateInput.min = localTodayIso();
+  }
+
+  dateInput.addEventListener('change', function () {
+    if (dateInput.value && dateInput.value < dateInput.min) {
+      dateInput.value = '';
+      dateInput.setCustomValidity('Нельзя выбрать прошедшую дату');
+      dateInput.reportValidity();
+      dateInput.setCustomValidity('');
+    }
+  });
+
   function selectedVehicleType() {
     if (typeof currentCarId !== 'undefined' && currentCarId) return '';
     const option = modelSelect.selectedOptions && modelSelect.selectedOptions[0];
