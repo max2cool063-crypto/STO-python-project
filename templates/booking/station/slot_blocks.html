@@ -1,5 +1,6 @@
 {% extends "booking/station/base.html" %}
 {% load static %}
+{% now "Y-m-d" as today %}
 {% block station_content %}
 <div class="st-page-head">
   <div>
@@ -40,7 +41,7 @@
         <div class="st-block-date">
           <div class="st-form-group">
             <label for="block-date">Дата блокировки</label>
-            <input type="date" id="block-date" class="st-input" required>
+            <input type="date" id="block-date" class="st-input" min="{{ today }}" required>
           </div>
         </div>
 
