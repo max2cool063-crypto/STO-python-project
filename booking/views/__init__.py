@@ -14,11 +14,11 @@ from .cabinet import (
 )
 from .station_appointment_create import station_appointment_create
 from .station_appointment_detail import station_appointment_detail
+from .station_appointment_status import station_appointment_status
 from .station_cabinet import (
     station_select,
     station_dashboard,
     station_appointments,
-    station_appointment_status,
     station_appointments_csv,
     station_schedule,
     station_slot_blocks,
