@@ -20,12 +20,12 @@ from booking.models import (
 class UpdateAppointmentsAuditTests(TestCase):
     def setUp(self):
         self.now = timezone.make_aware(datetime(2099, 3, 4, 12, 0))
-        self.user = User.objects.create_user(username="auto-done-client")
-        self.station = Station.objects.create(name="Auto Done Station")
-        self.brand = Brand.objects.create(name="Auto Done Brand")
+        self.user = User.objects.create_user(username="auto-result-client")
+        self.station = Station.objects.create(name="Auto Result Station")
+        self.brand = Brand.objects.create(name="Auto Result Brand")
         self.model = CarModel.objects.create(
             brand=self.brand,
-            name="Auto Done Model",
+            name="Auto Result Model",
             vehicle_type="CAR",
         )
         self.car = Car.objects.create(
@@ -57,27 +57,27 @@ class UpdateAppointmentsAuditTests(TestCase):
         ):
             call_command("update_appointments")
 
-    def test_expired_booked_appointment_is_completed_with_system_log(self):
+    def test_expired_booked_appointment_waits_for_operator_result_with_system_log(self):
         self.run_command()
 
         self.appointment.refresh_from_db()
-        self.assertEqual(self.appointment.status, "DONE")
+        self.assertEqual(self.appointment.status, "AWAITING_RESULT")
 
         log = AppointmentLog.objects.get(appointment=self.appointment)
         self.assertIsNone(log.changed_by)
         self.assertEqual(log.old_status, "BOOKED")
-        self.assertEqual(log.new_status, "DONE")
+        self.assertEqual(log.new_status, "AWAITING_RESULT")
         self.assertEqual(
             log.comment,
-            "Автоматически завершено после окончания времени записи",
+            "Время записи завершилось — требуется результат визита",
         )
 
-    def test_repeated_command_does_not_duplicate_completion_log(self):
+    def test_repeated_command_does_not_duplicate_awaiting_result_log(self):
         self.run_command()
         self.run_command()
 
         self.appointment.refresh_from_db()
-        self.assertEqual(self.appointment.status, "DONE")
+        self.assertEqual(self.appointment.status, "AWAITING_RESULT")
         self.assertEqual(
             AppointmentLog.objects.filter(appointment=self.appointment).count(),
             1,
