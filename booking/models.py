@@ -221,8 +221,11 @@ class Car(models.Model):
 
 class Appointment(models.Model):
     STATUS_CHOICES = [
-        ("BOOKED", "Запланировано"), ("CANCELLED", "Отменено"),
-        ("DONE", "Выполнено"), ("NO_SHOW", "Не приехал"),
+        ("BOOKED", "Запланировано"),
+        ("AWAITING_RESULT", "Требует результата"),
+        ("CANCELLED", "Отменено"),
+        ("DONE", "Выполнено"),
+        ("NO_SHOW", "Не приехал"),
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="appointments", verbose_name="Пользователь")
     car = models.ForeignKey(Car, on_delete=models.CASCADE, related_name="appointments", verbose_name="Автомобиль")
@@ -291,7 +294,9 @@ class Appointment(models.Model):
             raise ValidationError("Выбранное время заблокировано станцией")
 
     def save(self, *args, **kwargs):
-        if self.status in ("CANCELLED", "DONE", "NO_SHOW"):
+        # Only actively booked appointments need slot/schedule validation.
+        # Result-pending and terminal records are historical workflow states.
+        if self.status != "BOOKED":
             super().save(*args, **kwargs)
             return
 
