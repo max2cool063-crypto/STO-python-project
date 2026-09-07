@@ -1,21 +1,27 @@
 """
 Все email-уведомления проекта в одном месте.
-Все функции используют fail_silently=True — ошибка отправки
-не должна ломать основной бизнес-процесс.
+Ошибки отправки не должны ломать основной бизнес-процесс, но базовая
+функция возвращает признак фактической передачи письма почтовому backend.
 """
 from django.core.mail import send_mail as _send_mail
 from django.conf import settings
 
 
 def _send(subject, body, recipients):
-    """Базовая отправка — фильтрует пустые адреса."""
+    """Базовая отправка — фильтрует пустые адреса и сообщает об успехе."""
     to = [r for r in recipients if r and "@" in r]
     if not to:
-        return
+        return False
     try:
-        _send_mail(subject, body, settings.DEFAULT_FROM_EMAIL or None, to, fail_silently=True)
+        return _send_mail(
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL or None,
+            to,
+            fail_silently=True,
+        ) > 0
     except Exception:
-        pass
+        return False
 
 
 def notify_client_booked(appointment):
@@ -58,11 +64,11 @@ def notify_client_cancelled(appointment, cancelled_by_station=False):
 
 
 def notify_client_reminder(appointment):
-    """Напоминание клиенту за день до ТО."""
+    """Напоминание клиенту за день до ТО. Возвращает True при успешной отправке."""
     email = appointment.user.email
     if not email:
-        return
-    _send(
+        return False
+    return _send(
         subject=f"Напоминание: завтра ТО — {appointment.station.name}",
         body=(
             f"Здравствуйте, {appointment.name}!\n\n"
