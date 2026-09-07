@@ -186,14 +186,16 @@ class StationAdmin(admin.ModelAdmin):
                             station = Station.objects.filter(rsa_id=rid).first()
 
                             if station:
-                                Station.objects.filter(pk=station.pk).update(
-                                    name=station_name,
-                                    address=station_address,
-                                    latitude=detail.get("lat"),
-                                    longitude=detail.get("lng"),
-                                    phone=detail.get("phone", ""),
-                                    email=detail.get("email", ""),
-                                )
+                                station.name = station_name
+                                station.address = station_address
+                                station.latitude = detail.get("lat")
+                                station.longitude = detail.get("lng")
+                                station.phone = detail.get("phone", "")
+                                station.email = detail.get("email", "")
+                                station.save(update_fields=[
+                                    "name", "address", "latitude", "longitude",
+                                    "phone", "email", "timezone",
+                                ])
                                 was_created = False
                                 msg = f'⏭ Обновлена: {station_name} (№ ОТО: {rid})'
                             else:
