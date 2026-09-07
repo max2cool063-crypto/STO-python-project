@@ -41,4 +41,5 @@
 {% endblock %}
 {% block extra_scripts %}
 <script src="{% static 'booking/js/station-notifications-v1.js' %}?v=20260901-2"></script>
+{% if request.resolver_match.url_name == 'station_appointment_create' %}<script src="{% static 'booking/js/station-appointment-create-ux-v1.js' %}?v=20260907-1"></script>{% endif %}
 {% endblock %}
