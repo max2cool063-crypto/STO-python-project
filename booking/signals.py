@@ -14,7 +14,7 @@ def deactivate_rsa_imported_station(sender, instance, created, **kwargs):
 
 @receiver(pre_save, sender=Appointment)
 def validate_appointment_status_transition(sender, instance, **kwargs):
-    """Prevent reopening or changing a terminal appointment to another status."""
+    """Enforce the appointment workflow and protect terminal statuses."""
     if not instance.pk:
         return
 
@@ -27,7 +27,8 @@ def validate_appointment_status_transition(sender, instance, **kwargs):
         return
 
     allowed = {
-        "BOOKED": {"CANCELLED", "DONE", "NO_SHOW"},
+        "BOOKED": {"AWAITING_RESULT", "CANCELLED", "DONE", "NO_SHOW"},
+        "AWAITING_RESULT": {"DONE", "NO_SHOW"},
         "CANCELLED": set(),
         "DONE": set(),
         "NO_SHOW": set(),
