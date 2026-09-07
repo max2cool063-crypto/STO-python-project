@@ -31,13 +31,14 @@ def station_slots_api(request, station_id):
     station = get_object_or_404(Station, id=station_id, is_active=True)
     date = parse_date(request.GET.get("date"))
     car_id = request.GET.get("car")
+    requested_vehicle_type = (request.GET.get("vehicle_type") or "").strip().upper()
 
     if not date:
         return JsonResponse({"slots": []})
 
     vehicle_type = None
+    staff = get_staff_record(request.user, station_id)
     if car_id:
-        staff = get_staff_record(request.user, station_id)
         if staff:
             # Station operators work with client cars belonging to this station.
             # Do not expose cars known only to another station.
@@ -56,6 +57,11 @@ def station_slots_api(request, station_id):
                 is_active=True,
             )
         vehicle_type = car.model.vehicle_type
+    elif requested_vehicle_type in {"CAR", "TRUCK"} and staff:
+        # During station-side creation of a brand-new car there is no car_id yet.
+        # The vehicle type is still needed so the preview and available slots use
+        # the same duration rule as Appointment.save().
+        vehicle_type = requested_vehicle_type
 
     slots = station.get_available_slots(date, vehicle_type=vehicle_type)
     return JsonResponse({"slots": slots})
