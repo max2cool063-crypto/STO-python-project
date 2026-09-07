@@ -89,7 +89,8 @@ class StationNotificationAccessTests(TestCase):
 
         response = self.client.get(reverse("station_notifications_history"))
 
-        self.assertEqual(response.status_code, 403)
+        self.assertRedirects(response, reverse("login"), fetch_redirect_response=False)
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_regular_client_cannot_use_station_notifications(self):
         self.client.login(username="notification-client", password="test-password")
