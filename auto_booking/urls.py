@@ -6,6 +6,8 @@ from django.conf.urls.static import static
 # Add the per-station timezone field to the existing Station admin without
 # changing the existing RSA import/admin implementation.
 import booking.admin_timezone  # noqa: F401
+# Apply the production safety layer after the existing admin customizations.
+import booking.admin_safety  # noqa: F401
 from booking.admin_actions import fill_holidays, import_rsa_stream
 
 urlpatterns = [
