@@ -150,7 +150,7 @@ def appointment_photos_zip(request, pk):
 
 @login_required
 def protected_media(request, path):
-    """Serve appointment photos only to the owner, station staff, or superuser."""
+    """Serve appointment photos only to the client owner, assigned station staff, or superuser."""
     raw_path = urllib.parse.unquote((path or "").lstrip("/"))
     candidates = [raw_path]
     for prefix in ("media/", "/media/"):
@@ -166,7 +166,8 @@ def protected_media(request, path):
     if not photo:
         raise Http404("AppointmentPhoto not found")
 
-    is_owner = photo.appointment.user_id == request.user.id
+    has_station_account = StationStaff.objects.filter(user=request.user).exists()
+    is_owner = not has_station_account and photo.appointment.user_id == request.user.id
     is_system_admin = request.user.is_active and request.user.is_superuser
     is_station_staff = StationStaff.objects.filter(user=request.user, station=photo.appointment.station, is_active=True).exists()
     if not (is_owner or is_system_admin or is_station_staff):
