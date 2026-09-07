@@ -148,7 +148,7 @@ class StationSchedule(models.Model):
         unique_together = ("station", "date")
         ordering = ["date"]
         verbose_name = "График работы станции"
-        verbose_name_plural = "Графики станций"
+        verbose_name_plural = "Графики работы станций"
 
     def __str__(self):
         return f"{self.station} — {self.date}"
