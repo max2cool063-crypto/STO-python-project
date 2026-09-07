@@ -10,6 +10,9 @@ class UiDesignSystemTests(SimpleTestCase):
         self.station_base_template = (
             self.root / "templates" / "booking" / "station" / "base.html"
         ).read_text(encoding="utf-8")
+        self.schedule_template = (
+            self.root / "templates" / "booking" / "station" / "schedule.html"
+        ).read_text(encoding="utf-8")
         self.icons_runtime = (
             self.root / "booking" / "static" / "booking" / "js" / "ui-icons-v1.js"
         ).read_text(encoding="utf-8")
@@ -40,6 +43,15 @@ class UiDesignSystemTests(SimpleTestCase):
             "arrow-left",
         ):
             self.assertIn(f'data-lucide="{icon_name}"', self.station_base_template)
+
+    def test_schedule_holiday_year_selector_is_dynamic(self):
+        self.assertIn('data-holiday-year-select', self.schedule_template)
+        self.assertIn('data-current-year="{{ current_year }}"', self.schedule_template)
+        self.assertIn("currentYear - 1", self.schedule_template)
+        self.assertIn("currentYear + 3", self.schedule_template)
+        self.assertNotIn('<option value="2025">2025</option>', self.schedule_template)
+        self.assertNotIn('<option value="2026">2026</option>', self.schedule_template)
+        self.assertNotIn('<option value="2027">2027</option>', self.schedule_template)
 
     def test_public_client_legacy_glyphs_have_lucide_migration(self):
         for selector_name in (
