@@ -324,7 +324,7 @@ class StationStaff(models.Model):
     is_active = models.BooleanField("Активен", default=True)
     receive_notifications = models.BooleanField("Получать уведомления о новых записях", default=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_staff", verbose_name="Кто создал")
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField("Дата создания", auto_now_add=True)
 
     class Meta:
         unique_together = ("station", "user")
@@ -370,7 +370,7 @@ class AppointmentLog(models.Model):
     old_status = models.CharField("Старый статус", max_length=20, blank=True)
     new_status = models.CharField("Новый статус", max_length=20)
     comment = models.TextField("Комментарий", blank=True, default="")
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField("Время", auto_now_add=True)
 
     class Meta:
         ordering = ["created_at"]
