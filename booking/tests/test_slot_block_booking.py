@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -39,7 +39,7 @@ class SlotBlockBookingTests(TestCase):
         SlotBlock.objects.create(
             station=self.station,
             start=start,
-            end=start + timezone.timedelta(minutes=30),
+            end=start + timedelta(minutes=30),
             reason="Maintenance",
             created_by=self.user,
         )
@@ -49,7 +49,7 @@ class SlotBlockBookingTests(TestCase):
             user=self.user,
             car=self.car,
             start=start,
-            end=start + timezone.timedelta(minutes=30),
+            end=start + timedelta(minutes=30),
             name="Client",
         )
 
