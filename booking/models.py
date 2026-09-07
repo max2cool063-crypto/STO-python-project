@@ -148,7 +148,7 @@ class StationSchedule(models.Model):
         unique_together = ("station", "date")
         ordering = ["date"]
         verbose_name = "График работы станции"
-        verbose_name_plural = "Графики работы станций"
+        verbose_name_plural = "Графики станций"
 
     def __str__(self):
         return f"{self.station} — {self.date}"
@@ -234,6 +234,7 @@ class Appointment(models.Model):
     vin = models.CharField("VIN", max_length=32, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="BOOKED", verbose_name="Статус")
     notes = models.TextField("Комментарий оператора", blank=True, default="")
+    reminder_sent_at = models.DateTimeField("Напоминание отправлено", null=True, blank=True)
 
     class Meta:
         ordering = ["start"]
@@ -296,6 +297,16 @@ class Appointment(models.Model):
 
         with transaction.atomic():
             Station.objects.select_for_update().get(pk=self.station_id)
+            if self.pk:
+                previous_start = (
+                    Appointment.objects.filter(pk=self.pk)
+                    .values_list("start", flat=True)
+                    .first()
+                )
+                if previous_start is not None and previous_start != self.start:
+                    self.reminder_sent_at = None
+                    if kwargs.get("update_fields") is not None:
+                        kwargs["update_fields"] = set(kwargs["update_fields"]) | {"reminder_sent_at"}
             self.end = self.start + self.get_required_duration()
             self.full_clean()
             super().save(*args, **kwargs)
