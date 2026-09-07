@@ -51,8 +51,8 @@ class AppointmentStatusTransitionTests(TestCase):
     def test_booked_can_transition_to_terminal_statuses(self):
         for status in ("CANCELLED", "DONE", "NO_SHOW"):
             with self.subTest(status=status):
-                self.appointment.status = "BOOKED"
-                self.appointment.save()
+                Appointment.objects.filter(pk=self.appointment.pk).update(status="BOOKED")
+                self.appointment.refresh_from_db()
                 self.set_status(status)
                 self.appointment.refresh_from_db()
                 self.assertEqual(self.appointment.status, status)
@@ -63,10 +63,8 @@ class AppointmentStatusTransitionTests(TestCase):
                 if target == initial:
                     continue
                 with self.subTest(initial=initial, target=target):
-                    self.appointment.status = "BOOKED"
-                    self.appointment.save()
-                    self.appointment.status = initial
-                    self.appointment.save()
+                    Appointment.objects.filter(pk=self.appointment.pk).update(status=initial)
+                    self.appointment.refresh_from_db()
                     self.appointment.status = target
                     with self.assertRaisesMessage(
                         ValidationError,
