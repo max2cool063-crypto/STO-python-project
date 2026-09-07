@@ -1,18 +1,90 @@
 {% extends "booking/station/base.html" %}
+{% now "Y-m-d" as today %}
 {% block station_content %}
 <div class="st-edit-page">
   <header class="st-page-head"><div><div class="st-page-head__eyebrow">Журнал станции · редактирование</div><h1>Редактирование записи #{{ appointment.pk }}</h1><p>{{ station.name }} · время, комментарий и фотографии</p></div><a href="{% url 'station_appointment_detail' station.pk appointment.pk %}" class="st-btn st-btn--secondary">← К записи</a></header>
-  <form method="post" enctype="multipart/form-data" class="st-edit-layout">
+  <form method="post" enctype="multipart/form-data" class="st-edit-layout" id="edit-appt-form">
     {% csrf_token %}
     <main class="st-edit-main">
       <section class="st-card st-edit-card"><div class="st-card-heading"><div class="st-heading-icon">👤</div><div><span class="st-section-eyebrow">Клиент</span><h2>Контактные данные</h2></div></div><div class="st-edit-grid"><div class="st-form-group"><label for="client-name">Имя клиента</label><input id="client-name" class="st-input st-readonly" type="text" name="client_name" value="{{ appointment.name }}" readonly aria-readonly="true"><span class="st-edit-hint">Личные данные клиента нельзя изменить из редактирования записи.</span></div><div class="st-form-group"><label for="client-phone">Телефон</label><input id="client-phone" class="st-input st-readonly" type="text" name="client_phone" value="{{ appointment.phone|default:'' }}" readonly aria-readonly="true"><span class="st-edit-hint">Телефон является данными клиента и не изменяется здесь.</span></div></div></section>
-      <section class="st-card st-edit-card"><div class="st-card-heading"><div class="st-heading-icon">📅</div><div><span class="st-section-eyebrow">Визит</span><h2>Дата и время</h2></div></div><div class="st-edit-grid"><div class="st-form-group"><label for="start">Начало записи *</label><input id="start" class="st-input" type="datetime-local" name="start" value="{{ appointment.local_start|date:'Y-m-d\\TH:i' }}" required></div><div class="st-edit-info"><strong>{{ appointment.car }}</strong><span>{% if appointment.car.model.vehicle_type == 'TRUCK' %}Грузовой · 2 слота{% else %}Легковой · 1 слот{% endif %}</span></div></div><p class="st-edit-hint">Длительность пересчитается автоматически по типу автомобиля. Перенос возможен только на будущее время и в рабочий график станции. Время указано по часовому поясу станции: {{ station.timezone|default:'Europe/Moscow' }}.</p></section>
+
+      <section class="st-card st-edit-card">
+        <div class="st-card-heading"><div class="st-heading-icon">📅</div><div><span class="st-section-eyebrow">Визит</span><h2>Дата и время</h2></div></div>
+        <div class="st-edit-date-row">
+          <div class="st-form-group"><label for="edit-date">Дата *</label><input id="edit-date" class="st-input st-date-input" type="date" min="{{ today }}" value="{{ appointment.local_start|date:'Y-m-d' }}" required></div>
+          <div class="st-edit-info"><strong>{{ appointment.car }}</strong><span>{% if appointment.car.model.vehicle_type == 'TRUCK' %}Грузовой · 60 минут · 2 слота{% else %}Легковой · 30 минут · 1 слот{% endif %}</span></div>
+        </div>
+        <div class="st-form-group st-slot-group"><div class="st-slot-head"><label>Доступное время *</label><span id="edit-slots-count"></span></div><div id="edit-slot-chips" class="st-slot-chips"><div class="st-slot-placeholder">Загрузка доступного времени…</div></div><select name="start" id="edit-start" class="st-slot-native" required><option value="{{ appointment.local_start|date:'Y-m-d\\TH:i:s' }}" selected>{{ appointment.local_start|date:'H:i' }} — {{ appointment.local_end|date:'H:i' }}</option></select><div id="edit-slots-hint" class="st-edit-hint"></div></div>
+        <p class="st-edit-hint">Показываются доступные интервалы станции. Прошедшие даты выбрать нельзя. Длительность рассчитывается автоматически по типу автомобиля. Часовой пояс: {{ station.timezone|default:'Europe/Moscow' }}.</p>
+      </section>
+
       <section class="st-card st-edit-card"><div class="st-card-heading"><div class="st-heading-icon">💬</div><div><span class="st-section-eyebrow">Комментарий</span><h2>Комментарий оператора</h2></div></div><textarea class="st-input st-textarea" name="notes" rows="5" placeholder="Комментарий к записи">{{ appointment.notes }}</textarea></section>
-      <section class="st-card st-edit-card"><div class="st-card-heading"><div class="st-heading-icon">📷</div><div><span class="st-section-eyebrow">Фото</span><h2>Добавить фотографии</h2></div></div><label for="edit-photos" class="st-photo-upload__drop"><span class="st-photo-upload__icon">📷</span><strong>Выбрать фотографии</strong><small>До 5 файлов за один раз · JPEG, PNG, WebP, GIF · до 5 МБ</small></label><input id="edit-photos" type="file" name="photos" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden><div id="edit-photo-preview" class="st-photo-preview"></div></section>
+
+      <section class="st-card st-edit-card">
+        <div class="st-card-heading"><div class="st-heading-icon">📷</div><div><span class="st-section-eyebrow">Фото</span><h2>Фотографии</h2></div></div>
+        {% with existing_photos=appointment.photos.all %}
+          {% if existing_photos %}
+          <div class="st-existing-photo-head"><strong>Уже прикреплены</strong><span>Новые файлы будут добавлены к существующим.</span></div>
+          <div class="st-photo-preview st-existing-photos">
+            {% for photo in existing_photos %}<figure><a href="{% url 'protected_media' path=photo.image.name %}" target="_blank" rel="noopener"><img src="{% url 'protected_media' path=photo.image.name %}" alt="Фото автомобиля к записи #{{ appointment.pk }}" loading="lazy"></a></figure>{% endfor %}
+          </div>
+          {% endif %}
+        {% endwith %}
+        <label for="edit-photos" class="st-photo-upload__drop"><span class="st-photo-upload__icon">📷</span><span><strong>Добавить фотографии</strong><small>До 5 новых файлов · JPEG, PNG, WebP, GIF · до 5 МБ</small></span></label><input id="edit-photos" type="file" name="photos" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden><div id="edit-photo-preview" class="st-photo-preview"></div>
+      </section>
     </main>
-    <aside class="st-edit-side"><div class="st-card st-edit-summary"><span class="st-section-eyebrow">Проверка</span><h2>Сохранить изменения</h2><p>Текущий статус: <strong>{{ appointment.get_status_display }}</strong></p><button class="st-btn st-btn--primary st-btn--wide" type="submit">Сохранить</button><a class="st-btn st-btn--secondary st-btn--wide" href="{% url 'station_appointment_detail' station.pk appointment.pk %}">Отмена</a></div></aside>
+    <aside class="st-edit-side"><div class="st-card st-edit-summary"><span class="st-section-eyebrow">Проверка</span><h2>Сохранить изменения</h2><p>Текущий статус: <strong>{{ appointment.get_status_display }}</strong></p><div class="st-edit-summary-time"><small>Выбранное время</small><strong id="edit-summary-date">{{ appointment.local_start|date:'d.m.Y' }}</strong><span id="edit-summary-time">{{ appointment.local_start|date:'H:i' }} — {{ appointment.local_end|date:'H:i' }}</span></div><button class="st-btn st-btn--primary st-btn--wide" type="submit">Сохранить</button><a class="st-btn st-btn--secondary st-btn--wide" href="{% url 'station_appointment_detail' station.pk appointment.pk %}">Отмена</a></div></aside>
   </form>
 </div>
-<style>.st-edit-page{max-width:1280px;margin:0 auto}.st-edit-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}.st-edit-main{display:grid;gap:16px}.st-edit-card{padding:22px}.st-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.st-edit-info{display:flex;flex-direction:column;justify-content:center;padding:15px 16px;border:1px solid #dbeafe;border-radius:13px;background:#f8fbff}.st-edit-info strong{font-size:16px}.st-edit-info span,.st-edit-hint{color:#64748b;font-size:12px}.st-edit-hint{margin:8px 0 0;line-height:1.5}.st-readonly{background:#f1f5f9!important;color:#64748b!important;cursor:not-allowed}.st-textarea{resize:vertical;padding:12px 14px}.st-edit-summary{position:sticky;top:20px;padding:22px}.st-edit-summary h2{margin:5px 0 8px;font-size:20px}.st-edit-summary p{color:#64748b;font-size:13px}.st-btn--wide{width:100%;justify-content:center;margin-top:8px}.st-photo-upload__drop{display:flex;align-items:center;gap:12px;padding:18px;border:1px dashed #b9c7da;border-radius:14px;background:#f8fbff;cursor:pointer}.st-photo-upload__drop:hover{border-color:#2563eb;background:#f1f6ff}.st-photo-upload__icon{font-size:24px}.st-photo-upload__drop strong{display:block}.st-photo-upload__drop small{display:block;color:#64748b;margin-top:3px}.st-photo-preview{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}.st-photo-preview:empty{display:none}.st-photo-preview figure{margin:0;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f1f5f9}.st-photo-preview img{width:100%;height:100%;object-fit:cover;display:block}@media(max-width:900px){.st-edit-layout{grid-template-columns:1fr}.st-edit-summary{position:static}}@media(max-width:650px){.st-edit-grid{grid-template-columns:1fr}.st-photo-preview{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>
-<script>document.getElementById('edit-photos')?.addEventListener('change',e=>{const p=document.getElementById('edit-photo-preview');p.innerHTML='';[...e.target.files].slice(0,5).forEach(file=>{const f=document.createElement('figure');const img=document.createElement('img');img.src=URL.createObjectURL(file);img.alt=file.name;f.appendChild(img);p.appendChild(f)})});</script>
+<style>
+.st-edit-page{max-width:1280px;margin:0 auto}.st-edit-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}.st-edit-main{display:grid;gap:16px}.st-edit-card{padding:22px}.st-edit-grid,.st-edit-date-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.st-edit-info{display:flex;flex-direction:column;justify-content:center;padding:15px 16px;border:1px solid #dbeafe;border-radius:13px;background:#f8fbff}.st-edit-info strong{font-size:16px}.st-edit-info span,.st-edit-hint{color:#64748b;font-size:12px}.st-edit-hint{margin:8px 0 0;line-height:1.5}.st-readonly{background:#f1f5f9!important;color:#64748b!important;cursor:not-allowed}.st-textarea{resize:vertical;padding:12px 14px}.st-date-input{max-width:220px}.st-slot-head{display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px}.st-slot-head label{margin:0}.st-slot-head span{font-size:12px;color:#64748b}.st-slot-chips{display:flex;flex-wrap:wrap;gap:8px;min-height:42px}.st-slot-chip{border:1px solid #dbe3ee;background:#fff;border-radius:10px;padding:10px 13px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;transition:.15s}.st-slot-chip:hover{border-color:#60a5fa;background:#eff6ff}.st-slot-chip.is-selected{background:#2563eb;border-color:#2563eb;color:#fff}.st-slot-placeholder{display:flex;align-items:center;color:#94a3b8;font-size:13px}.st-slot-native{display:none}.st-edit-summary{position:sticky;top:20px;padding:22px}.st-edit-summary h2{margin:5px 0 8px;font-size:20px}.st-edit-summary p{color:#64748b;font-size:13px}.st-edit-summary-time{display:flex;flex-direction:column;gap:3px;margin:14px 0;padding:13px;border-radius:12px;background:#f8fafc}.st-edit-summary-time small{color:#94a3b8;font-size:11px}.st-edit-summary-time strong{font-size:14px}.st-edit-summary-time span{color:#475569;font-size:13px;font-weight:700}.st-btn--wide{width:100%;justify-content:center;margin-top:8px}.st-photo-upload__drop{display:flex;align-items:center;gap:12px;padding:18px;border:1px dashed #b9c7da;border-radius:14px;background:#f8fbff;cursor:pointer}.st-photo-upload__drop:hover{border-color:#2563eb;background:#f1f6ff}.st-photo-upload__icon{font-size:24px}.st-photo-upload__drop strong{display:block}.st-photo-upload__drop small{display:block;color:#64748b;margin-top:3px}.st-existing-photo-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}.st-existing-photo-head span{color:#64748b;font-size:12px}.st-photo-preview{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0}.st-photo-preview:empty{display:none}.st-photo-preview figure{margin:0;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f1f5f9}.st-photo-preview a{display:block;width:100%;height:100%}.st-photo-preview img{width:100%;height:100%;object-fit:cover;display:block}.st-existing-photos{margin-bottom:16px}@media(max-width:900px){.st-edit-layout{grid-template-columns:1fr}.st-edit-summary{position:static}}@media(max-width:650px){.st-edit-grid,.st-edit-date-row{grid-template-columns:1fr}.st-photo-preview{grid-template-columns:repeat(2,minmax(0,1fr))}.st-existing-photo-head{align-items:flex-start;flex-direction:column}}
+</style>
+<script>
+(function(){
+  const stationId={{ station.pk }};
+  const carId={{ appointment.car_id }};
+  const currentDate='{{ appointment.local_start|date:"Y-m-d" }}';
+  const currentStart='{{ appointment.local_start|date:"Y-m-d\\TH:i:s" }}';
+  const currentStartTime='{{ appointment.local_start|date:"H:i" }}';
+  const currentEndTime='{{ appointment.local_end|date:"H:i" }}';
+  const dateInput=document.getElementById('edit-date');
+  const native=document.getElementById('edit-start');
+  const chips=document.getElementById('edit-slot-chips');
+  const hint=document.getElementById('edit-slots-hint');
+  const count=document.getElementById('edit-slots-count');
+  const summaryDate=document.getElementById('edit-summary-date');
+  const summaryTime=document.getElementById('edit-summary-time');
+
+  function selectSlot(button,value,startTime,endTime){
+    document.querySelectorAll('#edit-slot-chips .st-slot-chip').forEach(item=>item.classList.remove('is-selected'));
+    button.classList.add('is-selected');
+    native.value=value;
+    summaryTime.textContent=startTime+' — '+endTime;
+  }
+  function addSlot(value,startTime,endTime,selected){
+    if([...native.options].some(option=>option.value===value))return;
+    const option=document.createElement('option');option.value=value;option.textContent=startTime+' — '+endTime;option.selected=selected;native.appendChild(option);
+    const button=document.createElement('button');button.type='button';button.className='st-slot-chip'+(selected?' is-selected':'');button.textContent=startTime+' — '+endTime;button.addEventListener('click',()=>selectSlot(button,value,startTime,endTime));chips.appendChild(button);
+  }
+  async function loadSlots(){
+    const date=dateInput.value;
+    native.innerHTML='';chips.innerHTML='<div class="st-slot-placeholder">Загрузка доступного времени…</div>';count.textContent='';hint.textContent='';
+    if(!date)return;
+    summaryDate.textContent=new Date(date+'T12:00:00').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});
+    try{
+      const response=await fetch('/api/station/'+stationId+'/slots/?date='+encodeURIComponent(date)+'&car='+encodeURIComponent(carId));
+      const data=await response.json();chips.innerHTML='';
+      if(date===currentDate)addSlot(currentStart,currentStartTime,currentEndTime,true);
+      (data.slots||[]).forEach(slot=>addSlot(slot.start,slot.start.substring(11,16),slot.end.substring(11,16),false));
+      const total=chips.querySelectorAll('.st-slot-chip').length;count.textContent=total?'Доступно: '+total:'';
+      if(!total){chips.innerHTML='<div class="st-slot-placeholder">Нет свободного времени на эту дату</div>';hint.textContent='Выберите другой день';native.innerHTML='';summaryTime.textContent='Не выбрано';}
+      else if(date!==currentDate){native.value='';summaryTime.textContent='Выберите время';}
+    }catch(error){chips.innerHTML='<div class="st-slot-placeholder">Не удалось загрузить доступное время</div>';hint.textContent='Попробуйте ещё раз';native.innerHTML='';}
+  }
+  dateInput.addEventListener('change',loadSlots);
+  loadSlots();
+
+  document.getElementById('edit-photos')?.addEventListener('change',e=>{const p=document.getElementById('edit-photo-preview');p.innerHTML='';[...e.target.files].slice(0,5).forEach(file=>{const f=document.createElement('figure');const img=document.createElement('img');img.src=URL.createObjectURL(file);img.alt=file.name;f.appendChild(img);p.appendChild(f)})});
+})();
+</script>
 {% endblock %}
