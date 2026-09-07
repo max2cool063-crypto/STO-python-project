@@ -126,12 +126,16 @@ def car_by_plate_api(request):
     if not matches:
         return JsonResponse({"error": "not found"}, status=404)
 
-    # Keep one stable response shape for both one and many results.
-    return JsonResponse({
+    payload = {
         "count": len(matches),
         "ambiguous": len(matches) > 1,
         "matches": matches,
-    })
+    }
+    # Keep compatibility with the station booking form for the overwhelmingly
+    # common unambiguous lookup while retaining the richer matches payload.
+    if len(matches) == 1:
+        payload.update(matches[0])
+    return JsonResponse(payload)
 
 
 @require_GET
