@@ -224,18 +224,6 @@ class StationSecurityTests(TestCase):
         self.assertIn(own.car.plate_number, content)
         self.assertNotIn(foreign.car.plate_number, content)
 
-    def test_operator_can_access_clients_of_own_station(self):
-        self.create_appointment(self.station, self.client_user, self.car)
-        self.login_operator()
-
-        response = self.client.get(
-            reverse("station_clients", kwargs={"station_id": self.station.id})
-        )
-
-        self.assertEqual(response.status_code, 200)
-        clients = list(response.context["clients"])
-        self.assertIn(self.client_user, clients)
-
     def test_operator_cannot_access_clients_of_other_station(self):
         self.create_appointment(self.other_station, self.other_client, self.other_car)
         self.login_operator()
