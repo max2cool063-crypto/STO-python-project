@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
@@ -13,6 +13,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 
+from booking.account_access import DEACTIVATED_STAFF_MESSAGE, get_station_account_state
 from booking.security import LOGIN_RATE_LIMIT, REGISTRATION_RATE_LIMIT
 
 User = get_user_model()
@@ -140,6 +141,12 @@ class RateLimitedLoginView(LoginView):
         return super().form_invalid(form)
 
     def form_valid(self, form):
+        user = form.get_user()
+        has_staff_history, has_active_role = get_station_account_state(user)
+        if has_staff_history and not has_active_role:
+            form.add_error(None, DEACTIVATED_STAFF_MESSAGE)
+            return self.render_to_response(self.get_context_data(form=form))
+
         cache.delete(LOGIN_RATE_LIMIT._key(self.request, self.request.POST.get("username", "")))
         return super().form_valid(form)
 
@@ -148,14 +155,22 @@ class RateLimitedLoginView(LoginView):
 def post_login_redirect(request):
     """
     Умный редирект после входа:
-    - Сотрудник станции → кабинет станции (или выбор если несколько)
+    - Активный сотрудник станции → кабинет станции (или выбор если несколько)
+    - Деактивированный сотрудник → выход из сессии
     - Обычный пользователь → клиентский кабинет
     """
     from booking.station_access import get_user_stations
 
-    stations = get_user_stations(request.user)
-    if stations.exists():
+    has_staff_history, has_active_role = get_station_account_state(request.user)
+    if has_staff_history:
+        if not has_active_role:
+            logout(request)
+            messages.error(request, DEACTIVATED_STAFF_MESSAGE)
+            return redirect("login")
+
+        stations = get_user_stations(request.user)
         if stations.count() == 1:
             return redirect(reverse("station_dashboard", kwargs={"station_id": stations.first().pk}))
         return redirect("station_select")
+
     return redirect("cabinet")
