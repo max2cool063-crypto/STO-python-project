@@ -9,7 +9,7 @@ from booking.models import StationStaff
 
 DEACTIVATED_STAFF_MESSAGE = "Доступ учётной записи сотрудника деактивирован"
 STAFF_ONLY_MESSAGE = "Учётная запись сотрудника предназначена только для кабинета станции"
-CLIENT_ONLY_MESSAGE = "Этот раздел доступен только клиентам"
+STATION_ONLY_MESSAGE = "Этот раздел доступен только сотрудникам станции"
 
 
 def get_station_account_state(user):
@@ -33,7 +33,7 @@ def require_active_station_account(view_func):
 
         has_staff_history, has_active_role = get_station_account_state(request.user)
         if not has_staff_history:
-            messages.error(request, CLIENT_ONLY_MESSAGE)
+            messages.error(request, STATION_ONLY_MESSAGE)
             return redirect("cabinet")
         if not has_active_role:
             logout(request)
