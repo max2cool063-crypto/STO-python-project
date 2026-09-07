@@ -281,6 +281,14 @@ class Appointment(models.Model):
         if conflict.exists():
             raise ValidationError("Выбранное время уже занято")
 
+        block_conflict = SlotBlock.objects.filter(
+            station=self.station,
+            start__lt=expected_end,
+            end__gt=self.start,
+        )
+        if block_conflict.exists():
+            raise ValidationError("Выбранное время заблокировано станцией")
+
     def save(self, *args, **kwargs):
         if self.status in ("CANCELLED", "DONE", "NO_SHOW"):
             super().save(*args, **kwargs)
@@ -359,7 +367,7 @@ class AppointmentLog(models.Model):
     old_status = models.CharField("Старый статус", max_length=20, blank=True)
     new_status = models.CharField("Новый статус", max_length=20)
     comment = models.TextField("Комментарий", blank=True, default="")
-    created_at = models.DateTimeField("Время", auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["created_at"]
