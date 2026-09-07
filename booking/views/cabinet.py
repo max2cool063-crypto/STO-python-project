@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import FileResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -103,15 +104,22 @@ def cabinet_car_delete(request, pk):
 @login_required
 @require_POST
 def cabinet_cancel_appointment(request, pk):
-    appt = get_object_or_404(Appointment, pk=pk, user=request.user)
-    if appt.start <= timezone.now():
-        messages.error(request, "Нельзя отменить уже прошедшее ТО")
-        return redirect("cabinet_appointments")
-    if appt.status != "BOOKED":
-        messages.error(request, "Запись уже отменена или завершена")
-        return redirect("cabinet_appointments")
-    appt.status = "CANCELLED"
-    appt.save()
+    with transaction.atomic():
+        appt = get_object_or_404(
+            Appointment.objects.select_for_update(),
+            pk=pk,
+            user=request.user,
+        )
+        if appt.start <= timezone.now():
+            messages.error(request, "Нельзя отменить уже прошедшее ТО")
+            return redirect("cabinet_appointments")
+        if appt.status != "BOOKED":
+            messages.error(request, "Запись уже отменена или завершена")
+            return redirect("cabinet_appointments")
+
+        appt.status = "CANCELLED"
+        appt.save()
+
     notify_client_cancelled(appt, cancelled_by_station=False)
     notify_station_staff_cancelled(appt)
     create_station_staff_cancellation_notifications(appt)
