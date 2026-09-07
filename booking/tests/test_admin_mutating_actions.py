@@ -89,34 +89,66 @@ class AdminMutatingActionsTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def _create_staff_without_station_change_permission(self):
+    def _create_staff_user(self, *, with_station_change_permission=False):
         user = User.objects.create_user(
             username="limited-admin@example.com",
             password="Admin-password-123!",
             is_staff=True,
+            is_superuser=False,
         )
-        user.user_permissions.add(
-            Permission.objects.get(codename="view_station", content_type__app_label="booking")
-        )
+        if with_station_change_permission:
+            user.user_permissions.add(
+                Permission.objects.get(codename="change_station", content_type__app_label="booking")
+            )
         return user
 
-    def test_fill_holidays_requires_station_change_permission(self):
-        user = self._create_staff_without_station_change_permission()
+    def assert_redirected_to_admin_login(self, response):
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith(reverse("admin:login")))
+
+    def test_superuser_can_open_admin_index(self):
+        response = self.client.get(reverse("admin:index"))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_only_user_cannot_open_admin_index(self):
+        user = self._create_staff_user()
+        client = Client()
+        client.force_login(user)
+
+        response = client.get(reverse("admin:index"))
+
+        self.assert_redirected_to_admin_login(response)
+
+    def test_regular_user_cannot_open_admin_index(self):
+        user = User.objects.create_user(
+            username="client-only@example.com",
+            password="Client-password-123!",
+        )
+        client = Client()
+        client.force_login(user)
+
+        response = client.get(reverse("admin:index"))
+
+        self.assert_redirected_to_admin_login(response)
+
+    def test_staff_only_user_cannot_open_custom_admin_action_even_with_permission(self):
+        user = self._create_staff_user(with_station_change_permission=True)
         client = Client()
         client.force_login(user)
         url = reverse("station_fill_holidays", args=[self.station.pk])
 
         response = client.get(url)
 
-        self.assertEqual(response.status_code, 403)
+        self.assert_redirected_to_admin_login(response)
         self.assertEqual(StationSchedule.objects.filter(station=self.station).count(), 0)
 
-    def test_rsa_import_requires_station_change_permission(self):
-        user = self._create_staff_without_station_change_permission()
+    def test_staff_only_user_cannot_post_rsa_import_even_with_permission(self):
+        user = self._create_staff_user(with_station_change_permission=True)
         client = Client()
         client.force_login(user)
         url = reverse("station_import_rsa_stream")
 
         response = client.post(url, {"address": "Москва", "pages": "1"})
 
-        self.assertEqual(response.status_code, 403)
+        self.assert_redirected_to_admin_login(response)
