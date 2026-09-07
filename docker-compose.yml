@@ -60,16 +60,11 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-        echo 'Waiting for database...';
-        until pg_isready -h db -p 5432; do sleep 2; done;
-
-        echo 'Applying migrations...';
-        python manage.py migrate --noinput;
-
+        set -e;
         echo 'Cron started';
         while true; do
-          python manage.py update_appointments || true;
-          python manage.py send_reminders || true;
+          python manage.py update_appointments;
+          python manage.py send_reminders;
           sleep 900;
         done
       "
