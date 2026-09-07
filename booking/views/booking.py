@@ -65,8 +65,8 @@ def book_station(request, pk):
             notify_station_staff_booked(appointment)
             notify_client_booked(appointment)
 
-        except Exception as e:
-            messages.error(request, f"Не удалось создать запись: {e}")
+        except Exception:
+            messages.error(request, "Не удалось создать запись. Проверьте данные и выбранное время.")
             return redirect(request.path)
 
         messages.success(request, "Вы успешно записались на ТО")
