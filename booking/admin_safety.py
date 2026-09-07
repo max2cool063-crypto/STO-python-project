@@ -6,10 +6,11 @@ from booking.admin import (
     BrandAdmin as BaseBrandAdmin,
     CarAdmin as BaseCarAdmin,
     CarModelAdmin as BaseCarModelAdmin,
+    StationStaffAdmin as BaseStationStaffAdmin,
     UserAdmin as BaseUserAdmin,
 )
 from booking.admin_timezone import StationTimezoneAdmin as BaseStationAdmin
-from booking.models import Appointment, Brand, Car, CarModel, Station
+from booking.models import Appointment, Brand, Car, CarModel, Station, StationStaff
 
 
 class NoHardDeleteAdminMixin:
@@ -52,6 +53,18 @@ class SafeUserAdmin(NoHardDeleteAdminMixin, BaseUserAdmin):
     pass
 
 
+class SafeStationStaffAdmin(NoHardDeleteAdminMixin, BaseStationStaffAdmin):
+    # A staff identity belongs to the station history permanently. Operators
+    # can only be activated/deactivated on their original station.
+    list_editable = ("is_active",)
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = tuple(super().get_readonly_fields(request, obj))
+        if obj is not None:
+            readonly += ("station", "user", "role")
+        return readonly
+
+
 class SafeBrandAdmin(ReferencedObjectDeleteAdminMixin, BaseBrandAdmin):
     def can_hard_delete(self, obj):
         # Deleting a brand cascades into its models, so require explicit model
@@ -73,6 +86,7 @@ for model, admin_class in (
     (Appointment, SafeAppointmentAdmin),
     (Car, SafeCarAdmin),
     (User, SafeUserAdmin),
+    (StationStaff, SafeStationStaffAdmin),
     (Brand, SafeBrandAdmin),
     (CarModel, SafeCarModelAdmin),
 ):
