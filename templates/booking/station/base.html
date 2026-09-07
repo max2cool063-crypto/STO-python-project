@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-appointments-v1.css' %}">
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-slot-blocks-v1.css' %}">
 <link rel="stylesheet" href="{% static 'booking/css/ui-station-notifications-v1.css' %}">
+{% if request.resolver_match.url_name == 'station_appointment_create' or request.resolver_match.url_name == 'station_slot_blocks' %}<link rel="stylesheet" href="{% static 'booking/css/ui-station-date-picker-v1.css' %}?v=20260907-1">{% endif %}
 {% if request.resolver_match.url_name == 'station_staff' %}<link rel="stylesheet" href="{% static 'booking/css/ui-station-staff-v1.css' %}">{% endif %}
 {% if request.resolver_match.url_name == 'station_schedule' %}<link rel="stylesheet" href="{% static 'booking/css/ui-station-schedule-v1.css' %}">{% endif %}
 {% endblock %}
@@ -41,5 +42,6 @@
 {% endblock %}
 {% block extra_scripts %}
 <script src="{% static 'booking/js/station-notifications-v1.js' %}?v=20260901-2"></script>
+{% if request.resolver_match.url_name == 'station_appointment_create' or request.resolver_match.url_name == 'station_slot_blocks' %}<script src="{% static 'booking/js/station-date-picker-v1.js' %}?v=20260907-1"></script>{% endif %}
 {% if request.resolver_match.url_name == 'station_appointment_create' %}<script src="{% static 'booking/js/station-appointment-create-ux-v1.js' %}?v=20260907-1"></script>{% endif %}
 {% endblock %}
