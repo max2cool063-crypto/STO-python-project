@@ -22,6 +22,13 @@ def station_appointment_status(request, station_id, pk, staff=None):
         messages.error(request, "Недопустимый статус")
         return redirect("station_appointments", station_id=station_id)
 
+    if new_status == "AWAITING_RESULT":
+        messages.error(
+            request,
+            "Статус «Требует результата» устанавливается системой автоматически",
+        )
+        return redirect("station_appointments", station_id=station_id)
+
     comment = request.POST.get("comment", "").strip()
 
     try:
