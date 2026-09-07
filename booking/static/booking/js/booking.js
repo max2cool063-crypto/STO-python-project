@@ -16,10 +16,12 @@
   const startField = document.getElementById('start');
   const endField = document.getElementById('end');
   const slotsCount = document.getElementById('slots-count');
+  const submitButton = document.getElementById('submit-btn');
 
   if (
     !dateField || !slotsContainer || !carField || !bookingFormElement ||
-    !selectedInfo || !slotDisplay || !startField || !endField || !slotsCount
+    !selectedInfo || !slotDisplay || !startField || !endField || !slotsCount ||
+    !submitButton
   ) {
     return;
   }
@@ -57,6 +59,7 @@
   loadSlots = function () {
     if (!dateField.value) return;
 
+    submitButton.disabled = true;
     slotsContainer.innerHTML = '<span class="booking-loading">Загрузка доступных слотов…</span>';
     const carParam = carField.value ? '&car=' + encodeURIComponent(carField.value) : '';
 
@@ -109,11 +112,14 @@
             // following 30-minute slot is occupied. Require a new valid selection.
             clearSelectedSlot();
           }
+        } else if (typeof updateSubmit === 'function') {
+          updateSubmit();
         }
       })
       .catch(() => {
         slotsContainer.innerHTML = '<span class="booking-empty-slots">Не удалось загрузить слоты. Попробуйте ещё раз.</span>';
         slotsCount.textContent = '';
+        submitButton.disabled = true;
       });
   };
 })();
