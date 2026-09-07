@@ -17,6 +17,60 @@ User = get_user_model()
 
 @login_required
 @require_station_access(role=StationStaff.ROLE_OWNER)
+@require_http_methods(["GET", "POST"])
+def station_staff(request, station_id, staff=None):
+    """Управление сотрудниками станции с единым контролем паролей и доступа."""
+    station = staff.station
+    staff_list = (
+        StationStaff.objects
+        .filter(station=station)
+        .select_related("user__profile", "created_by")
+        .order_by("role", "-is_active", "created_at")
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "toggle_active":
+            member_id = request.POST.get("member_id")
+            member = get_object_or_404(StationStaff, pk=member_id, station=station)
+            if member.user_id == request.user.id:
+                messages.error(request, "Нельзя деактивировать себя")
+            else:
+                member.is_active = not member.is_active
+                member.save(update_fields=["is_active"])
+                status_str = "активирован" if member.is_active else "деактивирован"
+                messages.success(request, f"Сотрудник {status_str}")
+
+        elif action == "reset_password":
+            member_id = request.POST.get("member_id")
+            new_password = request.POST.get("new_password", "")
+            member = get_object_or_404(StationStaff, pk=member_id, station=station)
+
+            if member.user_id == request.user.id:
+                messages.error(request, "Для смены своего пароля используйте раздел профиля")
+            else:
+                try:
+                    validate_password(new_password, member.user)
+                except ValidationError as exc:
+                    for error in exc.messages:
+                        messages.error(request, error)
+                else:
+                    member.user.set_password(new_password)
+                    member.user.save(update_fields=["password"])
+                    messages.success(request, f"Пароль сотрудника «{member.user.username}» изменён")
+
+        return redirect("station_staff", station_id=station_id)
+
+    return render(request, "booking/station/staff.html", {
+        "station": station,
+        "staff": staff,
+        "staff_list": staff_list,
+    })
+
+
+@login_required
+@require_station_access(role=StationStaff.ROLE_OWNER)
 def station_staff_create_operator(request, station_id, staff=None):
     station = staff.station
     if request.method != "POST":
