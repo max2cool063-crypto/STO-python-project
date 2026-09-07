@@ -394,7 +394,11 @@ class AppointmentLog(models.Model):
 
 class Notification(models.Model):
     TYPE_NEW_APPOINTMENT = "NEW_APPOINTMENT"
-    TYPE_CHOICES = [(TYPE_NEW_APPOINTMENT, "Новая запись")]
+    TYPE_APPOINTMENT_CANCELLED = "APPOINTMENT_CANCELLED"
+    TYPE_CHOICES = [
+        (TYPE_NEW_APPOINTMENT, "Новая запись"),
+        (TYPE_APPOINTMENT_CANCELLED, "Запись отменена"),
+    ]
 
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications", verbose_name="Получатель")
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="notifications", verbose_name="Станция")
