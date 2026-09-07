@@ -48,8 +48,8 @@ class AppointmentStatusTransitionTests(TestCase):
         self.appointment.status = status
         self.appointment.save()
 
-    def test_booked_can_transition_to_terminal_statuses(self):
-        for status in ("CANCELLED", "DONE", "NO_SHOW"):
+    def test_booked_can_transition_to_operational_and_terminal_statuses(self):
+        for status in ("AWAITING_RESULT", "CANCELLED", "DONE", "NO_SHOW"):
             with self.subTest(status=status):
                 Appointment.objects.filter(pk=self.appointment.pk).update(status="BOOKED")
                 self.appointment.refresh_from_db()
@@ -57,9 +57,35 @@ class AppointmentStatusTransitionTests(TestCase):
                 self.appointment.refresh_from_db()
                 self.assertEqual(self.appointment.status, status)
 
+    def test_awaiting_result_can_be_finalized_as_done_or_no_show(self):
+        for status in ("DONE", "NO_SHOW"):
+            with self.subTest(status=status):
+                Appointment.objects.filter(pk=self.appointment.pk).update(
+                    status="AWAITING_RESULT"
+                )
+                self.appointment.refresh_from_db()
+                self.set_status(status)
+                self.appointment.refresh_from_db()
+                self.assertEqual(self.appointment.status, status)
+
+    def test_awaiting_result_cannot_be_reopened_or_cancelled(self):
+        for status in ("BOOKED", "CANCELLED"):
+            with self.subTest(status=status):
+                Appointment.objects.filter(pk=self.appointment.pk).update(
+                    status="AWAITING_RESULT"
+                )
+                self.appointment.refresh_from_db()
+                self.appointment.status = status
+                with self.assertRaisesMessage(
+                    ValidationError,
+                    f"Недопустимый переход статуса: AWAITING_RESULT → {status}",
+                ):
+                    self.appointment.save()
+
     def test_terminal_status_cannot_be_changed_to_another_status(self):
+        statuses = ("BOOKED", "AWAITING_RESULT", "CANCELLED", "DONE", "NO_SHOW")
         for initial in ("CANCELLED", "DONE", "NO_SHOW"):
-            for target in ("BOOKED", "CANCELLED", "DONE", "NO_SHOW"):
+            for target in statuses:
                 if target == initial:
                     continue
                 with self.subTest(initial=initial, target=target):
