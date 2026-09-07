@@ -4,7 +4,14 @@
   const WEEKDAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
   const pad=n=>String(n).padStart(2,'0');
   const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const parse=value=>{if(!value)return null;const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12,0,0,0)};
+  const parse=value=>{
+    if(!value)return null;
+    const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!match)return null;
+    const y=Number(match[1]),m=Number(match[2]),d=Number(match[3]);
+    const result=new Date(y,m-1,d,12,0,0,0);
+    return Number.isNaN(result.getTime())?null:result;
+  };
   const sameDay=(a,b)=>a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
   const format=value=>{const d=parse(value);return d?`${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`:'Выберите дату'};
 
@@ -13,9 +20,14 @@
     input.dataset.stDatePickerReady='1';
     input.classList.add('st-date-picker__native');
 
-    const min=parse(input.min)||new Date();
-    min.setHours(12,0,0,0);
     const today=new Date();today.setHours(12,0,0,0);
+    let min=parse(input.min);
+    if(!min){
+      min=new Date(today);
+      input.min=iso(min);
+    }
+    min.setHours(12,0,0,0);
+
     let selected=parse(input.value);
     let view=selected?new Date(selected):new Date(min);
     view=new Date(view.getFullYear(),view.getMonth(),1,12,0,0,0);
@@ -25,7 +37,7 @@
 
     const trigger=document.createElement('button');trigger.type='button';trigger.className='st-date-picker__trigger';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');
     const label=document.createElement('span');label.textContent=format(input.value);
-    const icon=document.createElement('span');icon.className='st-date-picker__trigger-icon';icon.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>';
+    const icon=document.createElement('span');icon.className='st-date-picker__trigger-icon';icon.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>';
     trigger.append(label,icon);wrap.appendChild(trigger);
 
     const panel=document.createElement('div');panel.className='st-date-picker__panel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Выбор даты');
@@ -38,6 +50,7 @@
     const prev=panel.querySelector('[data-prev]'),next=panel.querySelector('[data-next]'),todayBtn=panel.querySelector('.st-date-picker__today');
 
     function render(){
+      if(Number.isNaN(view.getTime()))view=new Date(min.getFullYear(),min.getMonth(),1,12,0,0,0);
       monthLabel.textContent=`${MONTHS[view.getMonth()]} ${view.getFullYear()} г.`;
       grid.innerHTML='';
       const first=new Date(view.getFullYear(),view.getMonth(),1,12);const firstWeekday=(first.getDay()+6)%7;
