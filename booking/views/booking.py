@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.dateparse import parse_datetime
@@ -9,6 +11,8 @@ from django.db import transaction
 from booking.models import Station, Appointment, Car, AppointmentPhoto, UserProfile
 from booking.forms import PhotosUploadForm
 from booking.notifications import notify_station_staff_booked, notify_client_booked, create_station_staff_notifications
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -66,6 +70,7 @@ def book_station(request, pk):
             notify_client_booked(appointment)
 
         except Exception:
+            logger.exception("Failed client booking for station %s", station.pk)
             messages.error(request, "Не удалось создать запись. Проверьте данные и выбранное время.")
             return redirect(request.path)
 
