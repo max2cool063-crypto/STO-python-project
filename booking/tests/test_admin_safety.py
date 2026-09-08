@@ -86,9 +86,8 @@ class AdminSafetyTests(TestCase):
         brand = Brand.objects.create(name="Vehicle brand")
         car_model = CarModel.objects.create(brand=brand, name="Vehicle model")
 
-        self.assertTrue(car_model is not None)
-        self.assertTrue(admin.site._registry[CarModel].has_delete_permission(request, car_model))
-        self.assertNotIn("delete_selected", admin.site._registry[CarModel].get_actions(request))
+        self.assertTrue(model_admin.has_delete_permission(request, car_model))
+        self.assertNotIn("delete_selected", model_admin.get_actions(request))
 
         Car.objects.create(
             owner=self.owner,
@@ -96,7 +95,7 @@ class AdminSafetyTests(TestCase):
             plate_number="А123ВС77",
         )
 
-        self.assertFalse(admin.site._registry[CarModel].has_delete_permission(request, car_model))
+        self.assertFalse(model_admin.has_delete_permission(request, car_model))
 
     def test_car_admin_rejects_invalid_plate_and_vin(self):
         brand = Brand.objects.create(name="Admin Vehicle Brand")
