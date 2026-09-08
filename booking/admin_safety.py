@@ -40,11 +40,21 @@ class ReferencedObjectDeleteAdminMixin:
     """Allow deliberate cleanup only for objects that have no dependants."""
 
     def has_delete_permission(self, request, obj=None):
-        # Never expose Django's bulk ``delete_selected`` action. Object-level
-        # deletion is evaluated separately on the change page.
-        if obj is None:
+        # Keep the model-level delete permission visible so Django/Jazzmin can
+        # expose the object-level delete button. Actual object deletion is
+        # still conditional on dependency checks below.
+        if not super().has_delete_permission(request, obj):
             return False
-        return super().has_delete_permission(request, obj) and self.can_hard_delete(obj)
+        if obj is None:
+            return True
+        return self.can_hard_delete(obj)
+
+    def get_actions(self, request):
+        # Never expose Django's bulk ``delete_selected`` action. Cleanup of
+        # reference data must remain an explicit per-object operation.
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
 
     def can_hard_delete(self, obj):
         raise NotImplementedError
