@@ -20,8 +20,7 @@ backups/
 
 # Env files (contains secrets!)
 .env
-.env.production
-.env.local
+.env.*
 
 # IDE
 .vscode/
