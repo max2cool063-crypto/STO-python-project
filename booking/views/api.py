@@ -46,13 +46,15 @@ def station_slots_api(request, station_id):
 
     if car_id:
         if staff:
-            # Station operators work with client cars belonging to this station.
-            # Do not expose cars known only to another station.
+            # A known client car may have many historical appointments at this
+            # station. DISTINCT prevents the reverse join from returning the same
+            # car once per visit and breaking get() with MultipleObjectsReturned.
             car = get_object_or_404(
-                Car.objects.select_related("model"),
+                Car.objects.select_related("model").filter(
+                    is_active=True,
+                    appointments__station_id=station_id,
+                ).distinct(),
                 id=car_id,
-                is_active=True,
-                appointments__station_id=station_id,
             )
         else:
             # Regular clients may request slots only for their own cars.
