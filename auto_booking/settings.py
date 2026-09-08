@@ -141,12 +141,14 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Django 5.1 removed STATICFILES_STORAGE. Configure the WhiteNoise backend via
 # the STORAGES alias so collectstatic really creates hashed/compressed assets.
+# Jazzmin uses one directory path as a JavaScript theme prefix, so the project
+# storage keeps strict manifest lookups for files while allowing that exact base.
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "auto_booking.storage.JazzminCompatibleCompressedManifestStaticFilesStorage",
     },
 }
 
