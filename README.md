@@ -30,9 +30,9 @@ docker compose up
 
 При запуске Compose сначала ждёт готовности PostgreSQL, затем одноразовый сервис `migrate` выполняет `python manage.py migrate --noinput`. Только после его успешного завершения запускается `web`. Это исключает выполнение миграций каждым web-процессом при рестарте или масштабировании.
 
-Статические файлы собираются командой `collectstatic` во время `docker build` через `whitenoise.storage.CompressedManifestStaticFilesStorage` и уже находятся внутри production-образа. Web-контейнер не пересобирает static при старте.
+Статические файлы собираются командой `collectstatic` во время `docker build` через проектный `JazzminCompatibleCompressedManifestStaticFilesStorage`, который наследует WhiteNoise `CompressedManifestStaticFilesStorage`. Manifest остаётся строгим для обычных файлов, а отдельная совместимость нужна только для каталога тем Jazzmin. Web-контейнер не пересобирает static при старте.
 
-Приложение доступно на `http://localhost:8000`.
+Приложение доступно на `http://localhost:8000`. Порт Gunicorn по умолчанию привязан только к `127.0.0.1` хоста, а не ко всем сетевым интерфейсам.
 
 В production не используйте bind mount исходного кода: compose хранит только пользовательские media-файлы в отдельном volume.
 
@@ -57,9 +57,15 @@ ENV_FILE=.env.production docker compose up -d
 
 Минимально для публичного HTTPS deployment должны быть заданы `DEBUG=False`, корректные `ALLOWED_HOSTS` и `CSRF_TRUSTED_ORIGINS`, а также включены `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` и HSTS.
 
-Если TLS завершается на reverse proxy, включайте `SECURE_PROXY_SSL_HEADER=True` только когда этот proxy находится под вашим контролем и всегда корректно выставляет `X-Forwarded-Proto`. Иначе возможны ошибки определения HTTPS или redirect loop.
+Рекомендуемая схема production: TLS завершается на reverse proxy, работающем на том же deployment-хосте, а proxy передаёт запросы в `127.0.0.1:8000`. Это сохраняет Gunicorn недоступным напрямую из внешней сети. Если reverse proxy работает в отдельном контейнере, не публикуйте Gunicorn наружу ради доступа к нему: подключите proxy к общей внутренней Docker-сети и обращайтесь к сервису `web` по внутреннему порту.
+
+Если TLS завершается на reverse proxy, включайте `SECURE_PROXY_SSL_HEADER=True` только когда этот proxy находится под вашим контролем, backend недоступен напрямую недоверенным клиентам и proxy всегда корректно перезаписывает `X-Forwarded-Proto`. Иначе возможны ошибки определения HTTPS или обход предположений security middleware.
+
+Для rate limiting `X-Forwarded-For` по умолчанию не доверяется. Если требуется учитывать исходный адрес за proxy, включайте `RATE_LIMIT_TRUST_X_FORWARDED_FOR=True` только вместе с точным `RATE_LIMIT_TRUSTED_PROXIES`. Код разбирает цепочку справа налево и отбрасывает только настроенные trusted proxy hops, чтобы клиентский поддельный левый адрес не использовался как ключ rate limit.
 
 `SECURE_HSTS_INCLUDE_SUBDOMAINS` включайте только если все поддомены обслуживаются по HTTPS. `SECURE_HSTS_PRELOAD` не включайте автоматически: это отдельное осознанное решение после проверки требований HSTS preload.
+
+Для внутренней проверки контейнера существует минимальный `/healthz/`. Только этот путь исключён из `SECURE_SSL_REDIRECT`, чтобы Docker мог проверять Gunicorn через внутренний HTTP socket; endpoint возвращает только `ok` и не раскрывает состояние БД или конфигурацию.
 
 Перед production deployment полезно выполнить:
 
@@ -123,7 +129,7 @@ docker compose exec web python manage.py test booking.tests --verbosity 2
 
 ## CI
 
-GitHub Actions выполняет `check`, строгую production security-проверку, проверку миграций, `collectstatic` с manifest-backed WhiteNoise storage и весь набор `booking.tests` на Python 3.11 и PostgreSQL 15 — тех же основных версиях, что используются production-контейнерами. Отдельный container job валидирует Docker Compose, проверяет синтаксис backup/restore scripts, собирает production-образ и проверяет наличие обычного static-файла и `staticfiles.json` внутри образа.
+GitHub Actions выполняет `check`, строгую production security-проверку, проверку миграций, `collectstatic` с manifest-backed WhiteNoise storage и весь набор `booking.tests` на Python 3.11 и PostgreSQL 15 — тех же основных версиях, что используются production-контейнерами. Отдельный container job валидирует Docker Compose, проверяет синтаксис backup/restore scripts, собирает production-образ, проверяет `staticfiles.json`, запускает контейнер с HTTPS production-профилем до состояния `healthy` и выполняет разрушительный backup/restore smoke test в одноразовом окружении.
 
 ## Переменные окружения
 
