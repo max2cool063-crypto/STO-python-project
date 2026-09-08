@@ -14,7 +14,15 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from booking.forms import CarForm, ProfileForm
-from booking.models import UserProfile, Car, Brand, Appointment, AppointmentPhoto, StationStaff
+from booking.models import (
+    Appointment,
+    AppointmentLog,
+    AppointmentPhoto,
+    Brand,
+    Car,
+    StationStaff,
+    UserProfile,
+)
 from booking.notifications import (
     notify_client_cancelled,
     notify_station_staff_cancelled,
@@ -119,6 +127,13 @@ def cabinet_cancel_appointment(request, pk):
 
         appt.status = "CANCELLED"
         appt.save()
+        AppointmentLog.objects.create(
+            appointment=appt,
+            changed_by=request.user,
+            old_status="BOOKED",
+            new_status="CANCELLED",
+            comment="Отменено клиентом",
+        )
 
     notify_client_cancelled(appt, cancelled_by_station=False)
     notify_station_staff_cancelled(appt)
