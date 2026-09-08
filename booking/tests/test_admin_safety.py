@@ -73,29 +73,60 @@ class AdminSafetyTests(TestCase):
         brand_admin = admin.site._registry[Brand]
         brand = Brand.objects.create(name="Unused brand")
 
+        # Keep model-level delete permission enabled so the Admin/Jazzmin UI can
+        # expose the per-object delete control, while bulk deletion stays hidden.
+        self.assertTrue(brand_admin.has_delete_permission(request))
         self.assertTrue(brand_admin.has_delete_permission(request, brand))
         self.assertNotIn("delete_selected", brand_admin.get_actions(request))
 
-        CarModel.objects.create(brand=brand, name="Unused model")
+        delete_url = reverse("admin:booking_brand_delete", args=[brand.pk])
+        response = self.client.get(delete_url)
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(delete_url, {"post": "yes"})
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Brand.objects.filter(pk=brand.pk).exists())
 
-        self.assertFalse(brand_admin.has_delete_permission(request, brand))
+        protected_brand = Brand.objects.create(name="Brand with model")
+        CarModel.objects.create(brand=protected_brand, name="Unused model")
+
+        self.assertFalse(brand_admin.has_delete_permission(request, protected_brand))
+        response = self.client.get(
+            reverse("admin:booking_brand_delete", args=[protected_brand.pk])
+        )
+        self.assertEqual(response.status_code, 403)
 
     def test_car_model_delete_is_blocked_when_used_by_car(self):
         request = self._request()
         model_admin = admin.site._registry[CarModel]
         brand = Brand.objects.create(name="Vehicle brand")
-        car_model = CarModel.objects.create(brand=brand, name="Vehicle model")
+        car_model = CarModel.objects.create(brand=brand, name="Unused vehicle model")
 
+        self.assertTrue(model_admin.has_delete_permission(request))
         self.assertTrue(model_admin.has_delete_permission(request, car_model))
         self.assertNotIn("delete_selected", model_admin.get_actions(request))
 
+        delete_url = reverse("admin:booking_carmodel_delete", args=[car_model.pk])
+        response = self.client.get(delete_url)
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(delete_url, {"post": "yes"})
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(CarModel.objects.filter(pk=car_model.pk).exists())
+
+        protected_model = CarModel.objects.create(
+            brand=brand,
+            name="Vehicle model in use",
+        )
         Car.objects.create(
             owner=self.owner,
-            model=car_model,
+            model=protected_model,
             plate_number="А123ВС77",
         )
 
-        self.assertFalse(model_admin.has_delete_permission(request, car_model))
+        self.assertFalse(model_admin.has_delete_permission(request, protected_model))
+        response = self.client.get(
+            reverse("admin:booking_carmodel_delete", args=[protected_model.pk])
+        )
+        self.assertEqual(response.status_code, 403)
 
     def test_car_admin_rejects_invalid_plate_and_vin(self):
         brand = Brand.objects.create(name="Admin Vehicle Brand")
