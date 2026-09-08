@@ -85,6 +85,9 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
+      - name: Validate backup and restore scripts
+        run: bash -n scripts/backup.sh scripts/restore.sh
+
       - name: Build production image
         run: docker build --tag sto-ci:${{ github.sha }} .
 
