@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
+from django.utils import timezone
 
 import booking.admin_safety  # noqa: F401 - ensure safe registrations are active
 
@@ -27,6 +28,7 @@ class AdminUserPhoneValidationTests(TestCase):
 
     def _change_form(self, phone):
         form_class = self.user_admin.get_form(self._request(), obj=self.user)
+        joined = timezone.localtime(self.user.date_joined)
         return form_class(
             data={
                 "username": self.user.username,
@@ -35,6 +37,8 @@ class AdminUserPhoneValidationTests(TestCase):
                 "email": self.user.email,
                 "phone": phone,
                 "is_active": "on",
+                "date_joined_0": joined.strftime("%Y-%m-%d"),
+                "date_joined_1": joined.strftime("%H:%M:%S"),
             },
             instance=self.user,
         )
