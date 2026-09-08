@@ -65,3 +65,25 @@ class StationStaffPasswordSecurityTests(TestCase):
         self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.id}))
         self.operator.refresh_from_db()
         self.assertTrue(self.operator.check_password(new_password))
+
+    def test_new_operator_password_is_checked_against_login_identity(self):
+        self.login_owner()
+        login = "VeryUniqueOperatorName"
+
+        response = self.client.post(
+            reverse("station_staff_create_operator", kwargs={"station_id": self.station.id}),
+            {
+                "login": login,
+                "password": f"{login}1!",
+                "email": "",
+                "first_name": "",
+                "last_name": "",
+                "phone": "",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("station_staff", kwargs={"station_id": self.station.id}),
+        )
+        self.assertFalse(User.objects.filter(username=login).exists())
