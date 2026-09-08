@@ -7,7 +7,7 @@ from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from booking.forms import normalize_ru_phone
 from booking.models import StationStaff, UserProfile
@@ -79,10 +79,9 @@ def station_staff(request, station_id, staff=None):
 
 @login_required
 @require_station_access(role=StationStaff.ROLE_OWNER)
+@require_POST
 def station_staff_create_operator(request, station_id, staff=None):
     station = staff.station
-    if request.method != "POST":
-        return redirect("station_staff", station_id=station_id)
 
     login = request.POST.get("login", "").strip()
     password = request.POST.get("password", "")
