@@ -90,6 +90,8 @@ echo "Applying migrations for the currently deployed code..."
 docker compose run --rm migrate
 
 echo "Starting application..."
-docker compose up -d web cron
+# DB/Redis are already running and migrations succeeded above. Avoid invoking
+# the one-shot migrate dependency a second time just to resume web/cron.
+docker compose up -d --no-deps web cron
 
 echo "Restore completed. Verify the site, recent appointments, and protected media before reopening traffic."
