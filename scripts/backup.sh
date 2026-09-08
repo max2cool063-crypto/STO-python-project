@@ -14,20 +14,39 @@ DB_DUMP="${BACKUP_DIR}/postgres.dump"
 MEDIA_ARCHIVE="${BACKUP_DIR}/media.tar.gz"
 MANIFEST="${BACKUP_DIR}/manifest.txt"
 
-restart_app=false
+resume_web=false
+resume_cron=false
 cleanup() {
-  if [[ "${restart_app}" == "true" ]]; then
-    # Resume the containers that were explicitly stopped for the snapshot;
-    # do not run dependency startup/release steps as part of a backup.
-    docker compose start web cron >/dev/null
+  # Restore exactly the running state observed before a quiesced snapshot.
+  # Never start a service that was already stopped before backup began.
+  if [[ "${resume_web}" == "true" ]]; then
+    docker compose start web >/dev/null || true
+  fi
+  if [[ "${resume_cron}" == "true" ]]; then
+    docker compose start cron >/dev/null || true
   fi
 }
 trap cleanup EXIT
 
 if [[ "${QUIESCE_APP}" == "True" ]]; then
-  echo "Stopping web and cron for a DB/media-consistent backup..."
-  docker compose stop web cron >/dev/null
-  restart_app=true
+  running_services="$(docker compose ps --services --filter status=running)"
+  services_to_stop=()
+
+  if grep -qx "web" <<<"${running_services}"; then
+    resume_web=true
+    services_to_stop+=(web)
+  fi
+  if grep -qx "cron" <<<"${running_services}"; then
+    resume_cron=true
+    services_to_stop+=(cron)
+  fi
+
+  if (( ${#services_to_stop[@]} > 0 )); then
+    echo "Stopping running application services for a DB/media-consistent backup..."
+    docker compose stop "${services_to_stop[@]}" >/dev/null
+  else
+    echo "Application services are already stopped; taking backup without changing their state."
+  fi
 fi
 
 echo "Backing up PostgreSQL..."
@@ -56,6 +75,8 @@ git_commit=${GIT_COMMIT}
 database_dump=postgres.dump
 media_archive=media.tar.gz
 quiesced_app=${QUIESCE_APP}
+web_was_running=${resume_web}
+cron_was_running=${resume_cron}
 EOF
 
 if command -v sha256sum >/dev/null 2>&1; then
