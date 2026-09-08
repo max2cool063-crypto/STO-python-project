@@ -256,3 +256,38 @@ class StationAccountSeparationTests(TestCase):
 
         self.assertContains(response, "Кабинет станции")
         self.assertNotContains(response, "Мои автомобили")
+
+    def test_system_superuser_cannot_be_assigned_station_role(self):
+        system_admin = User.objects.create_superuser(
+            username="system-admin-not-staff",
+            password=self.password,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Системный администратор не может одновременно быть сотрудником станции",
+        ):
+            StationStaff.objects.create(
+                station=self.station_a,
+                user=system_admin,
+                role=StationStaff.ROLE_OWNER,
+            )
+
+    def test_station_account_cannot_be_promoted_to_superuser(self):
+        owner = self.create_user("station-owner-not-admin")
+        StationStaff.objects.create(
+            station=self.station_a,
+            user=owner,
+            role=StationStaff.ROLE_OWNER,
+        )
+
+        owner.is_staff = True
+        owner.is_superuser = True
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Системный администратор не может одновременно быть сотрудником станции",
+        ):
+            owner.save(update_fields=["is_staff", "is_superuser"])
+
+        owner.refresh_from_db()
+        self.assertFalse(owner.is_superuser)
