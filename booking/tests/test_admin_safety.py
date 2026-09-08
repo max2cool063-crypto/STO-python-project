@@ -86,8 +86,9 @@ class AdminSafetyTests(TestCase):
         brand = Brand.objects.create(name="Vehicle brand")
         car_model = CarModel.objects.create(brand=brand, name="Vehicle model")
 
-        self.assertTrue(model_admin.has_delete_permission(request, car_model))
-        self.assertNotIn("delete_selected", model_admin.get_actions(request))
+        self.assertTrue(car_model is not None)
+        self.assertTrue(admin.site._registry[CarModel].has_delete_permission(request, car_model))
+        self.assertNotIn("delete_selected", admin.site._registry[CarModel].get_actions(request))
 
         Car.objects.create(
             owner=self.owner,
@@ -95,4 +96,41 @@ class AdminSafetyTests(TestCase):
             plate_number="А123ВС77",
         )
 
-        self.assertFalse(model_admin.has_delete_permission(request, car_model))
+        self.assertFalse(admin.site._registry[CarModel].has_delete_permission(request, car_model))
+
+    def test_car_admin_rejects_invalid_plate_and_vin(self):
+        brand = Brand.objects.create(name="Admin Vehicle Brand")
+        car_model = CarModel.objects.create(brand=brand, name="Admin Vehicle Model")
+        car_admin = admin.site._registry[Car]
+        form_class = car_admin.get_form(self._request())
+
+        form = form_class(data={
+            "owner": self.owner.pk,
+            "model": car_model.pk,
+            "plate_number": "A123AA",
+            "vin": "123",
+            "is_active": "on",
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("plate_number", form.errors)
+        self.assertIn("vin", form.errors)
+
+    def test_car_admin_normalizes_valid_plate_and_vin(self):
+        brand = Brand.objects.create(name="Admin Normalization Brand")
+        car_model = CarModel.objects.create(brand=brand, name="Admin Normalization Model")
+        car_admin = admin.site._registry[Car]
+        form_class = car_admin.get_form(self._request())
+
+        form = form_class(data={
+            "owner": self.owner.pk,
+            "model": car_model.pk,
+            "plate_number": "а123вс77",
+            "vin": "xta210990y1234567",
+            "is_active": "on",
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        car = form.save()
+        self.assertEqual(car.plate_number, "А123ВС77")
+        self.assertEqual(car.vin, "XTA210990Y1234567")
