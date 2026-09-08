@@ -8,6 +8,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.db import IntegrityError
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
@@ -46,6 +47,21 @@ def send_password_setup_email(request, user):
     )
 
 
+def _finish_registration_request(request, user, *, delete_on_mail_failure=False):
+    """Send the setup link while keeping registration responses non-enumerating."""
+    try:
+        send_password_setup_email(request, user)
+    except Exception:
+        if delete_on_mail_failure:
+            user.delete()
+        logger.exception("Failed to send password setup email during registration")
+        messages.error(request, "Не удалось отправить письмо. Попробуйте позже.")
+        return redirect("login")
+
+    messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
+    return redirect("login")
+
+
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.method == "POST":
@@ -67,34 +83,43 @@ def register(request):
 
         user = User.objects.filter(email__iexact=email).order_by("id").first()
         if user:
-            # Do not reveal whether this address already belongs to an account.
-            try:
-                send_password_setup_email(request, user)
-            except Exception:
-                logger.exception("Failed to send password setup email for existing account")
-                messages.error(request, "Не удалось отправить письмо. Попробуйте позже.")
-                return redirect("login")
+            return _finish_registration_request(request, user)
 
+        # Client accounts use the normalized email as the Django username. If
+        # that username was historically assigned to a different identity (for
+        # example a station operator whose email field is blank), do not crash
+        # with a uniqueness error and do not reveal the collision to the caller.
+        if User.objects.filter(username=email).exists():
+            logger.warning("Registration username collision for normalized email")
             messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
             return redirect("login")
 
-        user = User.objects.create_user(
-            username=email,
-            email=email,
-        )
+        try:
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+            )
+        except IntegrityError:
+            # Two public registration requests for the same new address can pass
+            # the initial lookup concurrently. The unique username is the final
+            # arbiter; after the winning transaction commits, reuse that account.
+            user = User.objects.filter(
+                username=email,
+                email__iexact=email,
+            ).first()
+            if user is None:
+                logger.warning("Registration identity collision could not be reused")
+                messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
+                return redirect("login")
+            return _finish_registration_request(request, user)
+
         user.set_unusable_password()
         user.save(update_fields=["password"])
-
-        try:
-            send_password_setup_email(request, user)
-        except Exception:
-            user.delete()
-            logger.exception("Failed to send password setup email for new account")
-            messages.error(request, "Не удалось отправить письмо. Попробуйте позже.")
-            return redirect("login")
-
-        messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
-        return redirect("login")
+        return _finish_registration_request(
+            request,
+            user,
+            delete_on_mail_failure=True,
+        )
 
     return render(request, "registration/register.html")
 
