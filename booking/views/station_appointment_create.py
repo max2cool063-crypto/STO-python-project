@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -92,7 +93,7 @@ def _split_client_name(value):
 
 
 def _save_client_identity(user, name, phone):
-    """Persist the manually entered client identity in the canonical User/Profile records."""
+    """Persist identity entered for a newly created client account."""
     first_name, last_name = _split_client_name(name)
     changed = []
     if user.first_name != first_name:
@@ -108,6 +109,13 @@ def _save_client_identity(user, name, phone):
     if profile.phone != (phone or ""):
         profile.phone = phone or ""
         profile.save(update_fields=["phone"])
+
+
+def _canonical_client_identity(user):
+    """Return canonical display name/phone without allowing station-side overwrite."""
+    profile = UserProfile.objects.filter(user=user).first()
+    name = f"{user.last_name} {user.first_name}".strip() or user.username
+    return name, profile.phone if profile else ""
 
 
 @login_required
@@ -126,6 +134,8 @@ def station_appointment_create(request, station_id, staff=None):
 
         try:
             client_phone = _normalize_ru_phone(client_phone)
+            if email:
+                validate_email(email)
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
             return redirect(request.path)
@@ -181,7 +191,13 @@ def station_appointment_create(request, station_id, staff=None):
                         raise ValidationError("Выбрана некорректная модель автомобиля")
 
                     client_user, user_created = _get_or_create_client(email)
-                    _save_client_identity(client_user, client_name, client_phone)
+                    if user_created:
+                        _save_client_identity(client_user, client_name, client_phone)
+                    else:
+                        # A station employee may attach a new vehicle to an existing
+                        # pure client by email, but must not rewrite that client's
+                        # global identity/profile shared with other stations.
+                        client_name, client_phone = _canonical_client_identity(client_user)
                     car = Car.objects.create(
                         owner=client_user,
                         model=model,
