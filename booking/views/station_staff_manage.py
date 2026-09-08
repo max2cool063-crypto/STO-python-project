@@ -100,8 +100,14 @@ def station_staff_create_operator(request, station_id, staff=None):
         messages.error(request, "Пользователь с таким email уже существует")
         return redirect("station_staff", station_id=station_id)
 
+    candidate_user = User(
+        username=login,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+    )
     try:
-        validate_password(password)
+        validate_password(password, candidate_user)
     except ValidationError as exc:
         for error in exc.messages:
             messages.error(request, error)
