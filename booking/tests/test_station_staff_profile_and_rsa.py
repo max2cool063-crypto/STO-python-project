@@ -111,6 +111,53 @@ class StationStaffProfileTests(TestCase):
         self.assertEqual(self.owner.last_name, "Николаев")
         self.assertEqual(self.owner.profile.phone, "+79990001122")
 
+    def test_owner_cannot_deactivate_peer_owner(self):
+        peer_owner = User.objects.create_user(
+            username="peer-owner",
+            password="Peer-owner-123!",
+        )
+        peer_staff = StationStaff.objects.create(
+            station=self.station,
+            user=peer_owner,
+            role=StationStaff.ROLE_OWNER,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("station_staff", kwargs={"station_id": self.station.pk}),
+            {"action": "toggle_active", "member_id": peer_staff.pk},
+        )
+
+        self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
+        peer_staff.refresh_from_db()
+        self.assertTrue(peer_staff.is_active)
+
+    def test_owner_cannot_reset_peer_owner_password(self):
+        peer_owner = User.objects.create_user(
+            username="peer-owner-password",
+            password="Peer-owner-123!",
+        )
+        peer_staff = StationStaff.objects.create(
+            station=self.station,
+            user=peer_owner,
+            role=StationStaff.ROLE_OWNER,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("station_staff", kwargs={"station_id": self.station.pk}),
+            {
+                "action": "reset_password",
+                "member_id": peer_staff.pk,
+                "new_password": "Hijacked-owner-456!",
+            },
+        )
+
+        self.assertRedirects(response, reverse("station_staff", kwargs={"station_id": self.station.pk}))
+        peer_owner.refresh_from_db()
+        self.assertTrue(peer_owner.check_password("Peer-owner-123!"))
+        self.assertFalse(peer_owner.check_password("Hijacked-owner-456!"))
+
 
 class RsaImportedStationTests(TestCase):
     def test_rsa_imported_station_is_inactive(self):
