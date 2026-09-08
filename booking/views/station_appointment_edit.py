@@ -28,11 +28,18 @@ def station_appointment_edit(request, station_id, pk, staff=None):
         station=station,
     )
 
-    if request.method == "POST":
-        if appointment.status != Appointment.STATUS_CHOICES[0][0]:
-            messages.error(request, "Завершённую, отменённую или пропущенную запись нельзя редактировать")
-            return redirect("station_appointment_detail", station_id=station_id, pk=appointment.pk)
+    if appointment.status != "BOOKED":
+        messages.error(
+            request,
+            f"Запись со статусом «{appointment.get_status_display()}» нельзя редактировать",
+        )
+        return redirect(
+            "station_appointment_detail",
+            station_id=station_id,
+            pk=appointment.pk,
+        )
 
+    if request.method == "POST":
         start_raw = parse_datetime(request.POST.get("start", ""))
         start = (
             station.make_local_datetime(start_raw.date(), start_raw.time())
