@@ -102,6 +102,25 @@ jobs:
       - name: Build Compose application services
         run: docker compose build web migrate cron
 
+      - name: Smoke test production HTTPS profile health
+        run: |
+          ENV_FILE=.env.production.example docker compose up -d db redis web
+          web_id="$(ENV_FILE=.env.production.example docker compose ps -q web)"
+          for attempt in $(seq 1 30); do
+            status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$web_id")"
+            if [ "$status" = "healthy" ]; then
+              break
+            fi
+            if [ "$status" = "unhealthy" ]; then
+              ENV_FILE=.env.production.example docker compose logs web migrate db redis
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$(docker inspect --format '{{.State.Health.Status}}' "$web_id")" = "healthy"
+          curl --fail --silent http://127.0.0.1:8000/healthz/ | grep -qx 'ok'
+          ENV_FILE=.env.production.example docker compose down -v --remove-orphans
+
       - name: Smoke test PostgreSQL and media restore
         env:
           CI_BACKUP_RESTORE_SMOKE: "YES"
