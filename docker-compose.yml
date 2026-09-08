@@ -49,7 +49,10 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/1
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz/', timeout=5)\" || exit 1"]
+      # Connect over the container's internal HTTP socket, but send an allowed
+      # Host header. Production ALLOWED_HOSTS intentionally does not need to
+      # include 127.0.0.1 merely to satisfy an internal liveness probe.
+      test: ["CMD-SHELL", "python -c \"import os, urllib.request; host=((os.getenv('ALLOWED_HOSTS') or 'localhost').split(',')[0].strip() or 'localhost'); request=urllib.request.Request('http://127.0.0.1:8000/healthz/', headers={'Host': host}); urllib.request.urlopen(request, timeout=5)\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
