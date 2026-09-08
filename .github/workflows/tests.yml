@@ -53,6 +53,18 @@ jobs:
       - name: Check Django configuration
         run: python manage.py check
 
+      - name: Check production security configuration
+        env:
+          SECRET_KEY: ci-deploy-check-only-9Jk7bA4pQ2sN8vX5mR1tW6yH3cF0zL9uD7eG4iK2oP8aS5nV
+          CSRF_TRUSTED_ORIGINS: https://example.com
+          SECURE_SSL_REDIRECT: "True"
+          SESSION_COOKIE_SECURE: "True"
+          CSRF_COOKIE_SECURE: "True"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+          SECURE_HSTS_PRELOAD: "True"
+        run: python manage.py check --deploy --fail-level WARNING
+
       - name: Check migrations are up to date
         run: python manage.py makemigrations --check --dry-run
 
