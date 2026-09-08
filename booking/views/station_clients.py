@@ -21,7 +21,6 @@ def station_clients(request, station_id, staff=None):
         )
         .distinct()
         .select_related("profile")
-        .prefetch_related("appointments")
     )
 
     if search:
