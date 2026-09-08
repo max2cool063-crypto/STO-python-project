@@ -10,7 +10,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.dateparse import parse_date, parse_time
 
-from booking.models import Appointment, SlotBlock, StationSchedule, StationWeeklySchedule
+from booking.models import Appointment, SlotBlock, Station, StationSchedule, StationWeeklySchedule
 from booking.station_access import get_user_stations, require_station_access
 
 logger = logging.getLogger(__name__)
@@ -326,11 +326,35 @@ def station_slot_blocks(request, station_id, staff=None):
                 if start >= end:
                     messages.error(request, "Конец блокировки должен быть позже начала")
                 else:
-                    SlotBlock.objects.create(
-                        station=station, start=start, end=end,
-                        reason=reason, created_by=request.user,
-                    )
-                    messages.success(request, "Слот заблокирован")
+                    # Appointment.save() takes the same station-row lock before
+                    # validating slot availability. Serializing both operations
+                    # prevents a concurrent booking and block from being committed
+                    # for the same interval.
+                    with transaction.atomic():
+                        Station.objects.select_for_update().get(pk=station.pk)
+                        conflict = (
+                            Appointment.objects.filter(
+                                station=station,
+                                start__lt=end,
+                                end__gt=start,
+                            )
+                            .exclude(status="CANCELLED")
+                            .exists()
+                        )
+                        if conflict:
+                            messages.error(
+                                request,
+                                "Нельзя заблокировать время: на этот период уже есть запись",
+                            )
+                        else:
+                            SlotBlock.objects.create(
+                                station=station,
+                                start=start,
+                                end=end,
+                                reason=reason,
+                                created_by=request.user,
+                            )
+                            messages.success(request, "Слот заблокирован")
 
         elif action == "delete":
             block_id = request.POST.get("block_id")
