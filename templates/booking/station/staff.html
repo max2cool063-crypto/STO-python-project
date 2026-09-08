@@ -75,7 +75,7 @@
                 {% if member.user_id == request.user.id or member.role == 'OPERATOR' %}
                   <a href="{% url 'station_staff_edit_profile' station.pk member.pk %}" class="st-btn st-btn--secondary st-btn--sm">Редактировать профиль</a>
                 {% endif %}
-                {% if staff.role == 'OWNER' and member.user != request.user %}
+                {% if staff.role == 'OWNER' and member.role == 'OPERATOR' %}
                   <form method="post">
                     {% csrf_token %}<input type="hidden" name="action" value="toggle_active"><input type="hidden" name="member_id" value="{{ member.pk }}">
                     <button type="submit" class="st-btn st-btn--sm {% if member.is_active %}st-btn--danger{% else %}st-btn--secondary{% endif %}">{% if member.is_active %}Деактивировать{% else %}Активировать{% endif %}</button>
