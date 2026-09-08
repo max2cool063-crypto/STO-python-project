@@ -9,7 +9,7 @@ Django-приложение для онлайн-записи на техниче
 - PostgreSQL 15
 - Gunicorn
 - WhiteNoise
-- Jazzmin 3.0.2
+- Jazzmin 3.0.5
 - Pillow
 - Docker Compose
 
@@ -30,7 +30,7 @@ docker compose up
 
 При запуске Compose сначала ждёт готовности PostgreSQL, затем одноразовый сервис `migrate` выполняет `python manage.py migrate --noinput`. Только после его успешного завершения запускается `web`. Это исключает выполнение миграций каждым web-процессом при рестарте или масштабировании.
 
-Статические файлы собираются командой `collectstatic` во время `docker build` и уже находятся внутри production-образа. Web-контейнер не пересобирает static при старте.
+Статические файлы собираются командой `collectstatic` во время `docker build` через `whitenoise.storage.CompressedManifestStaticFilesStorage` и уже находятся внутри production-образа. Web-контейнер не пересобирает static при старте.
 
 Приложение доступно на `http://localhost:8000`.
 
@@ -45,6 +45,15 @@ python manage.py migrate --noinput
 ## Production HTTPS и security settings
 
 Для локального HTTP используйте `.env.example`. Для production используйте `.env.production.example` как шаблон и храните реальные значения только в secret store или локальном `.env.production`, который исключён из Git.
+
+Предоставленный `docker-compose.yml` по умолчанию читает `.env`. Чтобы использовать отдельный production-файл без переименования, задайте `ENV_FILE` для всех команд Compose:
+
+```bash
+ENV_FILE=.env.production docker compose build
+ENV_FILE=.env.production docker compose up -d
+```
+
+Тот же `ENV_FILE=.env.production` нужно передавать командам backup/restore, чтобы они работали с тем же deployment-конфигом.
 
 Минимально для публичного HTTPS deployment должны быть заданы `DEBUG=False`, корректные `ALLOWED_HOSTS` и `CSRF_TRUSTED_ORIGINS`, а также включены `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` и HSTS.
 
@@ -70,15 +79,21 @@ Production-данные состоят как минимум из PostgreSQL и 
 bash scripts/backup.sh
 ```
 
+При deployment с отдельным production env-файлом:
+
+```bash
+ENV_FILE=.env.production bash scripts/backup.sh
+```
+
 По умолчанию создаётся каталог `./backups/<UTC timestamp>/` с `postgres.dump`, `media.tar.gz`, `manifest.txt` и SHA-256 checksums. Каталог `backups/` исключён из Git и Docker build context, но это не является системой хранения резервных копий: после создания переносите backup в зашифрованное off-host хранилище.
 
-Для максимально согласованной копии БД и media можно кратковременно остановить `web` и `cron` на время backup:
+Для максимально согласованной копии БД и media можно кратковременно остановить работающие `web`/`cron` на время backup:
 
 ```bash
 BACKUP_QUIESCE_APP=True bash scripts/backup.sh
 ```
 
-Скрипт после завершения снова запускает `web` и `cron`. Обычный `pg_dump` сам по себе создаёт транзакционно согласованную копию БД, но без остановки приложения DB dump и media archive снимаются не в один момент времени.
+Скрипт запоминает состояние `web` и `cron` до остановки и после backup возобновляет только те сервисы, которые действительно работали. Обычный `pg_dump` сам по себе создаёт транзакционно согласованную копию БД, но без остановки приложения DB dump и media archive снимаются не в один момент времени.
 
 Восстановление является **разрушающей операцией**: текущая БД пересоздаётся, а содержимое media volume заменяется содержимым backup. Запускайте restore только из проверенной копии и только в запланированное окно обслуживания:
 
@@ -86,7 +101,13 @@ BACKUP_QUIESCE_APP=True bash scripts/backup.sh
 RESTORE_CONFIRM=YES bash scripts/restore.sh backups/20260908T120000Z
 ```
 
-Перед восстановлением скрипт проверяет SHA-256 checksums, если они есть, останавливает `web`/`cron`, пересоздаёт PostgreSQL, восстанавливает media, применяет миграции текущего кода и только затем снова запускает приложение. Если restore прервётся ошибкой, не открывайте приложение для пользователей до выяснения причины и повторной проверки данных.
+При отдельном production env-файле:
+
+```bash
+ENV_FILE=.env.production RESTORE_CONFIRM=YES bash scripts/restore.sh backups/20260908T120000Z
+```
+
+Перед восстановлением скрипт проверяет SHA-256 checksums, если они есть, останавливает `web`/`cron`, пересоздаёт PostgreSQL, восстанавливает media, один раз применяет миграции текущего кода и только затем снова запускает приложение. Если restore прервётся ошибкой, не открывайте приложение для пользователей до выяснения причины и повторной проверки данных.
 
 После каждого restore вручную проверьте вход, несколько последних записей, историю статусов и защищённые фотографии. В production backup считается надёжным только после периодической тестовой процедуры восстановления на отдельном окружении. Реальный `.env`/секреты в backup-архив не включаются и должны резервироваться отдельно в защищённом secret store.
 
@@ -102,7 +123,7 @@ docker compose exec web python manage.py test booking.tests --verbosity 2
 
 ## CI
 
-GitHub Actions выполняет `check`, строгую production security-проверку, проверку миграций и весь набор `booking.tests` на Python 3.11 и PostgreSQL 15 — тех же основных версиях, что используются production-контейнерами. Отдельный container job валидирует Docker Compose, проверяет синтаксис backup/restore scripts, собирает production-образ и проверяет, что `collectstatic` уже выполнен внутри образа.
+GitHub Actions выполняет `check`, строгую production security-проверку, проверку миграций, `collectstatic` с manifest-backed WhiteNoise storage и весь набор `booking.tests` на Python 3.11 и PostgreSQL 15 — тех же основных версиях, что используются production-контейнерами. Отдельный container job валидирует Docker Compose, проверяет синтаксис backup/restore scripts, собирает production-образ и проверяет наличие обычного static-файла и `staticfiles.json` внутри образа.
 
 ## Переменные окружения
 
