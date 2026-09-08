@@ -76,11 +76,20 @@ class RateLimit:
 
     def hit(self, request, identity: str = "") -> int:
         key = self._key(request, identity)
-        # add() is atomic for Redis and LocMemCache. Only the request that
-        # creates the key gets value 1; concurrent requests increment it.
+        # add() is atomic for Redis and LocMemCache. If the key expires between
+        # add() and incr(), LocMemCache raises ValueError while Redis can recreate
+        # it without a TTL. Handle both cases and always refresh the expiry after
+        # incrementing so no rate-limit key can accidentally become permanent.
         if cache.add(key, 1, timeout=self.window):
             return 1
-        return int(cache.incr(key))
+        try:
+            current = int(cache.incr(key))
+        except ValueError:
+            if cache.add(key, 1, timeout=self.window):
+                return 1
+            current = int(cache.incr(key))
+        cache.touch(key, self.window)
+        return current
 
     def retry_response(self):
         response = HttpResponse(
@@ -92,5 +101,10 @@ class RateLimit:
         return response
 
 
+# Limit repeated guessing of one identity, and also cap aggregate failed login
+# attempts from one client address so rotating through many usernames cannot
+# bypass the per-identity limiter. The IP-wide ceiling is deliberately higher to
+# avoid penalizing normal users behind shared NAT/proxy addresses.
 LOGIN_RATE_LIMIT = RateLimit("login", limit=10, window=15 * 60)
+LOGIN_IP_RATE_LIMIT = RateLimit("login-ip", limit=50, window=15 * 60)
 REGISTRATION_RATE_LIMIT = RateLimit("registration", limit=5, window=60 * 60)
