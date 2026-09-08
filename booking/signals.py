@@ -1,8 +1,13 @@
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from booking.models import Appointment, Station, StationStaff
+from booking.station_staff_policy import (
+    validate_station_staff_assignment as validate_station_staff_policy,
+    validate_system_admin_account,
+)
 
 
 @receiver(post_save, sender=Station)
@@ -15,38 +20,13 @@ def deactivate_rsa_imported_station(sender, instance, created, **kwargs):
 @receiver(pre_save, sender=StationStaff)
 def validate_station_staff_assignment(sender, instance, **kwargs):
     """Keep station staff identities permanent and roles unambiguous."""
-    if not instance.user_id or not instance.station_id:
-        return
+    validate_station_staff_policy(instance)
 
-    if instance.pk:
-        current = (
-            sender.objects.filter(pk=instance.pk)
-            .values("user_id", "station_id", "role")
-            .first()
-        )
-        if current:
-            errors = {}
-            if current["user_id"] != instance.user_id:
-                errors["user"] = "Нельзя изменить учётную запись существующего сотрудника"
-            if current["station_id"] != instance.station_id:
-                errors["station"] = "Нельзя перенести существующего сотрудника на другую станцию"
-            if current["role"] != instance.role:
-                errors["role"] = "Роль существующего сотрудника нельзя изменять"
-            if errors:
-                raise ValidationError(errors)
 
-    other_roles = sender.objects.filter(user_id=instance.user_id).exclude(pk=instance.pk)
-
-    if instance.role == StationStaff.ROLE_OPERATOR:
-        if other_roles.exists():
-            raise ValidationError(
-                {"user": "Учётная запись оператора навсегда привязана только к одной станции"}
-            )
-    elif instance.role == StationStaff.ROLE_OWNER:
-        if other_roles.filter(role=StationStaff.ROLE_OPERATOR).exists():
-            raise ValidationError(
-                {"user": "Учётная запись оператора не может использоваться как учётная запись владельца"}
-            )
+@receiver(pre_save, sender=User)
+def validate_user_account_type(sender, instance, **kwargs):
+    """Keep Django system administrators separate from station staff identities."""
+    validate_system_admin_account(instance)
 
 
 @receiver(pre_save, sender=Appointment)
