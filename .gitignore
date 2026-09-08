@@ -18,6 +18,8 @@ staticfiles/
 
 # Env files (contains secrets! never commit)
 .env
+.env.production
+.env.local
 
 # IDE
 .vscode/
