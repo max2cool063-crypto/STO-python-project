@@ -22,6 +22,6 @@ from .station_cabinet import (
     station_appointments_csv,
     station_schedule,
     station_slot_blocks,
-    station_clients,
 )
+from .station_clients import station_clients
 from .station_staff_manage import station_staff
