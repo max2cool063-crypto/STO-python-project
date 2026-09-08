@@ -23,6 +23,13 @@ class StationStaffEmailValidationTests(TestCase):
             password="Strong-owner-123!",
         )
 
+    def test_operator_creation_endpoint_rejects_get(self):
+        response = self.client.get(
+            reverse("station_staff_create_operator", kwargs={"station_id": self.station.pk})
+        )
+
+        self.assertEqual(response.status_code, 405)
+
     def test_owner_cannot_create_operator_with_malformed_email(self):
         response = self.client.post(
             reverse("station_staff_create_operator", kwargs={"station_id": self.station.pk}),
