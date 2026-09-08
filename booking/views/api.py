@@ -1,8 +1,9 @@
+from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET
-from django.contrib.auth.decorators import login_required
 
 from booking.models import Brand, CarModel, Station, Car, StationStaff
 from booking.station_access import get_staff_record
@@ -159,14 +160,22 @@ def brands_with_models_api(request):
     if not StationStaff.objects.filter(user=request.user, is_active=True).exists():
         return JsonResponse({"error": "forbidden"}, status=403)
 
+    brands = Brand.objects.prefetch_related(
+        Prefetch(
+            "models",
+            queryset=CarModel.objects.order_by("name"),
+            to_attr="ordered_models",
+        )
+    ).order_by("name")
+
     result = []
-    for brand in Brand.objects.prefetch_related("models").order_by("name"):
+    for brand in brands:
         result.append({
             "id": brand.id,
             "name": brand.name,
             "models": [
-                {"id": m.id, "name": m.name, "vehicle_type": m.vehicle_type}
-                for m in brand.models.order_by("name")
-            ]
+                {"id": model.id, "name": model.name, "vehicle_type": model.vehicle_type}
+                for model in brand.ordered_models
+            ],
         })
     return JsonResponse(result, safe=False)
