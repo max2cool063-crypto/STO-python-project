@@ -4,6 +4,7 @@ from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 import booking.admin_safety  # noqa: F401 - ensure safe registrations are active
+from booking.models import Station, StationStaff
 
 
 class AdminUserPhoneValidationTests(TestCase):
@@ -26,22 +27,24 @@ class AdminUserPhoneValidationTests(TestCase):
         request.user = self.superuser
         return request
 
-    def _change_form(self, phone):
+    def _change_form(self, phone, *, is_staff=False, is_superuser=False):
         form_class = self.user_admin.get_form(self._request(), obj=self.user)
         joined = timezone.localtime(self.user.date_joined)
-        return form_class(
-            data={
-                "username": self.user.username,
-                "first_name": self.user.first_name,
-                "last_name": self.user.last_name,
-                "email": self.user.email,
-                "phone": phone,
-                "is_active": "on",
-                "date_joined_0": joined.strftime("%Y-%m-%d"),
-                "date_joined_1": joined.strftime("%H:%M:%S"),
-            },
-            instance=self.user,
-        )
+        data = {
+            "username": self.user.username,
+            "first_name": self.user.first_name,
+            "last_name": self.user.last_name,
+            "email": self.user.email,
+            "phone": phone,
+            "is_active": "on",
+            "date_joined_0": joined.strftime("%Y-%m-%d"),
+            "date_joined_1": joined.strftime("%H:%M:%S"),
+        }
+        if is_staff:
+            data["is_staff"] = "on"
+        if is_superuser:
+            data["is_superuser"] = "on"
+        return form_class(data=data, instance=self.user)
 
     def test_admin_user_change_rejects_invalid_phone(self):
         form = self._change_form("123")
@@ -81,3 +84,21 @@ class AdminUserPhoneValidationTests(TestCase):
         })
         self.assertFalse(invalid_form.is_valid())
         self.assertIn("phone", invalid_form.errors)
+
+    def test_admin_user_form_rejects_promoting_station_identity_to_superuser(self):
+        station = Station.objects.create(name="User admin separation station")
+        StationStaff.objects.create(
+            station=station,
+            user=self.user,
+            role=StationStaff.ROLE_OWNER,
+        )
+
+        form = self._change_form(
+            "+79123456789",
+            is_staff=True,
+            is_superuser=True,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("is_superuser", form.errors)
+        self.assertIn("Системный администратор", form.errors["is_superuser"][0])
