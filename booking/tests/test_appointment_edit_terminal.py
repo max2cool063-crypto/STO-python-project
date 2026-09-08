@@ -49,25 +49,32 @@ class TerminalAppointmentEditTests(TestCase):
         self.station = station
         self.client.login(username="terminal-owner@example.com", password="test-password")
 
-    def test_terminal_appointment_cannot_be_moved_or_notes_changed(self):
-        url = reverse(
+    def edit_url(self):
+        return reverse(
             "station_appointment_edit",
             kwargs={"station_id": self.station.pk, "pk": self.appointment.pk},
         )
+
+    def detail_url(self):
+        return reverse(
+            "station_appointment_detail",
+            kwargs={"station_id": self.station.pk, "pk": self.appointment.pk},
+        )
+
+    def test_terminal_appointment_edit_page_is_not_exposed(self):
+        response = self.client.get(self.edit_url())
+
+        self.assertRedirects(response, self.detail_url())
+
+    def test_terminal_appointment_cannot_be_moved_or_notes_changed(self):
         new_start = timezone.make_aware(timezone.datetime(2099, 2, 3, 11, 0))
 
         response = self.client.post(
-            url,
+            self.edit_url(),
             {"start": new_start.isoformat(), "notes": "Should not be saved"},
         )
 
-        self.assertRedirects(
-            response,
-            reverse(
-                "station_appointment_detail",
-                kwargs={"station_id": self.station.pk, "pk": self.appointment.pk},
-            ),
-        )
+        self.assertRedirects(response, self.detail_url())
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, "DONE")
         self.assertEqual(self.appointment.local_start.hour, 10)
