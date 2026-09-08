@@ -38,11 +38,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DJANGO_SETTINGS_MODULE=auto_booking.settings \
     HOME=/home/appuser
 
+# Static assets are immutable application artifacts. Build them once into the
+# image rather than regenerating them every time a web replica starts.
+RUN SECRET_KEY=container-build-only \
+    POSTGRES_DB=container_build \
+    POSTGRES_USER=container_build \
+    POSTGRES_PASSWORD=container_build \
+    python manage.py collectstatic --noinput
+
 EXPOSE 8000
 
-# CMD оставляем как fallback (compose его переопределит)
+# Database migrations are intentionally NOT run here. Docker Compose executes
+# them in a dedicated one-shot migrate service before web is allowed to start.
 CMD ["sh", "-c", "\
-  until pg_isready -h ${POSTGRES_HOST:-db} -p 5432; do echo 'Waiting for DB...'; sleep 2; done && \
-  python manage.py migrate --noinput && \
-  python manage.py collectstatic --noinput && \
+  until pg_isready -h ${POSTGRES_HOST:-db} -p ${POSTGRES_PORT:-5432}; do echo 'Waiting for DB...'; sleep 2; done && \
   gunicorn auto_booking.wsgi:application --config gunicorn.conf.py"]
