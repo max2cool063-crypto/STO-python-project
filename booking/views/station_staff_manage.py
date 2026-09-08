@@ -34,8 +34,8 @@ def station_staff(request, station_id, staff=None):
         if action == "toggle_active":
             member_id = request.POST.get("member_id")
             member = get_object_or_404(StationStaff, pk=member_id, station=station)
-            if member.user_id == request.user.id:
-                messages.error(request, "Нельзя деактивировать себя")
+            if member.role != StationStaff.ROLE_OPERATOR:
+                messages.error(request, "Через кабинет станции можно управлять доступом только операторов")
             else:
                 member.is_active = not member.is_active
                 member.save(update_fields=["is_active"])
@@ -47,8 +47,8 @@ def station_staff(request, station_id, staff=None):
             new_password = request.POST.get("new_password", "")
             member = get_object_or_404(StationStaff, pk=member_id, station=station)
 
-            if member.user_id == request.user.id:
-                messages.error(request, "Для смены своего пароля используйте раздел профиля")
+            if member.role != StationStaff.ROLE_OPERATOR:
+                messages.error(request, "Через кабинет станции можно менять пароль только оператору")
             else:
                 try:
                     validate_password(new_password, member.user)
