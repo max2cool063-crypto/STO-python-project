@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.core.validators import validate_email
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
@@ -13,6 +14,13 @@ from booking.models import StationStaff, UserProfile
 from booking.station_access import require_station_access
 
 User = get_user_model()
+
+
+def _validate_optional_email(value):
+    email = (value or "").strip().lower()
+    if email:
+        validate_email(email)
+    return email
 
 
 @login_required
@@ -78,13 +86,14 @@ def station_staff_create_operator(request, station_id, staff=None):
 
     login = request.POST.get("login", "").strip()
     password = request.POST.get("password", "")
-    email = request.POST.get("email", "").strip().lower()
+    raw_email = request.POST.get("email", "")
     first_name = request.POST.get("first_name", "").strip()
     last_name = request.POST.get("last_name", "").strip()
     raw_phone = request.POST.get("phone", "")
 
     try:
         phone = normalize_ru_phone(raw_phone)
+        email = _validate_optional_email(raw_email)
     except ValidationError as exc:
         for error in exc.messages:
             messages.error(request, error)
@@ -170,21 +179,22 @@ def station_staff_edit_profile(request, station_id, member_id, staff=None):
     profile, _ = UserProfile.objects.get_or_create(user=member.user)
 
     if request.method == "POST":
-        email = request.POST.get("email", "").strip().lower()
+        raw_email = request.POST.get("email", "")
         first_name = request.POST.get("first_name", "").strip()
         last_name = request.POST.get("last_name", "").strip()
         raw_phone = request.POST.get("phone", "")
         receive_notifications = request.POST.get("receive_notifications") == "on"
 
-        if email and User.objects.filter(email__iexact=email).exclude(pk=member.user_id).exists():
-            messages.error(request, "Этот email уже используется другим пользователем")
-            return redirect(request.path)
-
         try:
+            email = _validate_optional_email(raw_email)
             phone = normalize_ru_phone(raw_phone)
         except ValidationError as exc:
             for error in exc.messages:
                 messages.error(request, error)
+            return redirect(request.path)
+
+        if email and User.objects.filter(email__iexact=email).exclude(pk=member.user_id).exists():
+            messages.error(request, "Этот email уже используется другим пользователем")
             return redirect(request.path)
 
         member.user.email = email
