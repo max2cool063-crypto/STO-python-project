@@ -47,6 +47,19 @@ def station_appointment_status(request, station_id, pk, staff=None):
                 )
                 return redirect("station_appointments", station_id=station_id)
 
+            if new_status == old_status:
+                if comment:
+                    appt.notes = (
+                        (appt.notes + "\n" + comment).strip()
+                        if appt.notes
+                        else comment
+                    )
+                    appt.save(update_fields=["notes"])
+                    messages.success(request, "Комментарий сохранён, статус не изменён")
+                else:
+                    messages.info(request, "Статус не изменён")
+                return redirect("station_appointments", station_id=station_id)
+
             appt.status = new_status
             if comment:
                 appt.notes = (
