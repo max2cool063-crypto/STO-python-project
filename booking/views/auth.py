@@ -17,7 +17,7 @@ from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 
 from booking.account_access import DEACTIVATED_STAFF_MESSAGE, get_station_account_state
-from booking.security import LOGIN_RATE_LIMIT, REGISTRATION_RATE_LIMIT
+from booking.security import LOGIN_IP_RATE_LIMIT, LOGIN_RATE_LIMIT, REGISTRATION_RATE_LIMIT
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -136,12 +136,14 @@ def set_password(request, uidb64, token):
 
 
 class RateLimitedLoginView(LoginView):
-    """Django login view with a cache-backed failed-attempt limit."""
+    """Django login view with cache-backed per-identity and per-IP limits."""
 
     template_name = "registration/login.html"
 
     def post(self, request, *args, **kwargs):
         identity = request.POST.get("username", "")
+        if not LOGIN_IP_RATE_LIMIT.allowed(request):
+            return LOGIN_IP_RATE_LIMIT.retry_response()
         if not LOGIN_RATE_LIMIT.allowed(request, identity):
             return LOGIN_RATE_LIMIT.retry_response()
         return super().post(request, *args, **kwargs)
@@ -149,6 +151,7 @@ class RateLimitedLoginView(LoginView):
     def form_invalid(self, form):
         identity = self.request.POST.get("username", "")
         LOGIN_RATE_LIMIT.hit(self.request, identity)
+        LOGIN_IP_RATE_LIMIT.hit(self.request)
         return super().form_invalid(form)
 
     def form_valid(self, form):
@@ -158,6 +161,9 @@ class RateLimitedLoginView(LoginView):
             form.add_error(None, DEACTIVATED_STAFF_MESSAGE)
             return self.render_to_response(self.get_context_data(form=form))
 
+        # A successful login clears only the identity-specific failure bucket.
+        # Aggregate IP failures are retained so an attacker cannot reset a broad
+        # credential-stuffing budget by successfully logging into one account.
         cache.delete(LOGIN_RATE_LIMIT._key(self.request, self.request.POST.get("username", "")))
         return super().form_valid(form)
 
