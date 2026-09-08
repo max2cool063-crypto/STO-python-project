@@ -2,7 +2,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.template.response import TemplateResponse
 
@@ -57,6 +57,16 @@ class ReferencedObjectDeleteAdminMixin:
         actions = super().get_actions(request)
         actions.pop("delete_selected", None)
         return actions
+
+    def delete_model(self, request, obj):
+        # Recheck under a row lock at the actual delete point. This closes the
+        # race where a new dependent row could otherwise appear after the Admin
+        # confirmation page was rendered and be removed by CASCADE.
+        with transaction.atomic():
+            locked_obj = self.model.objects.select_for_update().get(pk=obj.pk)
+            if not self.can_hard_delete(locked_obj):
+                raise PermissionDenied("Объект уже используется и не может быть удалён")
+            super().delete_model(request, locked_obj)
 
     def can_hard_delete(self, obj):
         raise NotImplementedError
