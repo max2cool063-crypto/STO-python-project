@@ -3,20 +3,12 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from django.core.mail import send_mail
 from django.db.models import Count, Q
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.shortcuts import redirect, render
 
-from booking.models import (
-    Appointment, AppointmentLog, Car, SlotBlock,
-    Station, StationSchedule, StationStaff, StationWeeklySchedule,
-)
+from booking.models import Appointment, SlotBlock, StationSchedule, StationWeeklySchedule
 from booking.station_access import get_user_stations, require_station_access
-from booking.notifications import notify_station_staff_booked, notify_client_booked, notify_client_cancelled
 
 
 # ─── Выбор станции ────────────────────────────────────────────────────────────
@@ -45,7 +37,7 @@ def station_select(request):
 @require_station_access()
 def station_dashboard(request, station_id, staff=None):
     station = staff.station
-    now = timezone.now()
+    now = station.local_now()
     today = now.date()
     since = now - timedelta(days=30)
     appts = Appointment.objects.filter(station=station, start__gte=since)
@@ -126,40 +118,8 @@ def station_appointments(request, station_id, staff=None):
         "date_filter": date_filter,
         "search": search,
         "status_choices": Appointment.STATUS_CHOICES,
-        "now": timezone.now(),
+        "now": station.local_now(),
     })
-
-
-@login_required
-@require_station_access()
-@require_POST
-def station_appointment_status(request, station_id, pk, staff=None):
-    """Быстрая смена статуса записи."""
-    station = staff.station
-    appt = get_object_or_404(Appointment, pk=pk, station=station)
-    new_status = request.POST.get("status")
-
-    if new_status not in dict(Appointment.STATUS_CHOICES):
-        messages.error(request, "Недопустимый статус")
-        return redirect("station_appointments", station_id=station_id)
-
-    old_status = appt.status
-    comment = request.POST.get("comment", "").strip()
-    appt.status = new_status
-    if comment:
-        appt.notes = (appt.notes + "\n" + comment).strip() if appt.notes else comment
-    appt.save()
-    AppointmentLog.objects.create(
-        appointment=appt,
-        changed_by=request.user,
-        old_status=old_status,
-        new_status=new_status,
-        comment=comment,
-    )
-    if new_status == "CANCELLED" and old_status == "BOOKED":
-        notify_client_cancelled(appt, cancelled_by_station=True)
-    messages.success(request, f"Статус изменён: {appt.get_status_display()}")
-    return redirect("station_appointments", station_id=station_id)
 
 
 # ─── Экспорт CSV ──────────────────────────────────────────────────────────────
@@ -189,10 +149,19 @@ def station_appointments_csv(request, station_id, staff=None):
     writer = csv.writer(response)
     writer.writerow(["Дата", "Время начала", "Время конца", "Клиент", "Телефон", "Госномер", "Марка/модель", "VIN", "Статус"])
 
-    for a in qs:
+    for appointment in qs:
+        local_start = appointment.local_start
+        local_end = appointment.local_end
         writer.writerow([
-            a.start.strftime("%d.%m.%Y"), a.start.strftime("%H:%M"), a.end.strftime("%H:%M"),
-            a.name, a.phone or "", a.car.plate_number, str(a.car.model), a.vin or "", a.get_status_display(),
+            local_start.strftime("%d.%m.%Y"),
+            local_start.strftime("%H:%M"),
+            local_end.strftime("%H:%M"),
+            appointment.name,
+            appointment.phone or "",
+            appointment.car.plate_number,
+            str(appointment.car.model),
+            appointment.vin or "",
+            appointment.get_status_display(),
         ])
 
     return response
@@ -261,8 +230,8 @@ def station_schedule(request, station_id, staff=None):
                     messages.success(request, f"Добавлено {created} праздников на {year} год")
                 if skipped:
                     messages.info(request, f"Пропущено {skipped} (уже существуют)")
-            except Exception as e:
-                messages.error(request, f"Ошибка: {e}")
+            except Exception as exc:
+                messages.error(request, f"Ошибка: {exc}")
 
         return redirect("station_schedule", station_id=station_id)
 
@@ -333,139 +302,9 @@ def station_slot_blocks(request, station_id, staff=None):
         for h in range(0, 24) for m in (0, 30)
     ]
     return render(request, "booking/station/slot_blocks.html", {
-        "station": station, "staff": staff, "blocks": blocks,
-        "now": timezone.now(), "time_choices": TIME_CHOICES,
-    })
-
-
-# ─── Клиенты (только владелец) ────────────────────────────────────────────────
-
-@login_required
-@require_station_access(role=StationStaff.ROLE_OWNER)
-def station_clients(request, station_id, staff=None):
-    station = staff.station
-    search = request.GET.get("q", "").strip()
-
-    users_qs = (
-        User.objects
-        .filter(appointments__station=station)
-        .distinct()
-        .select_related("profile")
-        .prefetch_related("appointments")
-    )
-
-    if search:
-        users_qs = users_qs.filter(
-            Q(profile__first_name__icontains=search) |
-            Q(profile__last_name__icontains=search) |
-            Q(profile__phone__icontains=search) |
-            Q(email__icontains=search)
-        )
-
-    users_qs = users_qs.annotate(
-        visit_count=Count(
-            "appointments",
-            filter=Q(appointments__station=station, appointments__status="DONE")
-        )
-    ).order_by("-visit_count")
-
-    return render(request, "booking/station/clients.html", {
-        "station": station, "staff": staff, "clients": users_qs, "search": search,
-    })
-
-
-# ─── Персонал ─────────────────────────────────────────────────────────────────
-
-@login_required
-@require_station_access(role=StationStaff.ROLE_OWNER)
-def station_staff(request, station_id, staff=None):
-    """Управление сотрудниками станции доступно только владельцу."""
-    station = staff.station
-    staff_list = (
-        StationStaff.objects
-        .filter(station=station)
-        .select_related("user__profile", "created_by")
-        .order_by("role", "-is_active", "created_at")
-    )
-
-    if request.method == "POST":
-        action = request.POST.get("action")
-
-        if action == "create_operator":
-            login = request.POST.get("login", "").strip()
-            password = request.POST.get("password", "").strip()
-            email = request.POST.get("email", "").strip().lower()
-
-            if not login:
-                messages.error(request, "Укажите логин для оператора")
-                return redirect(request.path)
-
-            if len(password) < 8:
-                messages.error(request, "Пароль должен быть не менее 8 символов")
-                return redirect(request.path)
-
-            if User.objects.filter(username=login).exists():
-                messages.error(request, f"Логин «{login}» уже занят, выберите другой")
-                return redirect(request.path)
-
-            if email and StationStaff.objects.filter(station=station, user__email=email).exists():
-                messages.error(request, "Пользователь с таким email уже является сотрудником станции")
-                return redirect(request.path)
-
-            new_user = User.objects.create_user(
-                username=login,
-                email=email if email else "",
-                password=password,
-            )
-
-            # Пароль вводит владелец станции и передаёт оператору самостоятельно.
-            # Никогда не отправляем пароль по email.
-            if email and "@" in email:
-                try:
-                    send_mail(
-                        "Доступ к кабинету станции СТО",
-                        f"Вам создан аккаунт оператора станции «{station.name}».\n"
-                        f"Логин: {login}\n"
-                        "Пароль передайте оператору безопасным способом.",
-                        None, [email], fail_silently=True,
-                    )
-                except Exception:
-                    pass
-
-            StationStaff.objects.create(
-                station=station,
-                user=new_user,
-                role=StationStaff.ROLE_OPERATOR,
-                created_by=request.user,
-            )
-            messages.success(request, f"Оператор «{login}» создан")
-
-        elif action == "toggle_active":
-            member_id = request.POST.get("member_id")
-            member = get_object_or_404(StationStaff, pk=member_id, station=station)
-            if member.user == request.user:
-                messages.error(request, "Нельзя деактивировать себя")
-            else:
-                member.is_active = not member.is_active
-                member.save()
-                status_str = "активирован" if member.is_active else "деактивирован"
-                messages.success(request, f"Сотрудник {status_str}")
-
-        elif action == "reset_password":
-            member_id = request.POST.get("member_id")
-            new_password = request.POST.get("new_password", "").strip()
-            member = get_object_or_404(StationStaff, pk=member_id, station=station)
-            if len(new_password) < 8:
-                messages.error(request, "Пароль должен быть не менее 8 символов")
-            elif member.user == request.user:
-                messages.error(request, "Для смены своего пароля используйте раздел профиля")
-            else:
-                member.user.set_password(new_password)
-                member.user.save()
-                messages.success(request, f"Пароль сотрудника «{member.user.username}» изменён")
-
-        return redirect("station_staff", station_id=station_id)
-
-    return render(request, "booking/station/staff.html", {
-        "station": station, "staff": staff, "staff_list": staff_list,
+        "station": station,
+        "staff": staff,
+        "blocks": blocks,
+        "now": station.local_now(),
+        "time_choices": TIME_CHOICES,
     })
