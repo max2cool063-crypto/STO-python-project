@@ -75,3 +75,6 @@ jobs:
 
       - name: Build production image
         run: docker build --tag sto-ci:${{ github.sha }} .
+
+      - name: Verify static assets are baked into image
+        run: docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/booking/css/site.css
