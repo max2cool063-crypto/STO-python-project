@@ -174,11 +174,14 @@ def station_appointment_create(request, station_id, staff=None):
                         vin=vin,
                     )
                 else:
+                    # The same car can have many previous visits at this station.
+                    # DISTINCT keeps the reverse appointment join to one Car row.
                     car = get_object_or_404(
-                        Car.objects.select_related("model", "owner__profile"),
+                        Car.objects.select_related("model", "owner__profile").filter(
+                            is_active=True,
+                            appointments__station_id=station.pk,
+                        ).distinct(),
                         id=car_id,
-                        is_active=True,
-                        appointments__station_id=station.pk,
                     )
                     client_user = car.owner
                     profile = getattr(client_user, "profile", None)
