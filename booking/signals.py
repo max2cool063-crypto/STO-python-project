@@ -24,8 +24,30 @@ def validate_station_staff_assignment(sender, instance, **kwargs):
 
 
 @receiver(pre_save, sender=User)
-def validate_user_account_type(sender, instance, **kwargs):
-    """Keep Django system administrators separate from station staff identities."""
+def validate_user_account_type(sender, instance, update_fields=None, **kwargs):
+    """Reject promotion of a station identity to system administrator.
+
+    Legacy/corrupted rows can already contain both StationStaff and superuser
+    state (for example after a historical import or raw SQL update). Such a row
+    must still be able to save unrelated fields like ``last_login`` so login and
+    runtime access guards can reject it cleanly instead of raising a 500.
+    """
+    if not instance.pk or not instance.is_superuser:
+        return
+
+    # A partial save that does not touch the superuser flag cannot create the
+    # mixed account state and must remain safe for legacy rows.
+    if update_fields is not None and "is_superuser" not in update_fields:
+        return
+
+    was_superuser = (
+        sender.objects.filter(pk=instance.pk)
+        .values_list("is_superuser", flat=True)
+        .first()
+    )
+    if was_superuser:
+        return
+
     validate_system_admin_account(instance)
 
 
