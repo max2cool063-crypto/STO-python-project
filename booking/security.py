@@ -8,7 +8,12 @@ from django.http import HttpResponse
 
 
 def _client_ip(request) -> str:
-    """Return the client IP, trusting X-Forwarded-For only from configured proxies."""
+    """Return the client IP, trusting X-Forwarded-For only from configured proxies.
+
+    Walk the forwarding chain from the application backwards. This prevents a
+    client-supplied leftmost X-Forwarded-For value from bypassing rate limits
+    when a trusted reverse proxy appends the real client address.
+    """
     remote_addr = request.META.get("REMOTE_ADDR", "unknown").strip()
 
     if not getattr(settings, "RATE_LIMIT_TRUST_X_FORWARDED_FOR", False):
@@ -20,19 +25,36 @@ def _client_ip(request) -> str:
     except ValueError:
         return remote_addr or "unknown"
 
-    if not any(remote_ip in network for network in trusted_proxies):
-        return remote_addr or "unknown"
+    def is_trusted(address):
+        return any(address in network for network in trusted_proxies)
 
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    for candidate in (part.strip() for part in forwarded.split(",")):
-        if candidate:
-            try:
-                ipaddress.ip_address(candidate)
-                return candidate
-            except ValueError:
-                continue
+    # Never trust forwarding headers from a directly connected, untrusted hop.
+    if not is_trusted(remote_ip):
+        return str(remote_ip)
 
-    return remote_addr or "unknown"
+    forwarded_ips = []
+    for part in request.META.get("HTTP_X_FORWARDED_FOR", "").split(","):
+        candidate = part.strip()
+        if not candidate:
+            continue
+        try:
+            forwarded_ips.append(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+
+    if not forwarded_ips:
+        return str(remote_ip)
+
+    # X-Forwarded-For is ordered client -> proxy1 -> proxy2. Starting from the
+    # right drops only configured trusted proxy hops. The first untrusted hop is
+    # the effective client address, even if a spoofed value exists farther left.
+    for candidate in reversed(forwarded_ips):
+        if not is_trusted(candidate):
+            return str(candidate)
+
+    # An all-trusted chain is unusual (for example an internal client), but the
+    # farthest hop is the best available client address in that case.
+    return str(forwarded_ips[0])
 
 
 class RateLimit:
