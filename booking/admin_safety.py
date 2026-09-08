@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -20,6 +21,10 @@ from booking.models import (
     CarModel,
     Station,
     StationStaff,
+)
+from booking.station_staff_policy import (
+    SYSTEM_ADMIN_STAFF_MESSAGE,
+    validate_station_staff_assignment,
 )
 
 
@@ -88,7 +93,15 @@ class NormalizedAdminPhoneMixin:
 
 
 class SafeUserAdminChangeForm(NormalizedAdminPhoneMixin, BaseUserAdmin.form):
-    pass
+    def clean_is_superuser(self):
+        is_superuser = self.cleaned_data.get("is_superuser", False)
+        if (
+            is_superuser
+            and self.instance.pk
+            and StationStaff.objects.filter(user_id=self.instance.pk).exists()
+        ):
+            raise forms.ValidationError(SYSTEM_ADMIN_STAFF_MESSAGE)
+        return is_superuser
 
 
 class SafeUserAdminCreationForm(NormalizedAdminPhoneMixin, BaseUserAdmin.add_form):
@@ -100,16 +113,57 @@ class SafeUserAdmin(NoHardDeleteAdminMixin, BaseUserAdmin):
     add_form = SafeUserAdminCreationForm
 
 
+class SafeStationStaffAdminForm(forms.ModelForm):
+    """Surface station-role policy violations as normal Admin form errors."""
+
+    class Meta:
+        model = StationStaff
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.errors:
+            return cleaned_data
+
+        candidate = StationStaff(pk=self.instance.pk)
+        if self.instance.pk:
+            candidate.station_id = self.instance.station_id
+            candidate.user_id = self.instance.user_id
+            candidate.role = self.instance.role
+        else:
+            station = cleaned_data.get("station")
+            user = cleaned_data.get("user")
+            candidate.station_id = station.pk if station else None
+            candidate.user_id = user.pk if user else None
+            candidate.role = cleaned_data.get("role")
+
+        try:
+            validate_station_staff_assignment(candidate)
+        except forms.ValidationError as exc:
+            self.add_error(None, exc)
+
+        return cleaned_data
+
+
 class SafeStationStaffAdmin(NoHardDeleteAdminMixin, BaseStationStaffAdmin):
     # A staff identity belongs to the station history permanently. Operators
     # can only be activated/deactivated on their original station.
+    form = SafeStationStaffAdminForm
     list_editable = ("is_active",)
+    search_fields = ("user__email", "user__username", "station__name")
+    autocomplete_fields = ("user", "station")
+    readonly_fields = ("created_at", "created_by")
 
     def get_readonly_fields(self, request, obj=None):
         readonly = tuple(super().get_readonly_fields(request, obj))
         if obj is not None:
             readonly += ("station", "user", "role")
         return readonly
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 class SafeBrandAdmin(ReferencedObjectDeleteAdminMixin, BaseBrandAdmin):
