@@ -44,7 +44,9 @@ class StationAppointmentDetailWorkflowUiTests(TestCase):
             model=model,
             plate_number="А123ВС77",
         )
-        start = timezone.make_aware(datetime(2099, 1, 5, 10, 0))
+        # Keep the fixture away from the Russian New Year holiday window so
+        # the test exercises only appointment-detail UI behavior.
+        start = timezone.make_aware(datetime(2099, 2, 5, 10, 0))
         StationWeeklySchedule.objects.create(
             station=self.station,
             weekday=start.date().weekday(),
