@@ -7,13 +7,21 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
-from booking.models import Appointment, AppointmentPhoto, Car, CarModel, Station, UserProfile
+from booking.models import (
+    Appointment,
+    AppointmentPhoto,
+    Car,
+    CarModel,
+    Station,
+    StationStaff,
+    UserProfile,
+)
 from booking.notifications import notify_client_booked, notify_station_staff_booked
 from booking.station_access import require_station_access
 from booking.views.auth import send_password_setup_email
@@ -23,6 +31,7 @@ User = get_user_model()
 
 RUSSIAN_PLATE_RE = re.compile(r"^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}\d{2,3}$")
 VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
+STAFF_CLIENT_MESSAGE = "Учётная запись сотрудника станции не может использоваться как клиентская"
 
 
 def _normalize_ru_phone(value):
@@ -48,16 +57,22 @@ def _normalize_ru_phone(value):
     return "+" + digits
 
 
+def _assert_client_identity(user):
+    if StationStaff.objects.filter(user_id=user.pk).exists():
+        raise ValidationError(STAFF_CLIENT_MESSAGE)
+    return user
+
+
 def _get_or_create_client(email):
-    """Find a client by email. Returns (user, created)."""
+    """Find a pure client identity by email. Returns (user, created)."""
     email = (email or "").strip().lower()
     if email:
         user = User.objects.filter(username=email).first()
         if user:
-            return user, False
+            return _assert_client_identity(user), False
         user = User.objects.filter(email__iexact=email).order_by("id").first()
         if user:
-            return user, False
+            return _assert_client_identity(user), False
 
     username = f"client_{uuid.uuid4().hex[:12]}"
     user = User.objects.create_user(username=username, email=email)
@@ -175,14 +190,23 @@ def station_appointment_create(request, station_id, staff=None):
                     )
                 else:
                     # The same car can have many previous visits at this station.
-                    # DISTINCT keeps the reverse appointment join to one Car row.
-                    car = get_object_or_404(
-                        Car.objects.select_related("model", "owner__profile").filter(
+                    # Only pure client identities may be reused for client bookings.
+                    car = (
+                        Car.objects
+                        .select_related("model", "owner__profile")
+                        .filter(
+                            id=car_id,
                             is_active=True,
                             appointments__station_id=station.pk,
-                        ).distinct(),
-                        id=car_id,
+                            owner__station_roles__isnull=True,
+                        )
+                        .distinct()
+                        .first()
                     )
+                    if not car:
+                        raise ValidationError(
+                            "Автомобиль недоступен для клиентской записи на этой станции"
+                        )
                     client_user = car.owner
                     profile = getattr(client_user, "profile", None)
                     client_name = (
