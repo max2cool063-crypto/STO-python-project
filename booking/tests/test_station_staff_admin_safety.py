@@ -40,4 +40,44 @@ class StationStaffAdminSafetyTests(TestCase):
         self.assertIn("station", readonly)
         self.assertIn("user", readonly)
         self.assertIn("role", readonly)
+        self.assertIn("created_at", readonly)
+        self.assertIn("created_by", readonly)
         self.assertEqual(model_admin.list_editable, ("is_active",))
+
+    def test_station_staff_admin_restores_search_and_autocomplete(self):
+        model_admin = admin.site._registry[StationStaff]
+
+        self.assertEqual(
+            model_admin.search_fields,
+            ("user__email", "user__username", "station__name"),
+        )
+        self.assertEqual(model_admin.autocomplete_fields, ("user", "station"))
+
+    def test_station_staff_admin_sets_creator_automatically(self):
+        model_admin = admin.site._registry[StationStaff]
+        user = User.objects.create_user(username="admin-created-operator")
+        assignment = StationStaff(
+            station=self.station,
+            user=user,
+            role=StationStaff.ROLE_OPERATOR,
+        )
+
+        model_admin.save_model(self.request(), assignment, form=None, change=False)
+
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.created_by, self.superuser)
+
+    def test_station_staff_admin_form_rejects_system_admin_identity(self):
+        model_admin = admin.site._registry[StationStaff]
+        form_class = model_admin.get_form(self.request())
+        form = form_class(data={
+            "station": self.station.pk,
+            "user": self.superuser.pk,
+            "role": StationStaff.ROLE_OPERATOR,
+            "is_active": "on",
+            "receive_notifications": "on",
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("user", form.errors)
+        self.assertIn("Системный администратор", form.errors["user"][0])
