@@ -1,4 +1,5 @@
 import csv
+import logging
 from datetime import timedelta
 
 from django.contrib import messages
@@ -9,6 +10,8 @@ from django.shortcuts import redirect, render
 
 from booking.models import Appointment, SlotBlock, StationSchedule, StationWeeklySchedule
 from booking.station_access import get_user_stations, require_station_access
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Выбор станции ────────────────────────────────────────────────────────────
@@ -230,8 +233,9 @@ def station_schedule(request, station_id, staff=None):
                     messages.success(request, f"Добавлено {created} праздников на {year} год")
                 if skipped:
                     messages.info(request, f"Пропущено {skipped} (уже существуют)")
-            except Exception as exc:
-                messages.error(request, f"Ошибка: {exc}")
+            except Exception:
+                logger.exception("Failed to fill holidays for station %s", station.pk)
+                messages.error(request, "Не удалось заполнить праздники. Попробуйте позже.")
 
         return redirect("station_schedule", station_id=station_id)
 
