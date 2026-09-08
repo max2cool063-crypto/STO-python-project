@@ -141,3 +141,61 @@ class StationTimezoneTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["today"], date(2026, 9, 4))
+
+    def _create_midnight_station_appointment(self):
+        owner = User.objects.create_user(
+            username="tz-dashboard-owner",
+            password="Strong-owner-123!",
+        )
+        StationStaff.objects.create(
+            station=self.samars_station,
+            user=owner,
+            role=StationStaff.ROLE_OWNER,
+            is_active=True,
+        )
+        client = User.objects.create_user(username="tz-dashboard-client")
+        brand = Brand.objects.create(name="Dashboard TZ Brand")
+        model = CarModel.objects.create(brand=brand, name="Dashboard TZ Model")
+        car = Car.objects.create(owner=client, model=model, plate_number="А777АА63")
+        selected_date = date(2026, 9, 4)
+        StationSchedule.objects.create(
+            station=self.samars_station,
+            date=selected_date,
+            work_start=time(0, 0),
+            work_end=time(2, 0),
+        )
+        appointment = Appointment.objects.create(
+            station=self.samars_station,
+            user=client,
+            car=car,
+            start=self.samars_station.make_local_datetime(selected_date, time(0, 30)),
+            end=self.samars_station.make_local_datetime(selected_date, time(1, 0)),
+            name="Полуночный клиент",
+        )
+        self.client.login(username=owner.username, password="Strong-owner-123!")
+        return appointment
+
+    def test_dashboard_uses_station_local_date_around_midnight(self):
+        self._create_midnight_station_appointment()
+        # 20:15 UTC on Sep 3 is 00:15 Sep 4 in Samara.
+        mocked_now = datetime(2026, 9, 3, 20, 15, tzinfo=dt_timezone.utc)
+
+        with patch("booking.timezones.timezone.now", return_value=mocked_now):
+            response = self.client.get(
+                reverse("station_dashboard", kwargs={"station_id": self.samars_station.pk})
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["now"].date(), date(2026, 9, 4))
+        self.assertEqual(response.context["stats"]["today"], 1)
+
+    def test_station_csv_renders_station_local_datetime(self):
+        self._create_midnight_station_appointment()
+
+        response = self.client.get(
+            reverse("station_appointments_csv", kwargs={"station_id": self.samars_station.pk})
+        )
+        body = response.content.decode("utf-8-sig")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("04.09.2026,00:30,01:00", body)
