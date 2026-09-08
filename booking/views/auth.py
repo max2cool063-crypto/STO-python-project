@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.decorators import login_required
@@ -5,6 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
@@ -16,7 +19,11 @@ from django.core.cache import cache
 from booking.account_access import DEACTIVATED_STAFF_MESSAGE, get_station_account_state
 from booking.security import LOGIN_RATE_LIMIT, REGISTRATION_RATE_LIMIT
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
+REGISTRATION_RESPONSE_MESSAGE = (
+    "Если адрес можно использовать, инструкция будет отправлена на почту"
+)
 
 
 def send_password_setup_email(request, user):
@@ -52,20 +59,23 @@ def register(request):
             messages.error(request, "Введите email")
             return redirect("register")
 
-        if "@" not in email or "." not in email.split("@")[-1]:
+        try:
+            validate_email(email)
+        except ValidationError:
             messages.error(request, "Некорректный формат email")
             return redirect("register")
 
         user = User.objects.filter(email__iexact=email).order_by("id").first()
         if user:
-            # Не раскрываем факт существования аккаунта. Повторная отправка
-            # ссылки работает и для уже активированного аккаунта, поэтому
-            # пользователь может самостоятельно восстановить забытый пароль.
+            # Do not reveal whether this address already belongs to an account.
             try:
                 send_password_setup_email(request, user)
             except Exception:
-                pass
-            messages.success(request, "Если email существует, инструкция будет отправлена на почту")
+                logger.exception("Failed to send password setup email for existing account")
+                messages.error(request, "Не удалось отправить письмо. Попробуйте позже.")
+                return redirect("login")
+
+            messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
             return redirect("login")
 
         user = User.objects.create_user(
@@ -79,10 +89,11 @@ def register(request):
             send_password_setup_email(request, user)
         except Exception:
             user.delete()
-            messages.error(request, "Ошибка отправки письма. Попробуйте позже.")
-            return redirect("register")
+            logger.exception("Failed to send password setup email for new account")
+            messages.error(request, "Не удалось отправить письмо. Попробуйте позже.")
+            return redirect("login")
 
-        messages.success(request, "Инструкция для установки пароля отправлена на вашу почту")
+        messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
         return redirect("login")
 
     return render(request, "registration/register.html")
