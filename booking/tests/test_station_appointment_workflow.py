@@ -70,14 +70,15 @@ class StationAppointmentWorkflowTests(TestCase):
             work_start=time(9, 0),
             work_end=time(18, 0),
         )
-        Appointment.objects.create(
-            station=self.station,
-            user=client_user,
-            car=car,
-            start=timezone.make_aware(datetime(2099, 2, 2, 10, 0)),
-            end=timezone.make_aware(datetime(2099, 2, 2, 10, 30)),
-            name="Клиент",
-        )
+        for hour in (10, 11):
+            Appointment.objects.create(
+                station=self.station,
+                user=client_user,
+                car=car,
+                start=timezone.make_aware(datetime(2099, 2, 2, hour, 0)),
+                end=timezone.make_aware(datetime(2099, 2, 2, hour, 30)),
+                name="Клиент",
+            )
 
         response = self.client.get(
             reverse("station_slots_api", kwargs={"station_id": self.station.id}),
@@ -108,14 +109,15 @@ class StationAppointmentWorkflowTests(TestCase):
             work_start=time(9, 0),
             work_end=time(18, 0),
         )
-        Appointment.objects.create(
-            station=self.station,
-            user=previous_owner,
-            car=car,
-            start=timezone.make_aware(datetime(2099, 2, 2, 10, 0)),
-            end=timezone.make_aware(datetime(2099, 2, 2, 10, 30)),
-            name="Иванов Иван",
-        )
+        for hour in (10, 11):
+            Appointment.objects.create(
+                station=self.station,
+                user=previous_owner,
+                car=car,
+                start=timezone.make_aware(datetime(2099, 2, 2, hour, 0)),
+                end=timezone.make_aware(datetime(2099, 2, 2, hour, 30)),
+                name="Иванов Иван",
+            )
 
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
@@ -130,7 +132,7 @@ class StationAppointmentWorkflowTests(TestCase):
 
         self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
         appointments = list(Appointment.objects.filter(station=self.station).order_by("id"))
-        self.assertEqual(len(appointments), 2)
+        self.assertEqual(len(appointments), 3)
         appointment = appointments[-1]
         previous_owner.refresh_from_db()
         self.assertEqual(User.objects.count(), 2)
