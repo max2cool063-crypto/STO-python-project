@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from booking.admin import (
@@ -100,7 +101,7 @@ class SafeUserAdminChangeForm(NormalizedAdminPhoneMixin, BaseUserAdmin.form):
             and self.instance.pk
             and StationStaff.objects.filter(user_id=self.instance.pk).exists()
         ):
-            raise forms.ValidationError(SYSTEM_ADMIN_STAFF_MESSAGE)
+            raise ValidationError(SYSTEM_ADMIN_STAFF_MESSAGE)
         return is_superuser
 
 
@@ -139,7 +140,7 @@ class SafeStationStaffAdminForm(forms.ModelForm):
 
         try:
             validate_station_staff_assignment(candidate)
-        except forms.ValidationError as exc:
+        except ValidationError as exc:
             self.add_error(None, exc)
 
         return cleaned_data
