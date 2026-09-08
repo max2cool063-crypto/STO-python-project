@@ -1,8 +1,10 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.contrib.admin import helpers
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.template.response import TemplateResponse
 
 from booking.admin import (
     AppointmentAdmin as BaseAppointmentAdmin,
@@ -50,8 +52,8 @@ class ReferencedObjectDeleteAdminMixin:
         return self.can_hard_delete(obj)
 
     def get_actions(self, request):
-        # Never expose Django's bulk ``delete_selected`` action. Cleanup of
-        # reference data must remain an explicit per-object operation.
+        # Never expose Django's unrestricted bulk ``delete_selected`` action.
+        # Reference models may opt into their own dependency-aware actions.
         actions = super().get_actions(request)
         actions.pop("delete_selected", None)
         return actions
@@ -185,9 +187,105 @@ class SafeBrandAdmin(ReferencedObjectDeleteAdminMixin, BaseBrandAdmin):
 
 
 class SafeCarModelAdmin(ReferencedObjectDeleteAdminMixin, BaseCarModelAdmin):
+    actions = ("delete_unused_models",)
+
     def can_hard_delete(self, obj):
         # A model used by any car is part of vehicle/appointment history.
         return not Car.objects.filter(model=obj).exists()
+
+    @staticmethod
+    def _partition_delete_candidates(models):
+        model_ids = [obj.pk for obj in models]
+        used_ids = set(
+            Car.objects.filter(model_id__in=model_ids)
+            .values_list("model_id", flat=True)
+            .distinct()
+        )
+        deletable = [obj for obj in models if obj.pk not in used_ids]
+        protected = [obj for obj in models if obj.pk in used_ids]
+        return deletable, protected
+
+    @staticmethod
+    def _model_names(models):
+        return ", ".join(str(obj) for obj in models)
+
+    @admin.action(
+        permissions=["delete"],
+        description="Удалить выбранные неиспользуемые модели",
+    )
+    def delete_unused_models(self, request, queryset):
+        """Bulk-delete only models that are not referenced by any vehicle."""
+        selected_ids = list(queryset.values_list("pk", flat=True))
+        if not selected_ids:
+            return None
+
+        if request.POST.get("apply") == "yes":
+            with transaction.atomic():
+                # Re-read and lock the selected models at confirmation time so
+                # a model that became used in the meantime is skipped safely.
+                selected_models = list(
+                    CarModel.objects.select_for_update()
+                    .filter(pk__in=selected_ids)
+                    .select_related("brand")
+                    .order_by("brand__name", "name")
+                )
+                deletable, protected = self._partition_delete_candidates(selected_models)
+
+                if deletable:
+                    deletable_ids = [obj.pk for obj in deletable]
+                    deletable_qs = CarModel.objects.filter(pk__in=deletable_ids)
+                    self.log_deletions(request, deletable_qs)
+                    deleted_count = len(deletable)
+                    deletable_qs.delete()
+                else:
+                    deleted_count = 0
+
+            if deleted_count:
+                self.message_user(
+                    request,
+                    f"Удалено моделей: {deleted_count}.",
+                    level=messages.SUCCESS,
+                )
+            if protected:
+                self.message_user(
+                    request,
+                    "Не удалены модели, которые используются автомобилями: "
+                    f"{self._model_names(protected)}.",
+                    level=messages.WARNING,
+                )
+            return None
+
+        selected_models = list(
+            CarModel.objects.filter(pk__in=selected_ids)
+            .select_related("brand")
+            .order_by("brand__name", "name")
+        )
+        deletable, protected = self._partition_delete_candidates(selected_models)
+
+        if not deletable:
+            self.message_user(
+                request,
+                "Ни одна из выбранных моделей не удалена: все они используются "
+                f"автомобилями ({self._model_names(protected)}).",
+                level=messages.WARNING,
+            )
+            return None
+
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "title": "Удаление выбранных моделей",
+            "deletable_models": deletable,
+            "protected_models": protected,
+            "selected_models": selected_models,
+            "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+            "changelist_url": request.path,
+        }
+        return TemplateResponse(
+            request,
+            "admin/booking/carmodel/delete_unused_selected_confirmation.html",
+            context,
+        )
 
 
 # booking.admin registers these models during Django admin autodiscovery, and
