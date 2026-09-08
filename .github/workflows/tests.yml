@@ -68,6 +68,9 @@ jobs:
       - name: Check migrations are up to date
         run: python manage.py makemigrations --check --dry-run
 
+      - name: Collect manifest-backed static assets
+        run: python manage.py collectstatic --noinput
+
       - name: Run tests
         run: python manage.py test booking.tests --verbosity 2
 
@@ -91,5 +94,7 @@ jobs:
       - name: Build production image
         run: docker build --tag sto-ci:${{ github.sha }} .
 
-      - name: Verify static assets are baked into image
-        run: docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/booking/css/site.css
+      - name: Verify manifest static assets are baked into image
+        run: |
+          docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/booking/css/site.css
+          docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/staticfiles.json
