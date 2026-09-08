@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 
@@ -94,6 +95,9 @@ class AdminSafetyTests(TestCase):
             reverse("admin:booking_brand_delete", args=[protected_brand.pk])
         )
         self.assertEqual(response.status_code, 403)
+        with self.assertRaises(PermissionDenied):
+            brand_admin.delete_model(request, protected_brand)
+        self.assertTrue(Brand.objects.filter(pk=protected_brand.pk).exists())
 
     def test_car_model_delete_is_blocked_when_used_by_car(self):
         request = self._request()
@@ -127,6 +131,9 @@ class AdminSafetyTests(TestCase):
             reverse("admin:booking_carmodel_delete", args=[protected_model.pk])
         )
         self.assertEqual(response.status_code, 403)
+        with self.assertRaises(PermissionDenied):
+            model_admin.delete_model(request, protected_model)
+        self.assertTrue(CarModel.objects.filter(pk=protected_model.pk).exists())
 
     def test_car_model_bulk_delete_removes_only_unused_models(self):
         request = self._request()
