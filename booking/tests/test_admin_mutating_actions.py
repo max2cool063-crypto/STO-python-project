@@ -7,7 +7,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from booking.admin import StationAdmin
-from booking.models import Station, StationSchedule
+from booking.models import Station, StationSchedule, StationStaff
 
 
 class AdminMutatingActionsTests(TestCase):
@@ -125,6 +125,26 @@ class AdminMutatingActionsTests(TestCase):
             username="client-only@example.com",
             password="Client-password-123!",
         )
+        client = Client()
+        client.force_login(user)
+
+        response = client.get(reverse("admin:index"))
+
+        self.assert_redirected_to_admin_login(response)
+
+    def test_legacy_mixed_superuser_station_identity_cannot_open_admin(self):
+        user = User.objects.create_user(
+            username="legacy-mixed-admin@example.com",
+            password="Admin-password-123!",
+        )
+        StationStaff.objects.create(
+            station=self.station,
+            user=user,
+            role=StationStaff.ROLE_OWNER,
+        )
+        # Simulate a legacy/raw-data state that bypasses current pre-save guards.
+        User.objects.filter(pk=user.pk).update(is_staff=True, is_superuser=True)
+        user.refresh_from_db()
         client = Client()
         client.force_login(user)
 
