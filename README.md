@@ -60,6 +60,36 @@ python manage.py check --deploy
 
 CI также выполняет строгий `check --deploy --fail-level WARNING` на безопасном production-профиле настроек, чтобы новые изменения не отключили обязательные Django security-механизмы.
 
+## Backup и restore
+
+Production-данные состоят как минимум из PostgreSQL и пользовательских файлов в `media_data`. Оба компонента должны резервироваться вместе.
+
+Создать backup:
+
+```bash
+bash scripts/backup.sh
+```
+
+По умолчанию создаётся каталог `./backups/<UTC timestamp>/` с `postgres.dump`, `media.tar.gz`, `manifest.txt` и SHA-256 checksums. Каталог `backups/` исключён из Git и Docker build context, но это не является системой хранения резервных копий: после создания переносите backup в зашифрованное off-host хранилище.
+
+Для максимально согласованной копии БД и media можно кратковременно остановить `web` и `cron` на время backup:
+
+```bash
+BACKUP_QUIESCE_APP=True bash scripts/backup.sh
+```
+
+Скрипт после завершения снова запускает `web` и `cron`. Обычный `pg_dump` сам по себе создаёт транзакционно согласованную копию БД, но без остановки приложения DB dump и media archive снимаются не в один момент времени.
+
+Восстановление является **разрушающей операцией**: текущая БД пересоздаётся, а содержимое media volume заменяется содержимым backup. Запускайте restore только из проверенной копии и только в запланированное окно обслуживания:
+
+```bash
+RESTORE_CONFIRM=YES bash scripts/restore.sh backups/20260908T120000Z
+```
+
+Перед восстановлением скрипт проверяет SHA-256 checksums, если они есть, останавливает `web`/`cron`, пересоздаёт PostgreSQL, восстанавливает media, применяет миграции текущего кода и только затем снова запускает приложение. Если restore прервётся ошибкой, не открывайте приложение для пользователей до выяснения причины и повторной проверки данных.
+
+После каждого restore вручную проверьте вход, несколько последних записей, историю статусов и защищённые фотографии. В production backup считается надёжным только после периодической тестовой процедуры восстановления на отдельном окружении. Реальный `.env`/секреты в backup-архив не включаются и должны резервироваться отдельно в защищённом secret store.
+
 ## Проверка Django
 
 В контейнере web:
@@ -72,7 +102,7 @@ docker compose exec web python manage.py test booking.tests --verbosity 2
 
 ## CI
 
-GitHub Actions выполняет `check`, строгую production security-проверку, проверку миграций и весь набор `booking.tests` на Python 3.11 и PostgreSQL 15 — тех же основных версиях, что используются production-контейнерами. Отдельный container job валидирует Docker Compose, собирает production-образ и проверяет, что `collectstatic` уже выполнен внутри образа.
+GitHub Actions выполняет `check`, строгую production security-проверку, проверку миграций и весь набор `booking.tests` на Python 3.11 и PostgreSQL 15 — тех же основных версиях, что используются production-контейнерами. Отдельный container job валидирует Docker Compose, проверяет синтаксис backup/restore scripts, собирает production-образ и проверяет, что `collectstatic` уже выполнен внутри образа.
 
 ## Переменные окружения
 
@@ -85,3 +115,4 @@ GitHub Actions выполняет `check`, строгую production security-п
 - `booking/static/booking/` — CSS, JS и изображения.
 - `templates/` — HTML-шаблоны.
 - `booking/tests/` — регрессионные и security-тесты.
+- `scripts/backup.sh` и `scripts/restore.sh` — backup/restore PostgreSQL и media.
