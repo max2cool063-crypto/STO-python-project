@@ -11,6 +11,7 @@ from booking.admin import (
     UserAdmin as BaseUserAdmin,
 )
 from booking.admin_timezone import StationTimezoneAdmin as BaseStationAdmin
+from booking.forms import normalize_ru_phone
 from booking.models import (
     Appointment,
     AppointmentLog,
@@ -79,8 +80,24 @@ class SafeCarAdmin(NoHardDeleteAdminMixin, BaseCarAdmin):
     pass
 
 
-class SafeUserAdmin(NoHardDeleteAdminMixin, BaseUserAdmin):
+class NormalizedAdminPhoneMixin:
+    """Apply the same Russian phone normalization used by client/station forms."""
+
+    def clean_phone(self):
+        return normalize_ru_phone(self.cleaned_data.get("phone", ""))
+
+
+class SafeUserAdminChangeForm(NormalizedAdminPhoneMixin, BaseUserAdmin.form):
     pass
+
+
+class SafeUserAdminCreationForm(NormalizedAdminPhoneMixin, BaseUserAdmin.add_form):
+    pass
+
+
+class SafeUserAdmin(NoHardDeleteAdminMixin, BaseUserAdmin):
+    form = SafeUserAdminChangeForm
+    add_form = SafeUserAdminCreationForm
 
 
 class SafeStationStaffAdmin(NoHardDeleteAdminMixin, BaseStationStaffAdmin):
