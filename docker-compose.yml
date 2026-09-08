@@ -23,19 +23,21 @@ services:
       retries: 10
       start_period: 5s
 
+  migrate:
+    build: .
+    restart: "no"
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy
+
   web:
     build: .
     restart: unless-stopped
-    command: >
-      sh -c "
-        until pg_isready -h db -p 5432; do
-          echo 'Waiting for database...';
-          sleep 2;
-        done;
-        python manage.py migrate --noinput &&
-        python manage.py collectstatic --noinput &&
-        gunicorn auto_booking.wsgi:application --config gunicorn.conf.py
-      "
+    command: ["gunicorn", "auto_booking.wsgi:application", "--config", "gunicorn.conf.py"]
     volumes:
       - media_data:/app/media
     ports:
@@ -54,6 +56,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   cron:
     build: .
