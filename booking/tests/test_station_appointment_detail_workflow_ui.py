@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from booking.models import (
     Appointment,
+    AppointmentLog,
     Brand,
     Car,
     CarModel,
@@ -106,3 +107,27 @@ class StationAppointmentDetailWorkflowUiTests(TestCase):
         self.assertNotContains(response, "Добавить фото")
         self.assertNotContains(response, "Сохранить статус")
         self.assertContains(response, "Дальнейшее изменение статуса недоступно")
+
+    def test_status_history_uses_russian_display_labels(self):
+        AppointmentLog.objects.create(
+            appointment=self.appointment,
+            changed_by=self.operator,
+            old_status="BOOKED",
+            new_status="AWAITING_RESULT",
+            comment="Изменено через Django Admin",
+        )
+        AppointmentLog.objects.create(
+            appointment=self.appointment,
+            changed_by=self.operator,
+            old_status="AWAITING_RESULT",
+            new_status="NO_SHOW",
+        )
+
+        response = self._detail()
+
+        self.assertEqual(response.status_code, 200)
+        logs = response.context["logs"]
+        self.assertEqual(logs[0]["old_status"], "Запланировано")
+        self.assertEqual(logs[0]["new_status"], "Требует результата")
+        self.assertEqual(logs[1]["old_status"], "Требует результата")
+        self.assertEqual(logs[1]["new_status"], "Не приехал")
