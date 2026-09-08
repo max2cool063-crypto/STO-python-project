@@ -27,9 +27,19 @@ docker compose build
 docker compose up
 ```
 
+При запуске Compose сначала ждёт готовности PostgreSQL, затем одноразовый сервис `migrate` выполняет `python manage.py migrate --noinput`. Только после его успешного завершения запускается `web`. Это исключает выполнение миграций каждым web-процессом при рестарте или масштабировании.
+
+Статические файлы собираются командой `collectstatic` во время `docker build` и уже находятся внутри production-образа. Web-контейнер не пересобирает static при старте.
+
 Приложение доступно на `http://localhost:8000`.
 
 В production не используйте bind mount исходного кода: compose хранит только пользовательские media-файлы в отдельном volume.
+
+При запуске образа вне Compose миграции нужно выполнить отдельным release/deploy шагом до старта web-процессов, например:
+
+```bash
+python manage.py migrate --noinput
+```
 
 ## Проверка Django
 
@@ -43,7 +53,7 @@ docker compose exec web python manage.py test booking.tests --verbosity 2
 
 ## CI
 
-GitHub Actions выполняет `check`, проверку миграций и весь набор `booking.tests`.
+GitHub Actions выполняет `check`, проверку миграций и весь набор `booking.tests`. Отдельный container job валидирует Docker Compose, собирает production-образ и проверяет, что `collectstatic` уже выполнен внутри образа.
 
 ## Переменные окружения
 
