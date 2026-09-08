@@ -17,7 +17,9 @@ MANIFEST="${BACKUP_DIR}/manifest.txt"
 restart_app=false
 cleanup() {
   if [[ "${restart_app}" == "true" ]]; then
-    docker compose up -d web cron >/dev/null
+    # Resume the containers that were explicitly stopped for the snapshot;
+    # do not run dependency startup/release steps as part of a backup.
+    docker compose start web cron >/dev/null
   fi
 }
 trap cleanup EXIT
