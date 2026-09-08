@@ -128,6 +128,52 @@ class AdminSafetyTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_car_model_bulk_delete_removes_only_unused_models(self):
+        request = self._request()
+        model_admin = admin.site._registry[CarModel]
+        actions = model_admin.get_actions(request)
+        self.assertIn("delete_unused_models", actions)
+        self.assertNotIn("delete_selected", actions)
+
+        brand = Brand.objects.create(name="Bulk cleanup brand")
+        unused_one = CarModel.objects.create(brand=brand, name="Unused one")
+        unused_two = CarModel.objects.create(brand=brand, name="Unused two")
+        protected_model = CarModel.objects.create(brand=brand, name="Used model")
+        Car.objects.create(
+            owner=self.owner,
+            model=protected_model,
+            plate_number="В456ОР77",
+        )
+
+        changelist_url = reverse("admin:booking_carmodel_changelist")
+        selected = [unused_one.pk, unused_two.pk, protected_model.pk]
+        action_data = {
+            "action": "delete_unused_models",
+            "_selected_action": selected,
+        }
+
+        response = self.client.post(changelist_url, action_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Будут удалены")
+        self.assertContains(response, "используются автомобилями и удалены не будут")
+        self.assertContains(response, str(protected_model))
+
+        response = self.client.post(
+            changelist_url,
+            {**action_data, "apply": "yes"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(CarModel.objects.filter(pk=unused_one.pk).exists())
+        self.assertFalse(CarModel.objects.filter(pk=unused_two.pk).exists())
+        self.assertTrue(CarModel.objects.filter(pk=protected_model.pk).exists())
+        self.assertContains(response, "Удалено моделей: 2")
+        self.assertContains(
+            response,
+            "Не удалены модели, которые используются автомобилями",
+        )
+        self.assertContains(response, str(protected_model))
+
     def test_car_admin_rejects_invalid_plate_and_vin(self):
         brand = Brand.objects.create(name="Admin Vehicle Brand")
         car_model = CarModel.objects.create(brand=brand, name="Admin Vehicle Model")
