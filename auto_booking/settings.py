@@ -139,6 +139,17 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Django 5.1 removed STATICFILES_STORAGE. Configure the WhiteNoise backend via
+# the STORAGES alias so collectstatic really creates hashed/compressed assets.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_REDIRECT_URL = "/accounts/post-login/"
@@ -172,5 +183,3 @@ SECURE_PROXY_SSL_HEADER = (
     if os.getenv("SECURE_PROXY_SSL_HEADER", "False") == "True"
     else None
 )
-
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
