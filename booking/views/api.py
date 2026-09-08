@@ -48,11 +48,13 @@ def station_slots_api(request, station_id):
         if staff:
             # A known client car may have many historical appointments at this
             # station. DISTINCT prevents the reverse join from returning the same
-            # car once per visit and breaking get() with MultipleObjectsReturned.
+            # car once per visit. Owners with any station role are excluded from
+            # client booking mode permanently.
             car = get_object_or_404(
                 Car.objects.select_related("model").filter(
                     is_active=True,
                     appointments__station_id=station_id,
+                    owner__station_roles__isnull=True,
                 ).distinct(),
                 id=car_id,
             )
@@ -91,7 +93,7 @@ def car_api(request, car_id):
 @require_GET
 @login_required
 def car_by_plate_api(request):
-    """Search active cars by plate among clients known to the current station."""
+    """Search active cars by plate among pure clients known to the current station."""
     plate = request.GET.get("plate", "").strip().upper()
     station_id = request.GET.get("station_id", "").strip()
 
@@ -103,9 +105,8 @@ def car_by_plate_api(request):
         return JsonResponse({"error": "forbidden"}, status=403)
 
     # A station employee must not be able to discover clients of another
-    # station. At the same time, a plate may legitimately occur on several
-    # active cars (for example after a change of owner). Therefore we search
-    # all active cars known to THIS station and return every matching record.
+    # station. A plate may legitimately occur on several active client cars,
+    # so return every matching pure-client record for THIS station.
     cars = list(
         Car.objects
         .select_related("model__brand", "owner__profile")
@@ -113,6 +114,7 @@ def car_by_plate_api(request):
             plate_number=plate,
             is_active=True,
             appointments__station_id=station_id,
+            owner__station_roles__isnull=True,
         )
         .distinct()
         .order_by("owner_id", "id")
