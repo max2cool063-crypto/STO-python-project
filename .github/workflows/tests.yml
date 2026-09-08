@@ -89,7 +89,7 @@ jobs:
         run: docker compose config --quiet
 
       - name: Validate backup and restore scripts
-        run: bash -n scripts/backup.sh scripts/restore.sh
+        run: bash -n scripts/backup.sh scripts/restore.sh scripts/ci_backup_restore_smoke.sh
 
       - name: Build production image
         run: docker build --tag sto-ci:${{ github.sha }} .
@@ -98,3 +98,11 @@ jobs:
         run: |
           docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/booking/css/site.css
           docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/staticfiles.json
+
+      - name: Build Compose application services
+        run: docker compose build web migrate cron
+
+      - name: Smoke test PostgreSQL and media restore
+        env:
+          CI_BACKUP_RESTORE_SMOKE: "YES"
+        run: bash scripts/ci_backup_restore_smoke.sh
