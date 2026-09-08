@@ -1,12 +1,14 @@
 import csv
 import logging
-from datetime import timedelta
+from datetime import date as date_type, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
+from django.utils.dateparse import parse_date, parse_time
 
 from booking.models import Appointment, SlotBlock, StationSchedule, StationWeeklySchedule
 from booking.station_access import get_user_stations, require_station_access
@@ -183,30 +185,60 @@ def station_schedule(request, station_id, staff=None):
         action = request.POST.get("action")
 
         if action == "save_weekly":
+            weekly_values = []
+            invalid = False
             for wd in range(7):
-                ws = request.POST.get(f"work_start_{wd}", "").strip()
-                we = request.POST.get(f"work_end_{wd}", "").strip()
-                if ws and we:
-                    StationWeeklySchedule.objects.update_or_create(
-                        station=station, weekday=wd,
-                        defaults={"work_start": ws, "work_end": we},
-                    )
-                else:
-                    StationWeeklySchedule.objects.filter(station=station, weekday=wd).delete()
-            messages.success(request, "Недельное расписание сохранено")
+                ws_raw = request.POST.get(f"work_start_{wd}", "").strip()
+                we_raw = request.POST.get(f"work_end_{wd}", "").strip()
+                if not ws_raw and not we_raw:
+                    weekly_values.append((wd, None, None))
+                    continue
+                if not ws_raw or not we_raw:
+                    invalid = True
+                    break
+                ws = parse_time(ws_raw)
+                we = parse_time(we_raw)
+                if ws is None or we is None or ws >= we:
+                    invalid = True
+                    break
+                weekly_values.append((wd, ws, we))
+
+            if invalid:
+                messages.error(request, "Проверьте недельный график: начало должно быть раньше окончания")
+            else:
+                # Validate the complete form before mutating any weekday so a
+                # malformed later row cannot leave a partially saved schedule.
+                with transaction.atomic():
+                    for wd, ws, we in weekly_values:
+                        if ws is None:
+                            StationWeeklySchedule.objects.filter(
+                                station=station, weekday=wd
+                            ).delete()
+                        else:
+                            StationWeeklySchedule.objects.update_or_create(
+                                station=station,
+                                weekday=wd,
+                                defaults={"work_start": ws, "work_end": we},
+                            )
+                messages.success(request, "Недельное расписание сохранено")
 
         elif action == "add_exception":
-            date = request.POST.get("date", "").strip()
-            ws = request.POST.get("work_start", "").strip()
-            we = request.POST.get("work_end", "").strip()
-            if date and ws and we:
+            schedule_date = parse_date(request.POST.get("date", "").strip())
+            ws = parse_time(request.POST.get("work_start", "").strip())
+            we = parse_time(request.POST.get("work_end", "").strip())
+            if schedule_date is None or ws is None or we is None:
+                messages.error(request, "Заполните корректные дату и время")
+            elif ws > we:
+                messages.error(request, "Начало работы не может быть позже окончания")
+            else:
+                # Equal times deliberately mean a day off and are used for
+                # holidays as well as manually created exceptions.
                 StationSchedule.objects.update_or_create(
-                    station=station, date=date,
+                    station=station,
+                    date=schedule_date,
                     defaults={"work_start": ws, "work_end": we},
                 )
-                messages.success(request, f"Исключение на {date} сохранено")
-            else:
-                messages.error(request, "Заполните дату и время")
+                messages.success(request, f"Исключение на {schedule_date.isoformat()} сохранено")
 
         elif action == "delete_exception":
             exc_id = request.POST.get("exception_id")
@@ -216,11 +248,15 @@ def station_schedule(request, station_id, staff=None):
         elif action == "fill_holidays":
             try:
                 import holidays as holidays_lib
-                from datetime import date as date_type, time
-                year = int(request.POST.get("year", date_type.today().year))
+
+                current_year = date_type.today().year
+                year = int(request.POST.get("year", current_year))
+                if year < current_year - 1 or year > current_year + 3:
+                    raise ValueError("holiday year outside allowed UI range")
+
                 ru_holidays = holidays_lib.Russia(years=year)
                 created = skipped = 0
-                for hdate, hname in sorted(ru_holidays.items()):
+                for hdate, _hname in sorted(ru_holidays.items()):
                     _, was_created = StationSchedule.objects.get_or_create(
                         station=station, date=hdate,
                         defaults={"work_start": time(0, 0), "work_end": time(0, 0)}
@@ -233,6 +269,8 @@ def station_schedule(request, station_id, staff=None):
                     messages.success(request, f"Добавлено {created} праздников на {year} год")
                 if skipped:
                     messages.info(request, f"Пропущено {skipped} (уже существуют)")
+            except (TypeError, ValueError):
+                messages.error(request, "Выберите допустимый год для загрузки праздников")
             except Exception:
                 logger.exception("Failed to fill holidays for station %s", station.pk)
                 messages.error(request, "Не удалось заполнить праздники. Попробуйте позже.")
