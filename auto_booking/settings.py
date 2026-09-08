@@ -174,6 +174,9 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in _trusted.split(",") if o.strip()]
 
 # Production HTTPS hardening is controlled by env so local HTTP development remains possible.
 SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "False") == "True"
+# Docker probes this exact endpoint over the container's internal HTTP socket.
+# Keep the exemption narrow so user-facing traffic is still redirected to HTTPS.
+SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
 CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False") == "True"
 SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
