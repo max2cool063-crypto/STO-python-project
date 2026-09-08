@@ -93,6 +93,11 @@ class AppointmentBusinessLogicHardeningTests(TestCase):
         self.assertRedirects(response, "/cabinet/appointments/")
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, "CANCELLED")
+        log = appointment.logs.get()
+        self.assertEqual(log.changed_by, self.client_user)
+        self.assertEqual(log.old_status, "BOOKED")
+        self.assertEqual(log.new_status, "CANCELLED")
+        self.assertEqual(log.comment, "Отменено клиентом")
         notify_client.assert_called_once_with(appointment, cancelled_by_station=False)
         notify_staff.assert_called_once_with(appointment)
         create_notifications.assert_called_once_with(appointment)
@@ -115,6 +120,20 @@ class AppointmentBusinessLogicHardeningTests(TestCase):
         self.assertEqual(log.old_status, "BOOKED")
         self.assertEqual(log.new_status, "CANCELLED")
         notify_client.assert_called_once_with(appointment, cancelled_by_station=True)
+
+    def test_station_same_status_does_not_create_audit_noise(self):
+        appointment = self.make_appointment()
+        self.client.login(username="operator-hardening@example.com", password="test-password")
+
+        response = self.client.post(
+            f"/station/{self.station.pk}/appointments/{appointment.pk}/status/",
+            {"status": "BOOKED"},
+        )
+
+        self.assertRedirects(response, f"/station/{self.station.pk}/appointments/")
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, "BOOKED")
+        self.assertFalse(appointment.logs.exists())
 
     def test_station_status_endpoint_rejects_terminal_appointment(self):
         appointment = self.make_appointment(status="DONE")
