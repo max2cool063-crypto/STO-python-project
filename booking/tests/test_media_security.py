@@ -8,7 +8,16 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from booking.models import Appointment, AppointmentPhoto, Brand, Car, CarModel, Station, StationWeeklySchedule
+from booking.models import (
+    Appointment,
+    AppointmentPhoto,
+    Brand,
+    Car,
+    CarModel,
+    Station,
+    StationStaff,
+    StationWeeklySchedule,
+)
 
 
 class AppointmentMediaSecurityTests(TestCase):
@@ -128,6 +137,52 @@ class AppointmentMediaSecurityTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
+
+    def test_legacy_mixed_superuser_has_only_station_scoped_media_access(self):
+        foreign_station = Station.objects.create(name="Station B")
+        target = date(2099, 2, 3)
+        StationWeeklySchedule.objects.create(
+            station=foreign_station,
+            weekday=target.weekday(),
+            work_start=time(9, 0),
+            work_end=time(18, 0),
+        )
+        foreign_owner = User.objects.create_user(username="foreign-media-owner")
+        foreign_car = Car.objects.create(
+            owner=foreign_owner,
+            model=self.model,
+            plate_number="C333CC",
+        )
+        start = timezone.make_aware(timezone.datetime(2099, 2, 3, 11, 0))
+        foreign_appointment = Appointment.objects.create(
+            station=foreign_station,
+            user=foreign_owner,
+            car=foreign_car,
+            start=start,
+            end=start,
+            name="Foreign client",
+        )
+        photo = self.create_real_photo(foreign_appointment, "legacy-mixed-denied.jpg")
+
+        mixed = User.objects.create_user(
+            username="legacy-mixed-media@example.com",
+            password="test-password",
+        )
+        StationStaff.objects.create(
+            station=self.station,
+            user=mixed,
+            role=StationStaff.ROLE_OWNER,
+        )
+        # Simulate legacy/raw corruption that bypasses the current User pre-save guard.
+        User.objects.filter(pk=mixed.pk).update(is_staff=True, is_superuser=True)
+        mixed.refresh_from_db()
+        self.client.force_login(mixed)
+
+        response = self.client.get(
+            reverse("protected_media", kwargs={"path": photo.image.name})
+        )
+
+        self.assertEqual(response.status_code, 404)
 
     def test_owner_can_request_own_photo_zip(self):
         appointment = self.create_appointment(self.owner, self.car)
