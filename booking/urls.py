@@ -10,12 +10,14 @@ from booking.views.api import (
     car_by_plate_api,
     brands_with_models_api,
 )
+from booking.views.auth import RateLimitedLoginView
+from booking.views.station_account import station_change_password
 from booking.views.station_appointment_create import station_appointment_create
 from booking.views.station_appointment_detail import station_appointment_detail
 from booking.views.station_appointment_edit import station_appointment_edit
 from booking.views.station_calendar import station_day_calendar
 from booking.views.station_clients import station_clients
-from booking.views.station_staff_manage import station_staff_create_operator, station_staff_edit_profile
+from booking.views.station_staff_manage import station_staff, station_staff_create_operator, station_staff_edit_profile
 from booking.views.notifications import station_notifications, station_notifications_history, station_notification_read, station_notifications_read_all
 
 urlpatterns = [
@@ -37,12 +39,14 @@ urlpatterns = [
     path("cabinet/appointments/<int:pk>/photos.zip/", views.appointment_photos_zip, name="appointment_photos_zip"),
     path("media/appointments/<path:path>", views.protected_media, name="protected_media"),
     path("accounts/register/", views.register, name="register"),
+    path("accounts/password-reset/", views.register, {"recovery": True}, name="password_reset_request"),
     path("accounts/post-login/", views.post_login_redirect, name="post_login_redirect"),
     path("accounts/set-password/<uidb64>/<token>/", views.set_password, name="set_password"),
     path("cabinet/password/", views.change_password, name="change_password"),
-    path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
+    path("accounts/login/", RateLimitedLoginView.as_view(), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("station/", views.station_select, name="station_select"),
+    path("station/password/", station_change_password, name="station_change_password"),
     path("station/<int:station_id>/", views.station_dashboard, name="station_dashboard"),
     path("station/<int:station_id>/calendar/", station_day_calendar, name="station_day_calendar"),
     path("station/<int:station_id>/appointments/", views.station_appointments, name="station_appointments"),
@@ -54,7 +58,7 @@ urlpatterns = [
     path("station/<int:station_id>/schedule/", views.station_schedule, name="station_schedule"),
     path("station/<int:station_id>/slot-blocks/", views.station_slot_blocks, name="station_slot_blocks"),
     path("station/<int:station_id>/clients/", station_clients, name="station_clients"),
-    path("station/<int:station_id>/staff/", views.station_staff, name="station_staff"),
+    path("station/<int:station_id>/staff/", station_staff, name="station_staff"),
     path("station/<int:station_id>/staff/create-operator/", station_staff_create_operator, name="station_staff_create_operator"),
     path("station/<int:station_id>/staff/<int:member_id>/edit/", station_staff_edit_profile, name="station_staff_edit_profile"),
     path("station/notifications/", station_notifications, name="station_notifications"),

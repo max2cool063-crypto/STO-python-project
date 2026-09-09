@@ -1,16 +1,20 @@
+import ipaddress
+from datetime import date, time
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
-from django.core import mail
-from django.test import TestCase, override_settings
+from django.contrib.messages import get_messages
+from django.core.cache import cache
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from booking.models import Appointment, AppointmentPhoto, Brand, Car, CarModel, Station, StationStaff, StationWeeklySchedule
-from datetime import date, time
-from django.utils import timezone
+from booking.security import _client_ip
+from booking.views.auth import REGISTRATION_RESPONSE_MESSAGE
 
 
 class PasswordSetupTests(TestCase):
@@ -55,6 +59,28 @@ class PasswordSetupTests(TestCase):
         self.assertFalse(user.check_password("Old-password-123!"))
 
     @patch("booking.views.auth.send_mail")
+    def test_registration_response_does_not_reveal_account_existence(self, send_mail):
+        cache.clear()
+        first = self.client.post(
+            reverse("register"),
+            {"email": "privacy@example.com"},
+            follow=True,
+        )
+        first_messages = [str(message) for message in get_messages(first.wsgi_request)]
+
+        second = self.client.post(
+            reverse("register"),
+            {"email": "PRIVACY@example.com"},
+            follow=True,
+        )
+        second_messages = [str(message) for message in get_messages(second.wsgi_request)]
+
+        self.assertEqual(first_messages, [REGISTRATION_RESPONSE_MESSAGE])
+        self.assertEqual(second_messages, [REGISTRATION_RESPONSE_MESSAGE])
+        self.assertEqual(send_mail.call_count, 2)
+        cache.clear()
+
+    @patch("booking.views.auth.send_mail")
     def test_set_password_activates_account(self, send_mail):
         user = User.objects.create_user(
             username="new@example.com",
@@ -74,6 +100,88 @@ class PasswordSetupTests(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.has_usable_password())
         self.assertTrue(user.check_password("Strong-password-123!"))
+
+
+class AuthRateLimitTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+
+    @patch("booking.views.auth.send_mail")
+    def test_registration_is_throttled_after_five_requests(self, send_mail):
+        for index in range(5):
+            response = self.client.post(reverse("register"), {"email": f"user{index}@example.com"})
+            self.assertNotEqual(response.status_code, 429)
+
+        response = self.client.post(reverse("register"), {"email": "blocked@example.com"})
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.headers["Retry-After"], "3600")
+        self.assertFalse(User.objects.filter(email="blocked@example.com").exists())
+
+    def test_login_is_throttled_after_ten_failed_attempts(self):
+        User.objects.create_user(
+            username="login@example.com",
+            email="login@example.com",
+            password="Correct-password-123!",
+        )
+
+        for _ in range(10):
+            response = self.client.post(
+                reverse("login"),
+                {"username": "login@example.com", "password": "Wrong-password-123!"},
+            )
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "login@example.com", "password": "Wrong-password-123!"},
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.headers["Retry-After"], "900")
+
+    def test_successful_login_clears_failed_attempts(self):
+        User.objects.create_user(
+            username="success@example.com",
+            email="success@example.com",
+            password="Correct-password-123!",
+        )
+
+        for _ in range(3):
+            response = self.client.post(
+                reverse("login"),
+                {"username": "success@example.com", "password": "Wrong-password-123!"},
+            )
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "success@example.com", "password": "Correct-password-123!"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("post_login_redirect"))
+        self.assertTrue("_auth_user_id" in self.client.session)
+
+        self.client.logout()
+        response = self.client.post(
+            reverse("login"),
+            {"username": "success@example.com", "password": "Wrong-password-123!"},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(
+        RATE_LIMIT_TRUST_X_FORWARDED_FOR=True,
+        RATE_LIMIT_TRUSTED_PROXIES=(ipaddress.ip_network("10.0.0.0/8"),),
+    )
+    def test_trusted_proxy_chain_ignores_spoofed_leftmost_forwarded_ip(self):
+        request = RequestFactory().get(
+            "/accounts/login/",
+            REMOTE_ADDR="10.0.0.2",
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 198.51.100.25",
+        )
+
+        self.assertEqual(_client_ip(request), "198.51.100.25")
 
 
 class ProtectedMediaStaffTests(TestCase):

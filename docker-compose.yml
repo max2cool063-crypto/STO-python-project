@@ -2,7 +2,7 @@ services:
   db:
     image: postgres:15
     restart: unless-stopped
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -12,26 +12,47 @@ services:
       retries: 10
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    build: .
+    restart: "no"
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      REDIS_URL: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy
+
   web:
     build: .
     restart: unless-stopped
-    command: >
-      sh -c "
-        until pg_isready -h db -p 5432; do
-          echo 'Waiting for database...';
-          sleep 2;
-        done;
-        python manage.py migrate --noinput &&
-        python manage.py collectstatic --noinput &&
-        gunicorn auto_booking.wsgi:application --config gunicorn.conf.py
-      "
+    command: ["gunicorn", "auto_booking.wsgi:application", "--config", "gunicorn.conf.py"]
     volumes:
       - media_data:/app/media
+    # Keep Gunicorn reachable only from the deployment host by default. A host
+    # reverse proxy can forward HTTPS traffic to 127.0.0.1:8000 without exposing
+    # the trusted-proxy backend directly to the network.
     ports:
-      - "8000:8000"
-    env_file: .env
+      - "127.0.0.1:8000:8000"
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      REDIS_URL: redis://redis:6379/1
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)\" || exit 1"]
+      # Connect over the container's internal HTTP socket, but send an allowed
+      # Host header. Production ALLOWED_HOSTS intentionally does not need to
+      # include 127.0.0.1 merely to satisfy an internal liveness probe.
+      test: ["CMD-SHELL", "python -c \"import os, urllib.request; host=((os.getenv('ALLOWED_HOSTS') or 'localhost').split(',')[0].strip() or 'localhost'); request=urllib.request.Request('http://127.0.0.1:8000/healthz/', headers={'Host': host}); urllib.request.urlopen(request, timeout=5)\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -39,28 +60,41 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  mail:
+    build: .
+    restart: unless-stopped
+    command: ["python", "manage.py", "process_email_queue", "--loop"]
+    env_file: ${ENV_FILE:-.env}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   cron:
     build: .
     restart: unless-stopped
     command: >
       sh -c "
-        echo 'Waiting for database...';
-        until pg_isready -h db -p 5432; do sleep 2; done;
-
-        echo 'Applying migrations...';
-        python manage.py migrate --noinput;
-
+        set -e;
         echo 'Cron started';
         while true; do
-          python manage.py update_appointments || true;
-          python manage.py send_reminders || true;
+          python manage.py run_maintenance;
           sleep 900;
         done
       "
-    env_file: .env
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      REDIS_URL: redis://redis:6379/1
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       web:
         condition: service_healthy

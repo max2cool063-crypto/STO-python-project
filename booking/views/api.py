@@ -1,8 +1,9 @@
+from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.utils.dateparse import parse_date
+from booking.input_validation import safe_parse_date as parse_date
 from django.views.decorators.http import require_GET
-from django.contrib.auth.decorators import login_required
 
 from booking.models import Brand, CarModel, Station, Car, StationStaff
 from booking.station_access import get_staff_record
@@ -31,21 +32,32 @@ def station_slots_api(request, station_id):
     station = get_object_or_404(Station, id=station_id, is_active=True)
     date = parse_date(request.GET.get("date"))
     car_id = request.GET.get("car")
+    requested_vehicle_type = (request.GET.get("vehicle_type") or "").strip().upper()
 
     if not date:
         return JsonResponse({"slots": []})
 
     vehicle_type = None
+    staff = get_staff_record(request.user, station_id)
+    has_station_account = StationStaff.objects.filter(user=request.user).exists()
+    if has_station_account and not staff:
+        # A station identity must never silently fall back to client behavior
+        # when it requests slots for an unrelated station.
+        return JsonResponse({"error": "forbidden"}, status=403)
+
     if car_id:
-        staff = get_staff_record(request.user, station_id)
         if staff:
-            # Station operators work with client cars belonging to this station.
-            # Do not expose cars known only to another station.
+            # A known client car may have many historical appointments at this
+            # station. DISTINCT prevents the reverse join from returning the same
+            # car once per visit. Owners with any station role are excluded from
+            # client booking mode permanently.
             car = get_object_or_404(
-                Car.objects.select_related("model"),
+                Car.objects.select_related("model").filter(
+                    is_active=True,
+                    appointments__station_id=station_id,
+                    owner__station_roles__isnull=True,
+                ).distinct(),
                 id=car_id,
-                is_active=True,
-                appointments__station_id=station_id,
             )
         else:
             # Regular clients may request slots only for their own cars.
@@ -56,6 +68,11 @@ def station_slots_api(request, station_id):
                 is_active=True,
             )
         vehicle_type = car.model.vehicle_type
+    elif requested_vehicle_type in {"CAR", "TRUCK"} and staff:
+        # During station-side creation of a brand-new car there is no car_id yet.
+        # The vehicle type is still needed so the preview and available slots use
+        # the same duration rule as Appointment.save().
+        vehicle_type = requested_vehicle_type
 
     slots = station.get_available_slots(date, vehicle_type=vehicle_type)
     return JsonResponse({"slots": slots})
@@ -64,6 +81,9 @@ def station_slots_api(request, station_id):
 @require_GET
 @login_required
 def car_api(request, car_id):
+    if StationStaff.objects.filter(user=request.user).exists():
+        return JsonResponse({"error": "forbidden"}, status=403)
+
     car = get_object_or_404(Car, id=car_id, owner=request.user, is_active=True)
     return JsonResponse({
         "id": car.id,
@@ -74,7 +94,7 @@ def car_api(request, car_id):
 @require_GET
 @login_required
 def car_by_plate_api(request):
-    """Search active cars by plate among clients known to the current station."""
+    """Search active cars by plate among pure clients known to the current station."""
     plate = request.GET.get("plate", "").strip().upper()
     station_id = request.GET.get("station_id", "").strip()
 
@@ -86,9 +106,8 @@ def car_by_plate_api(request):
         return JsonResponse({"error": "forbidden"}, status=403)
 
     # A station employee must not be able to discover clients of another
-    # station. At the same time, a plate may legitimately occur on several
-    # active cars (for example after a change of owner). Therefore we search
-    # all active cars known to THIS station and return every matching record.
+    # station. A plate may legitimately occur on several active client cars,
+    # so return every matching pure-client record for THIS station.
     cars = list(
         Car.objects
         .select_related("model__brand", "owner__profile")
@@ -96,6 +115,7 @@ def car_by_plate_api(request):
             plate_number=plate,
             is_active=True,
             appointments__station_id=station_id,
+            owner__station_roles__isnull=True,
         )
         .distinct()
         .order_by("owner_id", "id")
@@ -120,12 +140,16 @@ def car_by_plate_api(request):
     if not matches:
         return JsonResponse({"error": "not found"}, status=404)
 
-    # Keep one stable response shape for both one and many results.
-    return JsonResponse({
+    payload = {
         "count": len(matches),
         "ambiguous": len(matches) > 1,
         "matches": matches,
-    })
+    }
+    # Keep compatibility with the station booking form for the overwhelmingly
+    # common unambiguous lookup while retaining the richer matches payload.
+    if len(matches) == 1:
+        payload.update(matches[0])
+    return JsonResponse(payload)
 
 
 @require_GET
@@ -136,14 +160,22 @@ def brands_with_models_api(request):
     if not StationStaff.objects.filter(user=request.user, is_active=True).exists():
         return JsonResponse({"error": "forbidden"}, status=403)
 
+    brands = Brand.objects.prefetch_related(
+        Prefetch(
+            "models",
+            queryset=CarModel.objects.order_by("name"),
+            to_attr="ordered_models",
+        )
+    ).order_by("name")
+
     result = []
-    for brand in Brand.objects.prefetch_related("models").order_by("name"):
+    for brand in brands:
         result.append({
             "id": brand.id,
             "name": brand.name,
             "models": [
-                {"id": m.id, "name": m.name, "vehicle_type": m.vehicle_type}
-                for m in brand.models.order_by("name")
-            ]
+                {"id": model.id, "name": model.name, "vehicle_type": model.vehicle_type}
+                for model in brand.ordered_models
+            ],
         })
     return JsonResponse(result, safe=False)

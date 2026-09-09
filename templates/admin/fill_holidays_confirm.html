@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Заполнение праздников{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="/admin/">Главная</a> ›
+  <a href="/admin/booking/station/">Станции ТО</a> ›
+  <a href="/admin/booking/station/{{ station.pk }}/change/">{{ station }}</a> ›
+  Заполнение праздников
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Заполнить праздники</h1>
+
+<p>
+  Для станции <strong>{{ station }}</strong> будут добавлены российские праздники
+  на {{ year }} год как нерабочие дни.
+</p>
+
+<form method="post" action="{{ action_url }}">
+  {% csrf_token %}
+  <div class="submit-row">
+    <input type="submit" value="🗓 Заполнить праздники" class="default">
+    <a href="/admin/booking/station/{{ station.pk }}/change/" class="button cancel-link">Отмена</a>
+  </div>
+</form>
+{% endblock %}

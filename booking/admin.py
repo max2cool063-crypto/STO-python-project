@@ -19,7 +19,7 @@ from .models import (
     Appointment, AppointmentPhoto,
     StationStaff, UserProfile,
 )
-from .forms import WeeklyScheduleInlineForm, ScheduleInlineForm
+from .forms import CarForm, WeeklyScheduleInlineForm, ScheduleInlineForm
 
 admin.site.site_header = "СТО — Панель управления"
 admin.site.site_title = "СТО"
@@ -186,14 +186,16 @@ class StationAdmin(admin.ModelAdmin):
                             station = Station.objects.filter(rsa_id=rid).first()
 
                             if station:
-                                Station.objects.filter(pk=station.pk).update(
-                                    name=station_name,
-                                    address=station_address,
-                                    latitude=detail.get("lat"),
-                                    longitude=detail.get("lng"),
-                                    phone=detail.get("phone", ""),
-                                    email=detail.get("email", ""),
-                                )
+                                station.name = station_name
+                                station.address = station_address
+                                station.latitude = detail.get("lat")
+                                station.longitude = detail.get("lng")
+                                station.phone = detail.get("phone", "")
+                                station.email = detail.get("email", "")
+                                station.save(update_fields=[
+                                    "name", "address", "latitude", "longitude",
+                                    "phone", "email", "timezone",
+                                ])
                                 was_created = False
                                 msg = f'⏭ Обновлена: {station_name} (№ ОТО: {rid})'
                             else:
@@ -384,8 +386,17 @@ admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
 
+class CarAdminForm(CarForm):
+    """Use the same plate/VIN rules in Django Admin as in client workflows."""
+
+    class Meta(CarForm.Meta):
+        model = Car
+        fields = "__all__"
+
+
 @admin.register(Car)
 class CarAdmin(admin.ModelAdmin):
+    form = CarAdminForm
     list_display = ("owner", "model", "plate_number", "get_vehicle_type", "is_active")
     list_editable = ("is_active",)
     search_fields = ("model__name", "plate_number", "vin")
@@ -416,11 +427,3 @@ class StationStaffAdmin(admin.ModelAdmin):
     list_display = ("station", "user", "role", "is_active", "created_by", "created_at")
     list_filter = ("role", "is_active", "station")
     list_editable = ("role", "is_active")
-    search_fields = ("user__email", "user__username", "station__name")
-    autocomplete_fields = ("user", "station")
-    readonly_fields = ("created_at",)
-
-    def save_model(self, request, obj, form, change):
-        if not obj.pk:
-            obj.created_by = request.user
-        super().save_model(request, obj, form, change)

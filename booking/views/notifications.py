@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -7,16 +8,29 @@ from booking.models import Notification
 from booking.station_access import get_user_stations
 
 
+def _staff_stations(user):
+    """Return stations currently accessible to the authenticated station staff member."""
+    stations = get_user_stations(user)
+    if not stations.exists():
+        raise PermissionDenied
+    return stations
+
+
 @login_required
 @require_GET
 def station_notifications(request):
     """Возвращает только непрочитанные уведомления текущего сотрудника для верхней панели."""
+    stations = _staff_stations(request.user)
     notifications = (
         Notification.objects
-        .filter(recipient=request.user, is_read=False)
+        .filter(recipient=request.user, station__in=stations, is_read=False)
         .select_related("appointment", "station")[:20]
     )
-    unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    unread_count = Notification.objects.filter(
+        recipient=request.user,
+        station__in=stations,
+        is_read=False,
+    ).count()
     items = []
     for item in notifications:
         items.append({
@@ -37,10 +51,11 @@ def station_notifications(request):
 @require_GET
 def station_notifications_history(request):
     """Полная история уведомлений текущего сотрудника с фильтром по прочитанности."""
+    stations = _staff_stations(request.user)
     filter_value = request.GET.get("filter", "all")
     notifications = (
         Notification.objects
-        .filter(recipient=request.user)
+        .filter(recipient=request.user, station__in=stations)
         .select_related("appointment", "station")
     )
     if filter_value == "unread":
@@ -48,24 +63,27 @@ def station_notifications_history(request):
     elif filter_value == "read":
         notifications = notifications.filter(is_read=True)
 
-    # История уведомлений не содержит station_id в URL, поэтому для
-    # station/base.html нужен доступный пользователю контекст станции.
-    # Если станций несколько, выбираем первую активную — сама история
-    # при этом остаётся общей и содержит уведомления всех доступных станций.
-    station = get_user_stations(request.user).first()
-
     return render(request, "booking/station/notifications.html", {
-        "station": station,
+        "station": stations.first(),
         "notifications": notifications[:100],
         "filter_value": filter_value,
-        "unread_count": Notification.objects.filter(recipient=request.user, is_read=False).count(),
+        "unread_count": Notification.objects.filter(
+            recipient=request.user,
+            station__in=stations,
+            is_read=False,
+        ).count(),
     })
 
 
 @login_required
 @require_POST
 def station_notification_read(request, pk):
-    notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    stations = _staff_stations(request.user)
+    notification = get_object_or_404(
+        Notification.objects.filter(station__in=stations),
+        pk=pk,
+        recipient=request.user,
+    )
     notification.is_read = True
     notification.save(update_fields=["is_read"])
     if notification.appointment_id:
@@ -76,5 +94,10 @@ def station_notification_read(request, pk):
 @login_required
 @require_POST
 def station_notifications_read_all(request):
-    Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    stations = _staff_stations(request.user)
+    Notification.objects.filter(
+        recipient=request.user,
+        station__in=stations,
+        is_read=False,
+    ).update(is_read=True)
     return JsonResponse({"ok": True})

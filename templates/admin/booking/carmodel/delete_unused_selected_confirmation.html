@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+  <h1>Удалить выбранные неиспользуемые модели?</h1>
+
+  <p>
+    Будут удалены только модели, которые не используются ни одним автомобилем.
+    Перед окончательным удалением проверка выполняется повторно.
+  </p>
+
+  <h2>Будут удалены</h2>
+  <ul>
+    {% for model in deletable_models %}
+      <li>{{ model }}</li>
+    {% endfor %}
+  </ul>
+
+  {% if protected_models %}
+    <div class="messagelist">
+      <div class="warning">
+        Следующие модели используются автомобилями и удалены не будут:
+        <ul>
+          {% for model in protected_models %}
+            <li>{{ model }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    {% for model in selected_models %}
+      <input type="hidden" name="{{ action_checkbox_name }}" value="{{ model.pk }}">
+    {% endfor %}
+    <input type="hidden" name="action" value="delete_unused_models">
+    <input type="hidden" name="apply" value="yes">
+
+    <div class="submit-row">
+      <input type="submit" value="Удалить неиспользуемые модели" class="deletelink">
+      <a href="{{ changelist_url }}" class="button cancel-link">Отмена</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

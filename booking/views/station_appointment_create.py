@@ -6,14 +6,23 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from booking.input_validation import safe_parse_datetime as parse_datetime, validate_user_fields
 from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
-from booking.models import Appointment, AppointmentPhoto, Car, CarModel, Station, UserProfile
+from booking.models import (
+    Appointment,
+    AppointmentPhoto,
+    Car,
+    CarModel,
+    Station,
+    StationStaff,
+    UserProfile,
+)
 from booking.notifications import notify_client_booked, notify_station_staff_booked
 from booking.station_access import require_station_access
 from booking.views.auth import send_password_setup_email
@@ -23,6 +32,7 @@ User = get_user_model()
 
 RUSSIAN_PLATE_RE = re.compile(r"^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}\d{2,3}$")
 VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
+STAFF_CLIENT_MESSAGE = "Учётная запись сотрудника станции не может использоваться как клиентская"
 
 
 def _normalize_ru_phone(value):
@@ -48,16 +58,22 @@ def _normalize_ru_phone(value):
     return "+" + digits
 
 
+def _assert_client_identity(user):
+    if StationStaff.objects.filter(user_id=user.pk).exists():
+        raise ValidationError(STAFF_CLIENT_MESSAGE)
+    return user
+
+
 def _get_or_create_client(email):
-    """Find a client by email. Returns (user, created)."""
+    """Find a pure client identity by email. Returns (user, created)."""
     email = (email or "").strip().lower()
     if email:
         user = User.objects.filter(username=email).first()
         if user:
-            return user, False
+            return _assert_client_identity(user), False
         user = User.objects.filter(email__iexact=email).order_by("id").first()
         if user:
-            return user, False
+            return _assert_client_identity(user), False
 
     username = f"client_{uuid.uuid4().hex[:12]}"
     user = User.objects.create_user(username=username, email=email)
@@ -77,7 +93,7 @@ def _split_client_name(value):
 
 
 def _save_client_identity(user, name, phone):
-    """Persist the manually entered client identity in the canonical User/Profile records."""
+    """Persist identity entered for a newly created client account."""
     first_name, last_name = _split_client_name(name)
     changed = []
     if user.first_name != first_name:
@@ -93,6 +109,13 @@ def _save_client_identity(user, name, phone):
     if profile.phone != (phone or ""):
         profile.phone = phone or ""
         profile.save(update_fields=["phone"])
+
+
+def _canonical_client_identity(user):
+    """Return canonical display name/phone without allowing station-side overwrite."""
+    profile = UserProfile.objects.filter(user=user).first()
+    name = f"{user.last_name} {user.first_name}".strip() or user.username
+    return name, profile.phone if profile else ""
 
 
 @login_required
@@ -111,6 +134,10 @@ def station_appointment_create(request, station_id, staff=None):
 
         try:
             client_phone = _normalize_ru_phone(client_phone)
+            if email:
+                validate_email(email)
+                validate_user_fields(email=email)
+            Appointment._meta.get_field("name").clean(client_name, None)
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
             return redirect(request.path)
@@ -166,7 +193,13 @@ def station_appointment_create(request, station_id, staff=None):
                         raise ValidationError("Выбрана некорректная модель автомобиля")
 
                     client_user, user_created = _get_or_create_client(email)
-                    _save_client_identity(client_user, client_name, client_phone)
+                    if user_created:
+                        _save_client_identity(client_user, client_name, client_phone)
+                    else:
+                        # A station employee may attach a new vehicle to an existing
+                        # pure client by email, but must not rewrite that client's
+                        # global identity/profile shared with other stations.
+                        client_name, client_phone = _canonical_client_identity(client_user)
                     car = Car.objects.create(
                         owner=client_user,
                         model=model,
@@ -174,12 +207,24 @@ def station_appointment_create(request, station_id, staff=None):
                         vin=vin,
                     )
                 else:
-                    car = get_object_or_404(
-                        Car.objects.select_related("model", "owner__profile"),
-                        id=car_id,
-                        is_active=True,
-                        appointments__station_id=station.pk,
+                    # The same car can have many previous visits at this station.
+                    # Only pure client identities may be reused for client bookings.
+                    car = (
+                        Car.objects
+                        .select_related("model", "owner__profile")
+                        .filter(
+                            id=car_id,
+                            is_active=True,
+                            appointments__station_id=station.pk,
+                            owner__station_roles__isnull=True,
+                        )
+                        .distinct()
+                        .first()
                     )
+                    if not car:
+                        raise ValidationError(
+                            "Автомобиль недоступен для клиентской записи на этой станции"
+                        )
                     client_user = car.owner
                     profile = getattr(client_user, "profile", None)
                     client_name = (
@@ -206,6 +251,11 @@ def station_appointment_create(request, station_id, staff=None):
                         image=uploaded,
                     )
 
+                if user_created and client_user.email:
+                    send_password_setup_email(request, client_user)
+                notify_station_staff_booked(appointment)
+                notify_client_booked(appointment)
+
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
             return redirect(request.path)
@@ -218,14 +268,6 @@ def station_appointment_create(request, station_id, staff=None):
             messages.error(request, "Не удалось создать запись. Проверьте данные и попробуйте ещё раз.")
             return redirect(request.path)
 
-        if user_created and client_user and client_user.email:
-            try:
-                send_password_setup_email(request, client_user)
-            except Exception:
-                logger.exception("Failed to send password setup email to %s", client_user.email)
-
-        notify_station_staff_booked(appointment)
-        notify_client_booked(appointment)
         messages.success(request, "Запись создана")
         return redirect("station_appointments", station_id=station_id)
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+import ipaddress
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,13 +20,30 @@ YANDEX_MAPS_API_KEY = os.getenv("YANDEX_MAPS_API_KEY", "")
 
 INSTALLED_APPS = [
     "jazzmin",
-    "django.contrib.admin",
+    "auto_booking.apps.SuperuserOnlyAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "booking",
+]
+
+# Apply Django's standard password quality checks to flows that call
+# django.contrib.auth.password_validation.validate_password().
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
 ]
 
 JAZZMIN_SETTINGS = {
@@ -58,6 +76,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "booking.middleware.StationAccountAccessMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -93,10 +112,45 @@ DATABASES = {
     }
 }
 
+# Authentication rate limiting must use a cache shared by all Gunicorn workers.
+# Docker Compose provides REDIS_URL=redis://redis:6379/1. Local non-Docker
+# development can leave it unset and use Django's default local cache.
+REDIS_URL = os.getenv("REDIS_URL", "")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+
+# X-Forwarded-For is ignored by default. If a reverse proxy is configured,
+# explicitly enable trust and list only the proxy networks that are allowed
+# to provide the header.
+RATE_LIMIT_TRUST_X_FORWARDED_FOR = os.getenv("RATE_LIMIT_TRUST_X_FORWARDED_FOR", "False") == "True"
+RATE_LIMIT_TRUSTED_PROXIES = tuple(
+    ipaddress.ip_network(value.strip(), strict=False)
+    for value in os.getenv("RATE_LIMIT_TRUSTED_PROXIES", "").split(",")
+    if value.strip()
+)
+
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Django 5.1 removed STATICFILES_STORAGE. Configure the WhiteNoise backend via
+# the STORAGES alias so collectstatic really creates hashed/compressed assets.
+# Jazzmin uses one directory path as a JavaScript theme prefix, so the project
+# storage keeps strict manifest lookups for files while allowing that exact base.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "auto_booking.storage.JazzminCompatibleCompressedManifestStaticFilesStorage",
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -115,11 +169,28 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 DEFAULT_CHARSET = "utf-8"
 EMAIL_TIMEOUT = 20
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "application": {"format": "{asctime} {levelname} {name} {message}", "style": "{"},
+    },
+    "handlers": {
+        "application_console": {"class": "logging.StreamHandler", "formatter": "application"},
+    },
+    "loggers": {
+        "booking": {"handlers": ["application_console"], "level": "INFO", "propagate": False},
+    },
+}
+
 _trusted = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _trusted.split(",") if o.strip()]
 
 # Production HTTPS hardening is controlled by env so local HTTP development remains possible.
 SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "False") == "True"
+# Docker probes this exact endpoint over the container's internal HTTP socket.
+# Keep the exemption narrow so user-facing traffic is still redirected to HTTPS.
+SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
 CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False") == "True"
 SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
@@ -131,5 +202,3 @@ SECURE_PROXY_SSL_HEADER = (
     if os.getenv("SECURE_PROXY_SSL_HEADER", "False") == "True"
     else None
 )
-
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

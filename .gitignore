@@ -16,8 +16,13 @@ db.sqlite3
 media/
 staticfiles/
 
+# Local backup archives (may contain production data)
+backups/
+
 # Env files (contains secrets! never commit)
 .env
+.env.production
+.env.local
 
 # IDE
 .vscode/

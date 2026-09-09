@@ -3,23 +3,24 @@ from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from django.shortcuts import render
 
-from booking.models import Appointment, StationStaff
 from booking.station_access import require_station_access
 
 
 @login_required
 @require_station_access()
 def station_clients(request, station_id, staff=None):
-    """Список клиентов станции доступен владельцу и оператору."""
+    """Список чистых клиентских учётных записей станции для владельца и оператора."""
     station = staff.station
     search = request.GET.get("q", "").strip()
 
     users_qs = (
         User.objects
-        .filter(appointments__station=station)
+        .filter(
+            appointments__station=station,
+            station_roles__isnull=True,
+        )
         .distinct()
         .select_related("profile")
-        .prefetch_related("appointments")
     )
 
     if search:

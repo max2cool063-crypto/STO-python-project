@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from booking.input_validation import safe_parse_datetime as parse_datetime
 from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
@@ -28,6 +28,17 @@ def station_appointment_edit(request, station_id, pk, staff=None):
         station=station,
     )
 
+    if request.method != "POST" and appointment.status != "BOOKED":
+        messages.error(
+            request,
+            f"Запись со статусом «{appointment.get_status_display()}» нельзя редактировать",
+        )
+        return redirect(
+            "station_appointment_detail",
+            station_id=station_id,
+            pk=appointment.pk,
+        )
+
     if request.method == "POST":
         start_raw = parse_datetime(request.POST.get("start", ""))
         start = (
@@ -41,9 +52,6 @@ def station_appointment_edit(request, station_id, pk, staff=None):
         if not start:
             messages.error(request, "Укажите дату и время")
             return redirect(request.path)
-        if appointment.start <= timezone.now() and start != appointment.start:
-            messages.error(request, "Прошедшую запись нельзя переносить")
-            return redirect(request.path)
         if start < timezone.now():
             messages.error(request, "Нельзя перенести запись в прошлое")
             return redirect(request.path)
@@ -54,9 +62,34 @@ def station_appointment_edit(request, station_id, pk, staff=None):
                 messages.error(request, error)
             return redirect(request.path)
 
-        old_start = appointment.start
         try:
             with transaction.atomic():
+                # Status/cancellation actions lock the same appointment row. Re-read
+                # it under a lock so a concurrent terminal transition cannot be
+                # overwritten by a stale BOOKED instance from the edit page.
+                appointment = get_object_or_404(
+                    Appointment.objects.select_for_update(of=("self",)).select_related(
+                        "car__model__brand", "user"
+                    ),
+                    pk=pk,
+                    station=station,
+                )
+                if appointment.status != "BOOKED":
+                    messages.error(
+                        request,
+                        f"Запись со статусом «{appointment.get_status_display()}» нельзя редактировать",
+                    )
+                    return redirect(
+                        "station_appointment_detail",
+                        station_id=station_id,
+                        pk=appointment.pk,
+                    )
+
+                if appointment.start <= timezone.now() and start != appointment.start:
+                    messages.error(request, "Прошедшую запись нельзя переносить")
+                    return redirect(request.path)
+
+                old_start = appointment.start
                 # Имя и телефон намеренно не читаются из POST: они являются
                 # зафиксированными данными клиента этой записи.
                 appointment.start = start

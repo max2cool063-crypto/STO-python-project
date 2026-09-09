@@ -10,6 +10,28 @@
   const title = document.getElementById('preview-title');
   const text = document.getElementById('preview-text');
 
+  function localTodayIso() {
+    const now = new Date();
+    const pad = value => String(value).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date.min || '')) {
+    date.min = localTodayIso();
+  }
+
+  function rejectPastDate() {
+    if (date.value && date.value < date.min) {
+      date.value = '';
+      date.setCustomValidity('Нельзя выбрать прошедшую дату');
+      date.reportValidity();
+      date.setCustomValidity('');
+      updatePreview();
+      return true;
+    }
+    return false;
+  }
+
   function updatePreview() {
     if (date.value && start.value && end.value && start.value < end.value) {
       const parts = date.value.split('-');
@@ -21,9 +43,17 @@
     }
   }
 
-  [date, start, end].forEach((element) => element.addEventListener('change', updatePreview));
+  date.addEventListener('change', function () {
+    if (!rejectPastDate()) updatePreview();
+  });
+  [start, end].forEach((element) => element.addEventListener('change', updatePreview));
 
   form.addEventListener('submit', function (event) {
+    if (rejectPastDate()) {
+      event.preventDefault();
+      return;
+    }
+
     if (!date.value) {
       event.preventDefault();
       alert('Выберите дату');

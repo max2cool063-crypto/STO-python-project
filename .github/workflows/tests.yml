@@ -12,7 +12,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:15
         env:
           POSTGRES_DB: sto_test
           POSTGRES_USER: sto_test
@@ -44,7 +44,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           cache: pip
 
       - name: Install dependencies
@@ -53,8 +53,93 @@ jobs:
       - name: Check Django configuration
         run: python manage.py check
 
+      - name: Check production security configuration
+        env:
+          SECRET_KEY: ci-deploy-check-only-9Jk7bA4pQ2sN8vX5mR1tW6yH3cF0zL9uD7eG4iK2oP8aS5nV
+          CSRF_TRUSTED_ORIGINS: https://example.com
+          SECURE_SSL_REDIRECT: "True"
+          SESSION_COOKIE_SECURE: "True"
+          CSRF_COOKIE_SECURE: "True"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+          SECURE_HSTS_PRELOAD: "True"
+        run: python manage.py check --deploy --fail-level WARNING
+
       - name: Check migrations are up to date
         run: python manage.py makemigrations --check --dry-run
 
+      - name: Collect manifest-backed static assets
+        run: python manage.py collectstatic --noinput
+
       - name: Run tests
         run: python manage.py test booking.tests --verbosity 2
+
+  container:
+    name: Production container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Prepare compose environment
+        run: cp .env.example .env
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Validate backup and restore scripts
+        run: bash -n scripts/backup.sh scripts/restore.sh scripts/ci_backup_restore_smoke.sh
+
+      - name: Build production image
+        run: docker build --tag sto-ci:${{ github.sha }} .
+
+      - name: Verify manifest static assets are baked into image
+        run: |
+          docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/booking/css/site.css
+          docker run --rm sto-ci:${{ github.sha }} test -f /app/staticfiles/staticfiles.json
+
+      - name: Build Compose application services
+        run: docker compose build web migrate cron
+
+      - name: Smoke test production HTTPS profile health
+        run: |
+          set -e
+          cleanup() {
+            ENV_FILE=.env.production.example docker compose down -v --remove-orphans >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ENV_FILE=.env.production.example docker compose up -d db redis web
+          web_id="$(ENV_FILE=.env.production.example docker compose ps -q web)"
+          health_host="$(sed -n 's/^ALLOWED_HOSTS=//p' .env.production.example | cut -d, -f1)"
+
+          for attempt in $(seq 1 30); do
+            status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$web_id")"
+            if [ "$status" = "healthy" ]; then
+              break
+            fi
+            if [ "$status" = "unhealthy" ]; then
+              echo "Production web container became unhealthy."
+              docker inspect --format '{{json .State.Health}}' "$web_id"
+              ENV_FILE=.env.production.example docker compose logs web migrate db redis
+              exit 1
+            fi
+            sleep 2
+          done
+
+          status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$web_id")"
+          if [ "$status" != "healthy" ]; then
+            echo "Production web container did not become healthy in time (status: $status)."
+            docker inspect --format '{{json .State.Health}}' "$web_id"
+            ENV_FILE=.env.production.example docker compose logs web migrate db redis
+            exit 1
+          fi
+
+          test -n "$health_host"
+          curl --fail --silent -H "Host: $health_host" http://127.0.0.1:8000/healthz/ | grep -qx 'ok'
+
+      - name: Smoke test PostgreSQL and media restore
+        env:
+          CI_BACKUP_RESTORE_SMOKE: "YES"
+        run: bash scripts/ci_backup_restore_smoke.sh

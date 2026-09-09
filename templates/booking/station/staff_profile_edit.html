@@ -70,7 +70,7 @@
       <h2>Пароль</h2>
       <p>Смена пароля остаётся отдельной операцией и не изменяет имя, контакты или логин.</p>
       {% if member.user_id == request.user.id %}
-        <a href="{% url 'change_password' %}" class="st-btn st-btn--secondary st-btn--wide">Сменить мой пароль</a>
+        <a href="{% url 'station_change_password' %}" class="st-btn st-btn--secondary st-btn--wide">Сменить мой пароль</a>
       {% else %}
         <a href="{% url 'station_staff' station.pk %}" class="st-btn st-btn--secondary st-btn--wide">Управление сотрудниками</a>
       {% endif %}

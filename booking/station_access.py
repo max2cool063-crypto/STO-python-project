@@ -3,10 +3,12 @@
 Использовать во всех views /station/.
 """
 from functools import wraps
-from django.shortcuts import redirect
+
 from django.contrib import messages
+from django.shortcuts import redirect
 from django.utils import timezone
-from booking.models import StationStaff, Station
+
+from booking.models import Station, StationStaff
 
 
 def get_staff_record(user, station_id):
@@ -42,6 +44,8 @@ def require_station_access(role=None):
     Также активирует часовой пояс самой станции на время выполнения view,
     чтобы timezone.now(), date-фильтры и шаблоны использовали местное время станции.
     """
+    allowed_roles = None if role is None else {role}
+
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, station_id, *args, **kwargs):
@@ -53,8 +57,14 @@ def require_station_access(role=None):
                 messages.error(request, "У вас нет доступа к этой станции")
                 return redirect("station_select")
 
-            if role == StationStaff.ROLE_OWNER and staff.role != StationStaff.ROLE_OWNER:
-                messages.error(request, "Это действие доступно только владельцу станции")
+            if allowed_roles is not None and staff.role not in allowed_roles:
+                if role == StationStaff.ROLE_OWNER:
+                    message = "Это действие доступно только владельцу станции"
+                elif role == StationStaff.ROLE_OPERATOR:
+                    message = "Это действие доступно только оператору станции"
+                else:
+                    message = "Недостаточно прав для этого действия"
+                messages.error(request, message)
                 return redirect("station_dashboard", station_id=station_id)
 
             kwargs["staff"] = staff

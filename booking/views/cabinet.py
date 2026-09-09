@@ -5,13 +5,24 @@ import zipfile
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import FileResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from booking.forms import CarForm, ProfileForm
-from booking.models import UserProfile, Car, Brand, Appointment, AppointmentPhoto, StationStaff
+from booking.models import (
+    Appointment,
+    AppointmentLog,
+    AppointmentPhoto,
+    Brand,
+    Car,
+    StationStaff,
+    UserProfile,
+)
 from booking.notifications import (
     notify_client_cancelled,
     notify_station_staff_cancelled,
@@ -101,17 +112,31 @@ def cabinet_car_delete(request, pk):
 @login_required
 @require_POST
 def cabinet_cancel_appointment(request, pk):
-    appt = get_object_or_404(Appointment, pk=pk, user=request.user)
-    if appt.start <= timezone.now():
-        messages.error(request, "Нельзя отменить уже прошедшее ТО")
-        return redirect("cabinet_appointments")
-    if appt.status != "BOOKED":
-        messages.error(request, "Запись уже отменена или завершена")
-        return redirect("cabinet_appointments")
-    appt.status = "CANCELLED"
-    appt.save()
-    notify_client_cancelled(appt, cancelled_by_station=False)
-    notify_station_staff_cancelled(appt)
+    with transaction.atomic():
+        appt = get_object_or_404(
+            Appointment.objects.select_for_update(),
+            pk=pk,
+            user=request.user,
+        )
+        if appt.start <= timezone.now():
+            messages.error(request, "Нельзя отменить уже прошедшее ТО")
+            return redirect("cabinet_appointments")
+        if appt.status != "BOOKED":
+            messages.error(request, "Запись уже отменена или завершена")
+            return redirect("cabinet_appointments")
+
+        appt.status = "CANCELLED"
+        appt.save()
+        AppointmentLog.objects.create(
+            appointment=appt,
+            changed_by=request.user,
+            old_status="BOOKED",
+            new_status="CANCELLED",
+            comment="Отменено клиентом",
+        )
+
+        notify_client_cancelled(appt, cancelled_by_station=False)
+        notify_station_staff_cancelled(appt)
     create_station_staff_cancellation_notifications(appt)
     messages.success(request, "Запись отменена")
     return redirect("cabinet_appointments")
@@ -140,7 +165,7 @@ def appointment_photos_zip(request, pk):
 
 @login_required
 def protected_media(request, path):
-    """Serve appointment photos only to the owner, station staff, or Django staff."""
+    """Serve appointment photos only to the client owner, assigned station staff, or pure system admin."""
     raw_path = urllib.parse.unquote((path or "").lstrip("/"))
     candidates = [raw_path]
     for prefix in ("media/", "/media/"):
@@ -156,10 +181,19 @@ def protected_media(request, path):
     if not photo:
         raise Http404("AppointmentPhoto not found")
 
-    is_owner = photo.appointment.user_id == request.user.id
-    is_django_staff = request.user.is_staff
-    is_station_staff = StationStaff.objects.filter(user=request.user, station=photo.appointment.station, is_active=True).exists()
-    if not (is_owner or is_django_staff or is_station_staff):
+    has_station_account = StationStaff.objects.filter(user=request.user).exists()
+    is_owner = not has_station_account and photo.appointment.user_id == request.user.id
+    is_system_admin = (
+        not has_station_account
+        and request.user.is_active
+        and request.user.is_superuser
+    )
+    is_station_staff = StationStaff.objects.filter(
+        user=request.user,
+        station=photo.appointment.station,
+        is_active=True,
+    ).exists()
+    if not (is_owner or is_system_admin or is_station_staff):
         raise Http404
 
     try:
@@ -172,22 +206,25 @@ def protected_media(request, path):
 
 @login_required
 def change_password(request):
-    from django.contrib.auth import update_session_auth_hash
     if request.method == "POST":
         current = request.POST.get("current_password", "")
-        new_pwd = request.POST.get("new_password", "").strip()
-        confirm = request.POST.get("confirm_password", "").strip()
+        new_pwd = request.POST.get("new_password", "")
+        confirm = request.POST.get("confirm_password", "")
         if not request.user.check_password(current):
             messages.error(request, "Неверный текущий пароль")
-            return redirect("change_password")
-        if len(new_pwd) < 8:
-            messages.error(request, "Новый пароль должен быть не менее 8 символов")
             return redirect("change_password")
         if new_pwd != confirm:
             messages.error(request, "Пароли не совпадают")
             return redirect("change_password")
+        try:
+            validate_password(new_pwd, request.user)
+        except ValidationError as exc:
+            for error in exc.messages:
+                messages.error(request, error)
+            return redirect("change_password")
         request.user.set_password(new_pwd)
         request.user.save()
+        from django.contrib.auth import update_session_auth_hash
         update_session_auth_hash(request, request.user)
         messages.success(request, "Пароль успешно изменён")
         return redirect("cabinet")

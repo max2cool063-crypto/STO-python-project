@@ -1,21 +1,20 @@
 """
 Все email-уведомления проекта в одном месте.
-Все функции используют fail_silently=True — ошибка отправки
-не должна ломать основной бизнес-процесс.
+Письма сохраняются в transactional outbox. Отправка выполняется отдельным worker.
 """
-from django.core.mail import send_mail as _send_mail
+import logging
+
 from django.conf import settings
+from booking.email_queue import enqueue_mail
+
+logger = logging.getLogger(__name__)
 
 
-def _send(subject, body, recipients):
-    """Базовая отправка — фильтрует пустые адреса."""
-    to = [r for r in recipients if r and "@" in r]
-    if not to:
-        return
-    try:
-        _send_mail(subject, body, settings.DEFAULT_FROM_EMAIL or None, to, fail_silently=True)
-    except Exception:
-        pass
+def _send(subject, body, recipients, *, kind, appointment):
+    """True means persisted/previously queued, not delivered."""
+    return enqueue_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients,
+        event_key=f"{kind}:{appointment.pk}:{appointment.notification_revision}",
+        kind=kind, appointment=appointment) > 0
 
 
 def notify_client_booked(appointment):
@@ -23,6 +22,7 @@ def notify_client_booked(appointment):
     email = appointment.user.email
     if not email:
         return
+    local_start = appointment.local_start
     _send(
         subject=f"Запись на ТО подтверждена — {appointment.station.name}",
         body=(
@@ -30,11 +30,12 @@ def notify_client_booked(appointment):
             f"Ваша запись на технический осмотр подтверждена.\n\n"
             f"Станция: {appointment.station.name}\n"
             f"Адрес: {appointment.station.address}\n"
-            f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
+            f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}\n"
             f"Автомобиль: {appointment.car}\n\n"
             f"Если вы не сможете приехать — отмените запись в личном кабинете.\n"
         ),
         recipients=[email],
+        kind="booking", appointment=appointment,
     )
 
 
@@ -43,37 +44,41 @@ def notify_client_cancelled(appointment, cancelled_by_station=False):
     email = appointment.user.email
     if not email:
         return
+    local_start = appointment.local_start
     reason = "Запись была отменена сотрудником станции." if cancelled_by_station else "Вы отменили запись."
     _send(
         subject=f"Запись на ТО отменена — {appointment.station.name}",
         body=(
             f"Здравствуйте, {appointment.name}!\n\n{reason}\n\n"
             f"Станция: {appointment.station.name}\n"
-            f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
+            f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}\n"
             f"Автомобиль: {appointment.car}\n\n"
             f"Вы можете записаться на другое время на нашем сайте.\n"
         ),
         recipients=[email],
+        kind="cancellation", appointment=appointment,
     )
 
 
 def notify_client_reminder(appointment):
-    """Напоминание клиенту за день до ТО."""
+    """Напоминание клиенту за день до ТО. True означает сохранение в очереди."""
     email = appointment.user.email
     if not email:
-        return
-    _send(
+        return False
+    local_start = appointment.local_start
+    return _send(
         subject=f"Напоминание: завтра ТО — {appointment.station.name}",
         body=(
             f"Здравствуйте, {appointment.name}!\n\n"
             f"Напоминаем, что завтра у вас запись на технический осмотр.\n\n"
             f"Станция: {appointment.station.name}\n"
             f"Адрес: {appointment.station.address}\n"
-            f"Время: {appointment.start.strftime('%H:%M')}\n"
+            f"Время: {local_start.strftime('%H:%M')}\n"
             f"Автомобиль: {appointment.car}\n\n"
             f"Если вы не сможете приехать — отмените запись в личном кабинете.\n"
         ),
         recipients=[email],
+        kind="reminder", appointment=appointment,
     )
 
 
@@ -92,16 +97,18 @@ def notify_station_staff_booked(appointment):
     )
     if not recipients:
         return
+    local_start = appointment.local_start
     _send(
         subject=f"Новая запись на ТО — {station.name}",
         body=(
-            f"Новая запись на {appointment.start.strftime('%d.%m.%Y в %H:%M')}.\n\n"
+            f"Новая запись на {local_start.strftime('%d.%m.%Y в %H:%M')}.\n\n"
             f"Клиент: {appointment.name}\n"
             f"Телефон: {appointment.phone or '—'}\n"
             f"Автомобиль: {appointment.car}\n"
             f"VIN: {appointment.vin or '—'}\n"
         ),
         recipients=recipients,
+        kind="staff_booking", appointment=appointment,
     )
 
 
@@ -122,6 +129,7 @@ def notify_station_staff_cancelled(appointment):
     if not recipients:
         return
 
+    local_start = appointment.local_start
     _send(
         subject=f"Клиент отменил запись — {station.name}",
         body=(
@@ -130,9 +138,10 @@ def notify_station_staff_cancelled(appointment):
             f"Телефон: {appointment.phone or '—'}\n"
             f"Автомобиль: {appointment.car}\n"
             f"VIN: {appointment.vin or '—'}\n"
-            f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}\n"
+            f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}\n"
         ),
         recipients=recipients,
+        kind="staff_cancellation", appointment=appointment,
     )
 
 
@@ -151,11 +160,12 @@ def create_station_staff_notifications(appointment):
     if not staff_ids:
         return 0
 
+    local_start = appointment.local_start
     client = appointment.name or appointment.user.get_full_name() or appointment.user.username
     message = (
         f"Клиент: {client}\n"
         f"Автомобиль: {appointment.car}\n"
-        f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}"
+        f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}"
     )
     try:
         Notification.objects.bulk_create([
@@ -171,6 +181,7 @@ def create_station_staff_notifications(appointment):
         ])
     except Exception:
         # Внутреннее уведомление не должно отменять уже созданную запись.
+        logger.exception("Failed to create booking notifications: appointment_id=%s", appointment.pk)
         return 0
     return len(staff_ids)
 
@@ -190,12 +201,13 @@ def create_station_staff_cancellation_notifications(appointment):
     if not staff_ids:
         return 0
 
+    local_start = appointment.local_start
     message = (
         f"Клиент: {appointment.name}\n"
         f"Телефон: {appointment.phone or '—'}\n"
         f"Автомобиль: {appointment.car}\n"
         f"VIN: {appointment.vin or '—'}\n"
-        f"Дата и время: {appointment.start.strftime('%d.%m.%Y в %H:%M')}"
+        f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}"
     )
     try:
         Notification.objects.bulk_create([
@@ -203,12 +215,13 @@ def create_station_staff_cancellation_notifications(appointment):
                 recipient_id=user_id,
                 station=station,
                 appointment=appointment,
-                notification_type="APPOINTMENT_CANCELLED",
+                notification_type=Notification.TYPE_APPOINTMENT_CANCELLED,
                 title="Клиент отменил запись",
                 message=message,
             )
             for user_id in staff_ids
         ])
     except Exception:
+        logger.exception("Failed to create cancellation notifications: appointment_id=%s", appointment.pk)
         return 0
     return len(staff_ids)

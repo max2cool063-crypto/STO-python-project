@@ -32,6 +32,7 @@
   white-space: nowrap;
 }
 .st-badge--booked { background: #e8f0ff; color: #155eef; }
+.st-badge--awaiting_result { background: #fff4d6; color: #9a6700; }
 .st-badge--done { background: #eaf8ef; color: #137333; }
 .st-badge--cancelled { background: #f1f5f9; color: #64748b; }
 .st-badge--noshow { background: #fff4d6; color: #9a6700; }

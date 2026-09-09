@@ -5,8 +5,8 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-  <a href="/admin/">Главная</a> › 
-  <a href="/admin/booking/station/">Станции ТО</a> › 
+  <a href="/admin/">Главная</a> ›
+  <a href="/admin/booking/station/">Станции ТО</a> ›
   Импорт из РСА
 </div>
 {% endblock %}
@@ -79,60 +79,128 @@
 </div>
 
 <script>
-let eventSource = null;
+let importController = null;
 let statsCreated = 0, statsSkipped = 0, statsErrors = 0;
 
-function startImport() {
+function getCsrfToken() {
+  const name = 'csrftoken=';
+  const cookie = document.cookie.split(';').map(item => item.trim()).find(item => item.startsWith(name));
+  return cookie ? decodeURIComponent(cookie.substring(name.length)) : '';
+}
+
+function setImportUiBusy(busy) {
+  document.getElementById('start-btn').disabled = busy;
+  document.getElementById('start-btn').textContent = busy ? '⏳ Идёт импорт...' : '🔄 Начать импорт';
+  document.getElementById('address-input').disabled = busy;
+  document.getElementById('pages-input').disabled = busy;
+}
+
+async function startImport() {
   const address = document.getElementById('address-input').value.trim();
-  const pages = document.getElementById('pages-input').value;
+  const pages = Number(document.getElementById('pages-input').value);
+
+  if (!Number.isInteger(pages) || pages < 1 || pages > 128) {
+    appendLog('❌ Количество страниц должно быть от 1 до 128');
+    return;
+  }
 
   document.getElementById('progress-block').style.display = 'block';
   document.getElementById('log-block').style.display = 'block';
-  document.getElementById('start-btn').disabled = true;
-  document.getElementById('start-btn').textContent = '⏳ Идёт импорт...';
-  document.getElementById('address-input').disabled = true;
-  document.getElementById('pages-input').disabled = true;
+  document.getElementById('done-block').style.display = 'none';
+  setImportUiBusy(true);
 
   statsCreated = 0; statsSkipped = 0; statsErrors = 0;
   updateStats();
 
-  const url = `/admin/booking/station/import-rsa-stream/?address=${encodeURIComponent(address)}&pages=${encodeURIComponent(pages)}`;
-  eventSource = new EventSource(url);
+  importController = new AbortController();
 
-  eventSource.onmessage = function(e) {
-    const data = JSON.parse(e.data);
+  try {
+    const body = new URLSearchParams({ address, pages: String(pages) });
+    const response = await fetch('/admin/booking/station/import-rsa-stream/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body,
+      credentials: 'same-origin',
+      signal: importController.signal,
+    });
 
-    if (data.type === 'progress') {
-      const pct = Math.round((data.page / data.total_pages) * 100);
-      document.getElementById('progress-bar').style.width = pct + '%';
-      document.getElementById('progress-percent').textContent = pct + '%';
-      document.getElementById('progress-label').textContent = `Страница ${data.page} из ${data.total_pages}...`;
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `HTTP ${response.status}`);
     }
 
-    if (data.type === 'log') {
-      appendLog(data.message);
-      if (data.message.startsWith('✅')) statsCreated++;
-      else if (data.message.startsWith('⏭')) statsSkipped++;
-      else if (data.message.startsWith('⚠️') || data.message.startsWith('❌')) statsErrors++;
-      updateStats();
+    if (!response.body) {
+      throw new Error('Браузер не поддерживает потоковое чтение ответа');
     }
 
-    if (data.type === 'done') {
-      document.getElementById('progress-bar').style.width = '100%';
-      document.getElementById('progress-percent').textContent = '100%';
-      document.getElementById('progress-label').textContent = '✅ Импорт завершён!';
-      document.getElementById('done-block').style.display = 'block';
-      appendLog('\n🏁 ' + data.message);
-      eventSource.close();
-    }
-  };
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let doneReceived = false;
 
-  eventSource.onerror = function() {
-    appendLog('❌ Соединение прервано');
-    document.getElementById('progress-label').textContent = 'Ошибка соединения';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const events = buffer.split('\n\n');
+      buffer = events.pop();
+      for (const event of events) {
+        processEvent(event);
+        if (event.includes('"type": "done"') || event.includes('"type":"done"')) {
+          doneReceived = true;
+        }
+      }
+    }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) processEvent(buffer);
+
+    if (!doneReceived) {
+      throw new Error('Импорт завершился без сообщения о завершении');
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') return;
+    appendLog('❌ ' + error.message);
+    document.getElementById('progress-label').textContent = 'Ошибка импорта';
     document.getElementById('done-block').style.display = 'block';
-    if (eventSource) eventSource.close();
-  };
+  } finally {
+    importController = null;
+    setImportUiBusy(false);
+  }
+}
+
+function processEvent(event) {
+  const line = event.split('\n').find(item => item.startsWith('data:'));
+  if (!line) return;
+
+  const data = JSON.parse(line.substring(5).trim());
+
+  if (data.type === 'progress') {
+    const pct = Math.round((data.page / data.total_pages) * 100);
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-percent').textContent = pct + '%';
+    document.getElementById('progress-label').textContent = `Страница ${data.page} из ${data.total_pages}...`;
+  }
+
+  if (data.type === 'log') {
+    appendLog(data.message);
+    if (data.message.startsWith('✅')) statsCreated++;
+    else if (data.message.startsWith('⏭')) statsSkipped++;
+    else if (data.message.startsWith('⚠️') || data.message.startsWith('❌')) statsErrors++;
+    updateStats();
+  }
+
+  if (data.type === 'done') {
+    document.getElementById('progress-bar').style.width = '100%';
+    document.getElementById('progress-percent').textContent = '100%';
+    document.getElementById('progress-label').textContent = '✅ Импорт завершён!';
+    document.getElementById('done-block').style.display = 'block';
+    appendLog('\n🏁 ' + data.message);
+  }
 }
 
 function appendLog(message) {
@@ -160,15 +228,12 @@ function updateStats() {
 }
 
 function resetForm() {
-  if (eventSource) eventSource.close();
+  if (importController) importController.abort();
   document.getElementById('progress-block').style.display = 'none';
   document.getElementById('log-block').style.display = 'none';
   document.getElementById('done-block').style.display = 'none';
   document.getElementById('log-container').innerHTML = '';
-  document.getElementById('start-btn').disabled = false;
-  document.getElementById('start-btn').textContent = '🔄 Начать импорт';
-  document.getElementById('address-input').disabled = false;
-  document.getElementById('pages-input').disabled = false;
+  setImportUiBusy(false);
   document.getElementById('progress-bar').style.width = '0%';
   document.getElementById('progress-percent').textContent = '0%';
   document.getElementById('progress-label').textContent = 'Подготовка...';

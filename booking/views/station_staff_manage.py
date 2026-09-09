@@ -1,36 +1,104 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from booking.email_queue import enqueue_mail as send_mail
+from django.core.validators import validate_email
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from booking.forms import normalize_ru_phone
+from booking.input_validation import validate_user_fields
 from booking.models import StationStaff, UserProfile
 from booking.station_access import require_station_access
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+def _validate_optional_email(value):
+    email = (value or "").strip().lower()
+    if email:
+        validate_email(email)
+        validate_user_fields(email=email)
+    return email
 
 
 @login_required
 @require_station_access(role=StationStaff.ROLE_OWNER)
+@require_http_methods(["GET", "POST"])
+def station_staff(request, station_id, staff=None):
+    """Управление сотрудниками станции с единым контролем паролей и доступа."""
+    station = staff.station
+    staff_list = (
+        StationStaff.objects
+        .filter(station=station)
+        .select_related("user__profile", "created_by")
+        .order_by("role", "-is_active", "created_at")
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "toggle_active":
+            member_id = request.POST.get("member_id")
+            member = get_object_or_404(StationStaff, pk=member_id, station=station)
+            if member.role != StationStaff.ROLE_OPERATOR:
+                messages.error(request, "Через кабинет станции можно управлять доступом только операторов")
+            else:
+                member.is_active = not member.is_active
+                member.save(update_fields=["is_active"])
+                status_str = "активирован" if member.is_active else "деактивирован"
+                messages.success(request, f"Сотрудник {status_str}")
+
+        elif action == "reset_password":
+            member_id = request.POST.get("member_id")
+            new_password = request.POST.get("new_password", "")
+            member = get_object_or_404(StationStaff, pk=member_id, station=station)
+
+            if member.role != StationStaff.ROLE_OPERATOR:
+                messages.error(request, "Через кабинет станции можно менять пароль только оператору")
+            else:
+                try:
+                    validate_password(new_password, member.user)
+                except ValidationError as exc:
+                    for error in exc.messages:
+                        messages.error(request, error)
+                else:
+                    member.user.set_password(new_password)
+                    member.user.save(update_fields=["password"])
+                    messages.success(request, f"Пароль сотрудника «{member.user.username}» изменён")
+
+        return redirect("station_staff", station_id=station_id)
+
+    return render(request, "booking/station/staff.html", {
+        "station": station,
+        "staff": staff,
+        "staff_list": staff_list,
+    })
+
+
+@login_required
+@require_station_access(role=StationStaff.ROLE_OWNER)
+@require_POST
 def station_staff_create_operator(request, station_id, staff=None):
     station = staff.station
-    if request.method != "POST":
-        return redirect("station_staff", station_id=station_id)
 
     login = request.POST.get("login", "").strip()
     password = request.POST.get("password", "")
-    email = request.POST.get("email", "").strip().lower()
+    raw_email = request.POST.get("email", "")
     first_name = request.POST.get("first_name", "").strip()
     last_name = request.POST.get("last_name", "").strip()
     raw_phone = request.POST.get("phone", "")
 
     try:
         phone = normalize_ru_phone(raw_phone)
+        email = _validate_optional_email(raw_email)
+        validate_user_fields(username=login, first_name=first_name, last_name=last_name)
     except ValidationError as exc:
         for error in exc.messages:
             messages.error(request, error)
@@ -46,8 +114,14 @@ def station_staff_create_operator(request, station_id, staff=None):
         messages.error(request, "Пользователь с таким email уже существует")
         return redirect("station_staff", station_id=station_id)
 
+    candidate_user = User(
+        username=login,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+    )
     try:
-        validate_password(password)
+        validate_password(password, candidate_user)
     except ValidationError as exc:
         for error in exc.messages:
             messages.error(request, error)
@@ -71,8 +145,7 @@ def station_staff_create_operator(request, station_id, staff=None):
             created_by=request.user,
         )
 
-    if email:
-        try:
+        if email:
             send_mail(
                 "Доступ к кабинету станции СТО",
                 (
@@ -83,10 +156,9 @@ def station_staff_create_operator(request, station_id, staff=None):
                 ),
                 None,
                 [email],
-                fail_silently=True,
+                fail_silently=False,
+                kind="welcome", user=user, event_key=f"welcome:{user.pk}",
             )
-        except Exception:
-            pass
 
     messages.success(request, f"Оператор «{login}» создан")
     return redirect("station_staff", station_id=station_id)
@@ -110,21 +182,23 @@ def station_staff_edit_profile(request, station_id, member_id, staff=None):
     profile, _ = UserProfile.objects.get_or_create(user=member.user)
 
     if request.method == "POST":
-        email = request.POST.get("email", "").strip().lower()
+        raw_email = request.POST.get("email", "")
         first_name = request.POST.get("first_name", "").strip()
         last_name = request.POST.get("last_name", "").strip()
         raw_phone = request.POST.get("phone", "")
         receive_notifications = request.POST.get("receive_notifications") == "on"
 
-        if email and User.objects.filter(email__iexact=email).exclude(pk=member.user_id).exists():
-            messages.error(request, "Этот email уже используется другим пользователем")
-            return redirect(request.path)
-
         try:
+            email = _validate_optional_email(raw_email)
             phone = normalize_ru_phone(raw_phone)
+            validate_user_fields(first_name=first_name, last_name=last_name)
         except ValidationError as exc:
             for error in exc.messages:
                 messages.error(request, error)
+            return redirect(request.path)
+
+        if email and User.objects.filter(email__iexact=email).exclude(pk=member.user_id).exists():
+            messages.error(request, "Этот email уже используется другим пользователем")
             return redirect(request.path)
 
         member.user.email = email
