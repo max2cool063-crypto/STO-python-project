@@ -1,14 +1,17 @@
 import logging
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
+from booking.email_queue import enqueue_mail as send_mail
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.db import IntegrityError
+from django.core.validators import MaxLengthValidator, validate_email
+from django.db import IntegrityError, transaction
+from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
@@ -19,6 +22,7 @@ from django.core.cache import cache
 
 from booking.account_access import DEACTIVATED_STAFF_MESSAGE, get_station_account_state
 from booking.security import LOGIN_IP_RATE_LIMIT, LOGIN_RATE_LIMIT, REGISTRATION_RATE_LIMIT
+from booking.input_validation import validate_user_fields
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -44,6 +48,8 @@ def send_password_setup_email(request, user):
         None,
         [user.email],
         fail_silently=False,
+        kind="password", user=user, auth_token=token,
+        expires_at=timezone.now() + timedelta(seconds=settings.PASSWORD_RESET_TIMEOUT),
     )
 
 
@@ -77,6 +83,7 @@ def register(request):
 
         try:
             validate_email(email)
+            validate_user_fields(email=email)
         except ValidationError:
             messages.error(request, "Некорректный формат email")
             return redirect("register")
@@ -84,6 +91,14 @@ def register(request):
         user = User.objects.filter(email__iexact=email).order_by("id").first()
         if user:
             return _finish_registration_request(request, user)
+
+        try:
+            # Email local-parts allow characters that Django's username regex
+            # rejects. Preserve existing email login support; constrain length.
+            MaxLengthValidator(User._meta.get_field("username").max_length)(email)
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+            return redirect("register")
 
         # Client accounts use the normalized email as the Django username. If
         # that username was historically assigned to a different identity (for
@@ -95,10 +110,11 @@ def register(request):
             return redirect("login")
 
         try:
-            user = User.objects.create_user(
-                username=email,
-                email=email,
-            )
+            with transaction.atomic():
+                user = User.objects.create_user(username=email, email=email)
+                user.set_unusable_password()
+                user.save(update_fields=["password"])
+                return _finish_registration_request(request, user, delete_on_mail_failure=True)
         except IntegrityError:
             # Two public registration requests for the same new address can pass
             # the initial lookup concurrently. The unique username is the final
@@ -112,14 +128,6 @@ def register(request):
                 messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
                 return redirect("login")
             return _finish_registration_request(request, user)
-
-        user.set_unusable_password()
-        user.save(update_fields=["password"])
-        return _finish_registration_request(
-            request,
-            user,
-            delete_on_mail_failure=True,
-        )
 
     return render(request, "registration/register.html")
 

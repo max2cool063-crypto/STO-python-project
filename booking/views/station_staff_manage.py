@@ -1,25 +1,30 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from booking.email_queue import enqueue_mail as send_mail
 from django.core.validators import validate_email
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from booking.forms import normalize_ru_phone
+from booking.input_validation import validate_user_fields
 from booking.models import StationStaff, UserProfile
 from booking.station_access import require_station_access
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 def _validate_optional_email(value):
     email = (value or "").strip().lower()
     if email:
         validate_email(email)
+        validate_user_fields(email=email)
     return email
 
 
@@ -93,6 +98,7 @@ def station_staff_create_operator(request, station_id, staff=None):
     try:
         phone = normalize_ru_phone(raw_phone)
         email = _validate_optional_email(raw_email)
+        validate_user_fields(username=login, first_name=first_name, last_name=last_name)
     except ValidationError as exc:
         for error in exc.messages:
             messages.error(request, error)
@@ -139,8 +145,7 @@ def station_staff_create_operator(request, station_id, staff=None):
             created_by=request.user,
         )
 
-    if email:
-        try:
+        if email:
             send_mail(
                 "Доступ к кабинету станции СТО",
                 (
@@ -151,10 +156,9 @@ def station_staff_create_operator(request, station_id, staff=None):
                 ),
                 None,
                 [email],
-                fail_silently=True,
+                fail_silently=False,
+                kind="welcome", user=user, event_key=f"welcome:{user.pk}",
             )
-        except Exception:
-            pass
 
     messages.success(request, f"Оператор «{login}» создан")
     return redirect("station_staff", station_id=station_id)
@@ -187,6 +191,7 @@ def station_staff_edit_profile(request, station_id, member_id, staff=None):
         try:
             email = _validate_optional_email(raw_email)
             phone = normalize_ru_phone(raw_phone)
+            validate_user_fields(first_name=first_name, last_name=last_name)
         except ValidationError as exc:
             for error in exc.messages:
                 messages.error(request, error)

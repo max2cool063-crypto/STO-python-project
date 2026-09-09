@@ -1,27 +1,20 @@
 """
 Все email-уведомления проекта в одном месте.
-Ошибки отправки не должны ломать основной бизнес-процесс, но базовая
-функция возвращает признак фактической передачи письма почтовому backend.
+Письма сохраняются в transactional outbox. Отправка выполняется отдельным worker.
 """
-from django.core.mail import send_mail as _send_mail
+import logging
+
 from django.conf import settings
+from booking.email_queue import enqueue_mail
+
+logger = logging.getLogger(__name__)
 
 
-def _send(subject, body, recipients):
-    """Базовая отправка — фильтрует пустые адреса и сообщает об успехе."""
-    to = [r for r in recipients if r and "@" in r]
-    if not to:
-        return False
-    try:
-        return _send_mail(
-            subject,
-            body,
-            settings.DEFAULT_FROM_EMAIL or None,
-            to,
-            fail_silently=True,
-        ) > 0
-    except Exception:
-        return False
+def _send(subject, body, recipients, *, kind, appointment):
+    """True means persisted/previously queued, not delivered."""
+    return enqueue_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients,
+        event_key=f"{kind}:{appointment.pk}:{appointment.notification_revision}",
+        kind=kind, appointment=appointment) > 0
 
 
 def notify_client_booked(appointment):
@@ -42,6 +35,7 @@ def notify_client_booked(appointment):
             f"Если вы не сможете приехать — отмените запись в личном кабинете.\n"
         ),
         recipients=[email],
+        kind="booking", appointment=appointment,
     )
 
 
@@ -62,11 +56,12 @@ def notify_client_cancelled(appointment, cancelled_by_station=False):
             f"Вы можете записаться на другое время на нашем сайте.\n"
         ),
         recipients=[email],
+        kind="cancellation", appointment=appointment,
     )
 
 
 def notify_client_reminder(appointment):
-    """Напоминание клиенту за день до ТО. Возвращает True при успешной отправке."""
+    """Напоминание клиенту за день до ТО. True означает сохранение в очереди."""
     email = appointment.user.email
     if not email:
         return False
@@ -83,6 +78,7 @@ def notify_client_reminder(appointment):
             f"Если вы не сможете приехать — отмените запись в личном кабинете.\n"
         ),
         recipients=[email],
+        kind="reminder", appointment=appointment,
     )
 
 
@@ -112,6 +108,7 @@ def notify_station_staff_booked(appointment):
             f"VIN: {appointment.vin or '—'}\n"
         ),
         recipients=recipients,
+        kind="staff_booking", appointment=appointment,
     )
 
 
@@ -144,6 +141,7 @@ def notify_station_staff_cancelled(appointment):
             f"Дата и время: {local_start.strftime('%d.%m.%Y в %H:%M')}\n"
         ),
         recipients=recipients,
+        kind="staff_cancellation", appointment=appointment,
     )
 
 
@@ -183,6 +181,7 @@ def create_station_staff_notifications(appointment):
         ])
     except Exception:
         # Внутреннее уведомление не должно отменять уже созданную запись.
+        logger.exception("Failed to create booking notifications: appointment_id=%s", appointment.pk)
         return 0
     return len(staff_ids)
 
@@ -223,5 +222,6 @@ def create_station_staff_cancellation_notifications(appointment):
             for user_id in staff_ids
         ])
     except Exception:
+        logger.exception("Failed to create cancellation notifications: appointment_id=%s", appointment.pk)
         return 0
     return len(staff_ids)

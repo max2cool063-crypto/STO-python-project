@@ -1,4 +1,5 @@
 from datetime import timedelta
+import logging
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -6,6 +7,8 @@ from django.utils import timezone
 
 from booking.models import Appointment
 from booking.notifications import notify_client_reminder
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -25,14 +28,13 @@ class Command(BaseCommand):
             ).values_list("pk", flat=True)
         )
 
-        sent = 0
+        queued = 0
         for appointment_id in appointment_ids:
-            # Повторный запуск команды не должен отправлять второе письмо.
-            # Блокировка строки также защищает от двух одновременно работающих
-            # экземпляров команды.
+            # Persist the reminder while the appointment is locked. SMTP runs
+            # later outside this transaction; the outbox key prevents duplicates.
             with transaction.atomic():
                 appt = (
-                    Appointment.objects.select_for_update()
+                    Appointment.objects.select_for_update(of=("self",))
                     .select_related("user", "car__model__brand", "station")
                     .filter(
                         pk=appointment_id,
@@ -47,9 +49,6 @@ class Command(BaseCommand):
                     continue
 
                 if notify_client_reminder(appt):
-                    Appointment.objects.filter(pk=appt.pk).update(
-                        reminder_sent_at=timezone.now()
-                    )
-                    sent += 1
+                    queued += 1
 
-        self.stdout.write(self.style.SUCCESS(f"Напоминаний отправлено: {sent}"))
+        self.stdout.write(self.style.SUCCESS(f"Напоминаний подтверждено в очереди: {queued}"))

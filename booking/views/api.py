@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.utils.dateparse import parse_date
+from booking.input_validation import safe_parse_date as parse_date
 from django.views.decorators.http import require_GET
 
 from booking.models import Brand, CarModel, Station, Car, StationStaff

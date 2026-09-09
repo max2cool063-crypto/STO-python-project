@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
-from django.utils.dateparse import parse_date, parse_time
+from booking.input_validation import safe_parse_date as parse_date, safe_parse_time as parse_time
 
 from booking.models import Appointment, SlotBlock, Station, StationSchedule, StationWeeklySchedule
 from booking.station_access import get_user_stations, require_station_access
@@ -312,7 +312,7 @@ def station_slot_blocks(request, station_id, staff=None):
         action = request.POST.get("action")
 
         if action == "add":
-            from django.utils.dateparse import parse_datetime
+            from booking.input_validation import safe_parse_datetime as parse_datetime
             from django.utils.timezone import make_aware, is_aware
             start_raw = parse_datetime(request.POST.get("start", ""))
             end_raw = parse_datetime(request.POST.get("end", ""))

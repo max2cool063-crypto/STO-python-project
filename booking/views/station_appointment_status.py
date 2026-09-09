@@ -77,12 +77,12 @@ def station_appointment_status(request, station_id, pk, staff=None):
                 comment=comment,
             )
 
+            if new_status == "CANCELLED" and old_status == "BOOKED":
+                notify_client_cancelled(appt, cancelled_by_station=True)
+
     except ValidationError as exc:
         messages.error(request, "; ".join(exc.messages))
         return redirect("station_appointments", station_id=station_id)
-
-    if new_status == "CANCELLED" and old_status == "BOOKED":
-        notify_client_cancelled(appt, cancelled_by_station=True)
 
     messages.success(request, f"Статус изменён: {appt.get_status_display()}")
     return redirect("station_appointments", station_id=station_id)

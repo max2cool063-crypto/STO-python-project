@@ -1,0 +1,17 @@
+# Only for the disposable backup/restore check; never publishes a host port.
+services:
+  web:
+    image: ${SMOKE_IMAGE:-sto-ci-smoke-app:local}
+    ports: !reset []
+    environment:
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+  migrate:
+    image: ${SMOKE_IMAGE:-sto-ci-smoke-app:local}
+  mail:
+    image: ${SMOKE_IMAGE:-sto-ci-smoke-app:local}
+    environment:
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+  cron:
+    image: ${SMOKE_IMAGE:-sto-ci-smoke-app:local}
+    environment:
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend

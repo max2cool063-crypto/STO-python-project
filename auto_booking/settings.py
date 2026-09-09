@@ -169,6 +169,20 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 DEFAULT_CHARSET = "utf-8"
 EMAIL_TIMEOUT = 20
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "application": {"format": "{asctime} {levelname} {name} {message}", "style": "{"},
+    },
+    "handlers": {
+        "application_console": {"class": "logging.StreamHandler", "formatter": "application"},
+    },
+    "loggers": {
+        "booking": {"handlers": ["application_console"], "level": "INFO", "propagate": False},
+    },
+}
+
 _trusted = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _trusted.split(",") if o.strip()]
 

@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from booking.input_validation import safe_parse_datetime as parse_datetime
 from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
@@ -68,7 +68,7 @@ def station_appointment_edit(request, station_id, pk, staff=None):
                 # it under a lock so a concurrent terminal transition cannot be
                 # overwritten by a stale BOOKED instance from the edit page.
                 appointment = get_object_or_404(
-                    Appointment.objects.select_for_update().select_related(
+                    Appointment.objects.select_for_update(of=("self",)).select_related(
                         "car__model__brand", "user"
                     ),
                     pk=pk,

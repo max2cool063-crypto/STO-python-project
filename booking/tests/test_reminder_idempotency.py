@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from smtplib import SMTPException
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -7,7 +8,7 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from booking.models import Appointment, Brand, Car, CarModel, Station, StationSchedule
+from booking.models import Appointment, Brand, Car, CarModel, EmailOutbox, Station, StationSchedule
 
 
 @override_settings(
@@ -59,6 +60,11 @@ class AppointmentReminderIdempotencyTests(TestCase):
             call_command("send_reminders")
             call_command("send_reminders")
             call_command("send_reminders")
+            self.assertEqual(EmailOutbox.objects.count(), 1)
+            self.appointment.refresh_from_db()
+            self.assertIsNone(self.appointment.reminder_sent_at)
+            self.assertEqual(len(mail.outbox), 0)
+            call_command("process_email_queue")
 
         self.assertEqual(len(mail.outbox), 1)
         self.appointment.refresh_from_db()
@@ -73,6 +79,7 @@ class AppointmentReminderIdempotencyTests(TestCase):
             return_value=False,
         ):
             call_command("send_reminders")
+            call_command("process_email_queue")
 
         self.appointment.refresh_from_db()
         self.assertIsNone(self.appointment.reminder_sent_at)
@@ -83,6 +90,7 @@ class AppointmentReminderIdempotencyTests(TestCase):
             return_value=self.now,
         ):
             call_command("send_reminders")
+            call_command("process_email_queue")
 
         self.appointment.refresh_from_db()
         self.assertEqual(len(mail.outbox), 1)
@@ -109,3 +117,18 @@ class AppointmentReminderIdempotencyTests(TestCase):
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.start, new_start)
         self.assertIsNone(self.appointment.reminder_sent_at)
+
+    def test_smtp_error_is_logged_and_real_delivery_path_can_retry(self):
+        with patch("booking.management.commands.send_reminders.timezone.now", return_value=self.now), patch("booking.email_queue.EmailMessage.send", side_effect=[SMTPException("unavailable"), 1]) as send:
+            call_command("send_reminders")
+            with self.assertLogs("booking.email_queue", level="ERROR"):
+                call_command("process_email_queue")
+            self.appointment.refresh_from_db()
+            self.assertIsNone(self.appointment.reminder_sent_at)
+            call_command("send_reminders")
+            self.assertEqual(EmailOutbox.objects.count(), 1)
+            EmailOutbox.objects.update(available_at=self.now)
+            call_command("process_email_queue")
+            self.appointment.refresh_from_db()
+            self.assertEqual(self.appointment.reminder_sent_at, self.now)
+            self.assertEqual(send.call_count, 2)

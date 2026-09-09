@@ -35,7 +35,7 @@ if [[ -f "${CHECKSUMS}" ]]; then
 fi
 
 echo "Stopping application processes before restore..."
-docker compose stop web cron >/dev/null || true
+docker compose stop web cron mail >/dev/null || true
 
 echo "Ensuring PostgreSQL and Redis are running..."
 docker compose up -d db redis >/dev/null
@@ -92,6 +92,6 @@ docker compose run --rm migrate
 echo "Starting application..."
 # DB/Redis are already running and migrations succeeded above. Avoid invoking
 # the one-shot migrate dependency a second time just to resume web/cron.
-docker compose up -d --no-deps web cron
+docker compose up -d --no-deps web cron mail
 
 echo "Restore completed. Verify the site, recent appointments, and protected media before reopening traffic."

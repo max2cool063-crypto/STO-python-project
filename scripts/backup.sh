@@ -16,6 +16,7 @@ MANIFEST="${BACKUP_DIR}/manifest.txt"
 
 resume_web=false
 resume_cron=false
+resume_mail=false
 cleanup() {
   # Restore exactly the running state observed before a quiesced snapshot.
   # Never start a service that was already stopped before backup began.
@@ -24,6 +25,9 @@ cleanup() {
   fi
   if [[ "${resume_cron}" == "true" ]]; then
     docker compose start cron >/dev/null || true
+  fi
+  if [[ "${resume_mail}" == "true" ]]; then
+    docker compose start mail >/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -39,6 +43,10 @@ if [[ "${QUIESCE_APP}" == "True" ]]; then
   if grep -qx "cron" <<<"${running_services}"; then
     resume_cron=true
     services_to_stop+=(cron)
+  fi
+  if grep -qx "mail" <<<"${running_services}"; then
+    resume_mail=true
+    services_to_stop+=(mail)
   fi
 
   if (( ${#services_to_stop[@]} > 0 )); then
@@ -77,6 +85,7 @@ media_archive=media.tar.gz
 quiesced_app=${QUIESCE_APP}
 web_was_running=${resume_web}
 cron_was_running=${resume_cron}
+mail_was_running=${resume_mail}
 EOF
 
 if command -v sha256sum >/dev/null 2>&1; then

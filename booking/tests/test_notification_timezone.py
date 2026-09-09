@@ -78,8 +78,9 @@ class NotificationTimezoneTests(TestCase):
         notify_station_staff_booked(self.appointment)
         notify_station_staff_cancelled(self.appointment)
 
-        self.assertEqual(len(mail.outbox), 5)
-        for message in mail.outbox:
+        from booking.models import EmailOutbox
+        self.assertEqual(EmailOutbox.objects.count(), 5)
+        for message in EmailOutbox.objects.all():
             self.assertIn("10:00", message.body)
             self.assertNotIn("06:00", message.body)
 

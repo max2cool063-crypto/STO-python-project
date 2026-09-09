@@ -1,8 +1,9 @@
 import logging
 
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.utils.dateparse import parse_datetime
+from booking.input_validation import safe_parse_datetime as parse_datetime
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.timezone import is_aware
@@ -60,15 +61,18 @@ def book_station(request, pk):
                 for f in files:
                     AppointmentPhoto.objects.create(appointment=appointment, image=f)
 
+                notify_station_staff_booked(appointment)
+                notify_client_booked(appointment)
+
                 # Внутреннее уведомление создаём только после успешного commit.
                 transaction.on_commit(
                     lambda: create_station_staff_notifications(appointment),
                     robust=True,
                 )
 
-            notify_station_staff_booked(appointment)
-            notify_client_booked(appointment)
-
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+            return redirect(request.path)
         except Exception:
             logger.exception("Failed client booking for station %s", station.pk)
             messages.error(request, "Не удалось создать запись. Проверьте данные и выбранное время.")

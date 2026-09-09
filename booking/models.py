@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -8,6 +9,48 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from booking.timezones import detect_timezone, get_timezone, make_station_datetime, station_localtime
+
+
+class EmailOutbox(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Ожидает"
+        PROCESSING = "processing", "Отправляется"
+        SENT = "sent", "Принято почтовым сервером"
+        FAILED = "failed", "Попытки исчерпаны"
+        CANCELLED = "cancelled", "Устарело"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    deduplication_key = models.CharField(max_length=64, unique=True)
+    kind = models.CharField(max_length=32, default="generic")
+    subject = models.TextField()
+    body = models.TextField()
+    sender = models.TextField(blank=True)
+    recipient = models.EmailField()
+    appointment = models.ForeignKey("Appointment", null=True, blank=True, on_delete=models.SET_NULL)
+    expected_start = models.DateTimeField(null=True, blank=True)
+    expected_revision = models.PositiveIntegerField(default=0)
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    auth_token = models.CharField(max_length=128, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    attempts = models.PositiveIntegerField(default=0)
+    available_at = models.DateTimeField(default=timezone.now)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    lock_token = models.UUIDField(null=True, blank=True)
+    last_error = models.CharField(max_length=128, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Исходящее письмо"
+        verbose_name_plural = "Очередь писем"
+        indexes = [
+            models.Index(fields=["status", "available_at"], name="outbox_pending_idx"),
+            models.Index(fields=["status", "locked_until"], name="outbox_lease_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.kind}: {self.status} ({self.pk})"
 
 
 # =========================
@@ -238,6 +281,7 @@ class Appointment(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="BOOKED", verbose_name="Статус")
     notes = models.TextField("Комментарий оператора", blank=True, default="")
     reminder_sent_at = models.DateTimeField("Напоминание отправлено", null=True, blank=True)
+    notification_revision = models.PositiveIntegerField(default=0, editable=False)
 
     class Meta:
         ordering = ["start"]
@@ -303,15 +347,18 @@ class Appointment(models.Model):
         with transaction.atomic():
             Station.objects.select_for_update().get(pk=self.station_id)
             if self.pk:
-                previous_start = (
+                previous = (
                     Appointment.objects.filter(pk=self.pk)
-                    .values_list("start", flat=True)
+                    .values("start", "notification_revision")
                     .first()
                 )
-                if previous_start is not None and previous_start != self.start:
+                if previous is not None:
+                    self.notification_revision = previous["notification_revision"]
+                if previous is not None and previous["start"] != self.start:
+                    self.notification_revision += 1
                     self.reminder_sent_at = None
                     if kwargs.get("update_fields") is not None:
-                        kwargs["update_fields"] = set(kwargs["update_fields"]) | {"reminder_sent_at"}
+                        kwargs["update_fields"] = set(kwargs["update_fields"]) | {"reminder_sent_at", "notification_revision"}
             self.end = self.start + self.get_required_duration()
             self.full_clean()
             super().save(*args, **kwargs)

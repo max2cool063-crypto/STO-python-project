@@ -2,6 +2,7 @@ from datetime import datetime, time
 
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -94,6 +95,7 @@ class ClientCancellationNotificationTests(TestCase):
         )
         self.assertEqual(set(notifications.values_list("title", flat=True)), {"Клиент отменил запись"})
 
+        call_command("process_email_queue")
         recipients = {recipient for message in mail.outbox for recipient in message.to}
         self.assertIn("owner@example.com", recipients)
         self.assertIn("operator@example.com", recipients)
@@ -110,6 +112,7 @@ class ClientCancellationNotificationTests(TestCase):
             set(Notification.objects.filter(appointment=self.appointment).values_list("recipient_id", flat=True)),
             {self.owner.pk},
         )
+        call_command("process_email_queue")
         recipients = {recipient for message in mail.outbox for recipient in message.to}
         self.assertNotIn("operator@example.com", recipients)
         self.assertIn("owner@example.com", recipients)

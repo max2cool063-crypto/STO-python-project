@@ -9,6 +9,7 @@ from django.http import HttpResponse
 import booking.admin_timezone  # noqa: F401
 # Apply the production safety layer after the existing admin customizations.
 import booking.admin_safety  # noqa: F401
+import booking.admin_email_queue  # noqa: F401
 from booking.admin_actions import fill_holidays, import_rsa_stream
 
 

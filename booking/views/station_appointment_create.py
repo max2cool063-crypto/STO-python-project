@@ -10,7 +10,7 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from booking.input_validation import safe_parse_datetime as parse_datetime, validate_user_fields
 from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
@@ -136,6 +136,8 @@ def station_appointment_create(request, station_id, staff=None):
             client_phone = _normalize_ru_phone(client_phone)
             if email:
                 validate_email(email)
+                validate_user_fields(email=email)
+            Appointment._meta.get_field("name").clean(client_name, None)
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
             return redirect(request.path)
@@ -249,6 +251,11 @@ def station_appointment_create(request, station_id, staff=None):
                         image=uploaded,
                     )
 
+                if user_created and client_user.email:
+                    send_password_setup_email(request, client_user)
+                notify_station_staff_booked(appointment)
+                notify_client_booked(appointment)
+
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
             return redirect(request.path)
@@ -261,14 +268,6 @@ def station_appointment_create(request, station_id, staff=None):
             messages.error(request, "Не удалось создать запись. Проверьте данные и попробуйте ещё раз.")
             return redirect(request.path)
 
-        if user_created and client_user and client_user.email:
-            try:
-                send_password_setup_email(request, client_user)
-            except Exception:
-                logger.exception("Failed to send password setup email to %s", client_user.email)
-
-        notify_station_staff_booked(appointment)
-        notify_client_booked(appointment)
         messages.success(request, "Запись создана")
         return redirect("station_appointments", station_id=station_id)
 

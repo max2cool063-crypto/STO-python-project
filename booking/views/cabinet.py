@@ -135,8 +135,8 @@ def cabinet_cancel_appointment(request, pk):
             comment="Отменено клиентом",
         )
 
-    notify_client_cancelled(appt, cancelled_by_station=False)
-    notify_station_staff_cancelled(appt)
+        notify_client_cancelled(appt, cancelled_by_station=False)
+        notify_station_staff_cancelled(appt)
     create_station_staff_cancellation_notifications(appt)
     messages.success(request, "Запись отменена")
     return redirect("cabinet_appointments")
