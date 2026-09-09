@@ -35,7 +35,6 @@
   </aside>
 
   <main class="st-main">
-    {% if messages %}{% for msg in messages %}<div class="alert alert-{{ msg.tags|default:'info' }}">{% if msg.tags == 'success' %}<i class="ds-alert-icon" data-lucide="circle-check" aria-hidden="true"></i>{% elif msg.tags == 'error' %}<i class="ds-alert-icon" data-lucide="circle-alert" aria-hidden="true"></i>{% else %}<i class="ds-alert-icon" data-lucide="info" aria-hidden="true"></i>{% endif %}<span>{{ msg }}</span></div>{% endfor %}{% endif %}
     {% block station_content %}{% endblock %}
   </main>
 </div>

@@ -26,6 +26,22 @@ class StationScheduleValidationTests(TestCase):
         )
         self.url = reverse("station_schedule", kwargs={"station_id": self.station.pk})
 
+    def test_schedule_feedback_is_displayed_once(self):
+        response = self.client.post(
+            self.url,
+            {"action": "save_weekly", "work_start_0": "09:00", "work_end_0": "17:00"},
+            follow=True,
+        )
+        self.assertContains(response, "Недельное расписание сохранено", count=1)
+        response = self.client.post(
+            self.url,
+            {"action": "save_weekly", "work_start_0": "17:00", "work_end_0": "09:00"},
+            follow=True,
+        )
+        self.assertContains(
+            response, "Проверьте недельный график: начало должно быть раньше окончания", count=1
+        )
+
     def test_invalid_weekly_row_does_not_partially_mutate_other_days(self):
         monday = StationWeeklySchedule.objects.create(
             station=self.station,

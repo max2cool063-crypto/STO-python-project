@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Регистрация — СТО Онлайн-запись{% endblock %}
+{% block title %}{% if recovery %}Восстановление доступа{% else %}Регистрация{% endif %} — СТО Онлайн-запись{% endblock %}
 {% block content %}
 <section class="auth-page" aria-labelledby="register-title">
   <div class="auth-visual">
     <div class="auth-visual-content">
       <div class="auth-brand"><img src="{% static 'booking/img/logo.png' %}" alt="СТО"><div><strong>Технический Осмотр</strong><span>онлайн запись</span></div></div>
-      <h1>Ваш автомобиль и записи — в одном месте.</h1>
-      <p>Создайте аккаунт один раз, сохраните автомобили в профиле и записывайтесь на техосмотр в несколько шагов.</p>
+      <h1>{% if recovery %}Вернитесь в свой кабинет.{% else %}Ваш автомобиль и записи — в одном месте.{% endif %}</h1>
+      <p>{% if recovery %}Запросите ссылку на почту, указанную в аккаунте, и установите новый пароль.{% else %}Создайте аккаунт один раз, сохраните автомобили в профиле и записывайтесь на техосмотр в несколько шагов.{% endif %}</p>
       <div class="auth-benefits" aria-label="Преимущества"><span class="auth-benefit">✓ Быстрая запись</span><span class="auth-benefit">✓ История записей</span><span class="auth-benefit">✓ Несколько автомобилей</span></div>
     </div>
   </div>
-  <div class="auth-panel"><div class="auth-card-v2"><div class="auth-kicker">Новый аккаунт</div><h2 id="register-title">Создайте аккаунт</h2><p class="auth-description">Укажите email — на него придёт безопасная ссылка для установки пароля.</p>
-    <form method="post">{% csrf_token %}<div class="form-group"><label for="register-email">Email-адрес</label><input id="register-email" type="email" name="email" required placeholder="you@example.com" autocomplete="email" inputmode="email"></div><button type="submit" class="btn btn-primary btn-block btn-lg">Создать аккаунт <span aria-hidden="true">→</span></button></form>
+  <div class="auth-panel"><div class="auth-card-v2"><div class="auth-kicker">{% if recovery %}Доступ к аккаунту{% else %}Новый аккаунт{% endif %}</div><h2 id="register-title">{% if recovery %}Восстановить пароль{% else %}Создайте аккаунт{% endif %}</h2><p class="auth-description">{% if recovery %}Укажите email вашего аккаунта. Если адрес можно использовать, мы отправим ссылку для установки нового пароля.{% else %}Укажите email — на него придёт безопасная ссылка для установки пароля.{% endif %}</p>
+    <form method="post">{% csrf_token %}<div class="form-group"><label for="register-email">Email-адрес</label><input id="register-email" type="email" name="email" required placeholder="you@example.com" autocomplete="email" inputmode="email"></div><button type="submit" class="btn btn-primary btn-block btn-lg">{% if recovery %}Отправить ссылку{% else %}Создать аккаунт{% endif %} <span aria-hidden="true">→</span></button></form>
     <div class="auth-note"><span aria-hidden="true">✉</span><span>Проверьте папку «Спам», если письмо со ссылкой установки пароля не появится во входящих.</span></div>
-    <div class="auth-footer">Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a></div>
+    <div class="auth-footer">{% if recovery %}Вспомнили пароль?{% else %}Уже есть аккаунт?{% endif %} <a href="{% url 'login' %}">Войти</a></div>
   </div></div>
 </section>
 {% endblock %}

@@ -21,6 +21,33 @@ class StationStaffProfileTests(TestCase):
         )
         self.client.login(username="owner@example.com", password="Strong-owner-123!")
 
+    def test_own_profile_password_link_opens_station_password_form(self):
+        from html.parser import HTMLParser
+
+        class PasswordLinkParser(HTMLParser):
+            href = None
+            password_url = None
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "a":
+                    self.href = dict(attrs).get("href")
+
+            def handle_data(self, data):
+                if data.strip() == "Сменить мой пароль":
+                    self.password_url = self.href
+
+        response = self.client.get(reverse(
+            "station_staff_edit_profile",
+            kwargs={"station_id": self.station.pk, "member_id": self.owner_staff.pk},
+        ))
+        self.assertEqual(response.status_code, 200)
+        parser = PasswordLinkParser()
+        parser.feed(response.content.decode())
+        self.assertEqual(parser.password_url, reverse("station_change_password"))
+        response = self.client.get(parser.password_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "booking/station/change_password.html")
+
     def test_owner_can_create_operator_with_profile_data(self):
         response = self.client.post(
             reverse("station_staff_create_operator", kwargs={"station_id": self.station.pk}),

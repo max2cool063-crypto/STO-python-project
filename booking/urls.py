@@ -39,6 +39,7 @@ urlpatterns = [
     path("cabinet/appointments/<int:pk>/photos.zip/", views.appointment_photos_zip, name="appointment_photos_zip"),
     path("media/appointments/<path:path>", views.protected_media, name="protected_media"),
     path("accounts/register/", views.register, name="register"),
+    path("accounts/password-reset/", views.register, {"recovery": True}, name="password_reset_request"),
     path("accounts/post-login/", views.post_login_redirect, name="post_login_redirect"),
     path("accounts/set-password/<uidb64>/<token>/", views.set_password, name="set_password"),
     path("cabinet/password/", views.change_password, name="change_password"),

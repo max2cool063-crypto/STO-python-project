@@ -101,3 +101,7 @@
 @media (prefers-reduced-motion: reduce) {
   .auth-card-v2 *, .auth-visual * { transition:none !important; }
 }
+
+.auth-recovery{margin-top:16px;text-align:center}.auth-recovery a{display:inline-flex;align-items:center;min-height:44px;font-size:14px;font-weight:600;color:var(--ds-color-primary)}
+
+@media(max-width:720px){.auth-page .auth-visual{display:none}.auth-page .auth-panel{padding:28px 20px 40px}.auth-page{min-height:0}}

@@ -69,7 +69,8 @@ def _finish_registration_request(request, user, *, delete_on_mail_failure=False)
 
 
 @require_http_methods(["GET", "POST"])
-def register(request):
+def register(request, recovery=False):
+    form_route = "password_reset_request" if recovery else "register"
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
 
@@ -79,18 +80,22 @@ def register(request):
 
         if not email:
             messages.error(request, "Введите email")
-            return redirect("register")
+            return redirect(form_route)
 
         try:
             validate_email(email)
             validate_user_fields(email=email)
         except ValidationError:
             messages.error(request, "Некорректный формат email")
-            return redirect("register")
+            return redirect(form_route)
 
         user = User.objects.filter(email__iexact=email).order_by("id").first()
         if user:
             return _finish_registration_request(request, user)
+
+        if recovery:
+            messages.success(request, REGISTRATION_RESPONSE_MESSAGE)
+            return redirect("login")
 
         try:
             # Email local-parts allow characters that Django's username regex
@@ -98,7 +103,7 @@ def register(request):
             MaxLengthValidator(User._meta.get_field("username").max_length)(email)
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
-            return redirect("register")
+            return redirect(form_route)
 
         # Client accounts use the normalized email as the Django username. If
         # that username was historically assigned to a different identity (for
@@ -129,7 +134,7 @@ def register(request):
                 return redirect("login")
             return _finish_registration_request(request, user)
 
-    return render(request, "registration/register.html")
+    return render(request, "registration/register.html", {"recovery": recovery})
 
 
 @require_http_methods(["GET", "POST"])

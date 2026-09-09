@@ -13,6 +13,7 @@
   </div>
   <div class="auth-panel"><div class="auth-card-v2"><div class="auth-kicker">Личный кабинет</div><h2 id="login-title">С возвращением</h2><p class="auth-description">Войдите, чтобы управлять записями и автомобилями.</p>
     <form method="post">{% csrf_token %}{% for field in form %}<div class="form-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.errors %}<p class="form-error">{{ field.errors.0 }}</p>{% endif %}</div>{% endfor %}{% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors.0 }}</div>{% endif %}<button type="submit" class="btn btn-primary btn-block btn-lg">Войти в кабинет <span aria-hidden="true">→</span></button></form>
+    <div class="auth-recovery"><a href="{% url 'password_reset_request' %}">Забыли пароль?</a></div>
     <div class="auth-footer">Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a></div>
   </div></div>
 </section>

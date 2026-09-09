@@ -34,9 +34,9 @@ body:has(.station-discovery-layout) .station-card .station-card-icon .lucide { w
 
 /* Station cards need a little more vertical room for long addresses. */
 body:has(.station-discovery-layout) .station-map-panel,
-body:has(.station-discovery-layout) .map-container { height: 300px !important; min-height: 300px !important; }
-body:has(.station-discovery-layout) .station-grid { grid-auto-rows: 300px !important; }
-body:has(.station-discovery-layout) .station-card { height: 300px !important; }
+body:has(.station-discovery-layout) .map-container { height: 300px; min-height: 300px; }
+body:has(.station-discovery-layout) .station-grid { grid-auto-rows: 300px; }
+body:has(.station-discovery-layout) .station-card { height: 300px; }
 
 /* Keep the schedule at the bottom of the content area and reserve space for it. */
 body:has(.station-discovery-layout) .station-card-content { display: flex !important; flex-direction: column !important; flex: 1 1 auto !important; min-height: 0 !important; }
@@ -68,9 +68,9 @@ body:has(.station-discovery-layout) .station-show-more .lucide { width: 13px !im
 
 @media (max-width: 1050px) {
   body:has(.station-discovery-layout) .station-map-panel,
-  body:has(.station-discovery-layout) .map-container { height: 330px !important; min-height: 330px !important; }
-  body:has(.station-discovery-layout) .station-grid { grid-auto-rows: 330px !important; }
-  body:has(.station-discovery-layout) .station-card { height: 330px !important; }
+  body:has(.station-discovery-layout) .map-container { height: 330px; min-height: 330px; }
+  body:has(.station-discovery-layout) .station-grid { grid-auto-rows: 330px; }
+  body:has(.station-discovery-layout) .station-card { height: 330px; }
   body:has(.station-discovery-layout) .station-show-more { margin-left: auto !important; margin-right: auto !important; }
 }
 
