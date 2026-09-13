@@ -27,6 +27,7 @@
     <form method="post" id="add-car-form">
       {% csrf_token %}
       <div class="cabinet-form-grid">
+        <div class="form-group"><label for="vehicle-type">Тип ТС</label><select name="vehicle_type" id="vehicle-type" required><option value="">Выберите тип ТС</option><option value="CAR">Легковой</option><option value="TRUCK">Грузовой</option></select></div>
         <div class="form-group">
           <label>Марка</label>
           <select id="brand-select">
@@ -64,8 +65,8 @@
   {% for car in cars %}
     <article class="car-card-modern">
       <div class="car-card-modern__top">
-        <div class="car-card-modern__icon">{% if car.model.vehicle_type == "TRUCK" %}🚛{% else %}🚗{% endif %}</div>
-        <span class="car-card-modern__type">{{ car.model.get_vehicle_type_display }}</span>
+        <div class="car-card-modern__icon">{% if car.vehicle_type == "TRUCK" %}🚛{% else %}🚗{% endif %}</div>
+        <span class="car-card-modern__type">{{ car.get_vehicle_type_display }}</span>
       </div>
       <h3>{{ car.model.brand.name }} {{ car.model.name }}</h3>
       <div class="car-card-modern__model">Транспортное средство</div>

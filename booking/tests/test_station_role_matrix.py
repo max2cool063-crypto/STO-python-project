@@ -62,7 +62,6 @@ class StationRoleMatrixTests(TestCase):
         model = CarModel.objects.create(
             brand=brand,
             name="Passenger",
-            vehicle_type="CAR",
         )
         self.car = Car.objects.create(
             owner=self.client_user,

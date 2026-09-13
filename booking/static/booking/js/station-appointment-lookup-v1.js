@@ -30,7 +30,7 @@
   }
 
   function clearNewCarFields() {
-    ['new-email', 'vin-input'].forEach(function (id) {
+    ['new-email', 'vin-input', 'vehicle-type-select'].forEach(function (id) {
       var node = byId(id);
       if (node) node.value = '';
     });
@@ -48,6 +48,7 @@
     if (phone) phone.value = '';
     if (hidden) hidden.value = '';
     setSelectedFieldsLocked(false);
+    byId('edit-selected-car').hidden = true;
     setText('summary-client', 'Не указан');
     setText('summary-car', 'Не выбран');
     if (typeof currentCarId !== 'undefined') currentCarId = null;
@@ -85,6 +86,7 @@
     clearNewCarFields();
     resetDurationSummary();
     showNewCar(true);
+    if (byId('date-input').value) loadSlots(byId('date-input').value);
 
     var block = byId('new-car-block');
     if (block) block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -95,6 +97,7 @@
   }
 
   function setSelectedCar(car) {
+    byId('edit-selected-car').hidden = false;
     var hidden = byId('car-id-input');
     if (hidden) hidden.value = String(car.id);
 

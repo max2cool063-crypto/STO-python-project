@@ -67,6 +67,9 @@
                     {% if client.last_name or client.first_name %}{{ client.last_name }} {{ client.first_name }}{% else %}Без имени{% endif %}
                   </div>
                   <span class="st-appointment-sub">Клиент №{{ client.pk }}</span>
+                  {% for car in client.station_cars %}
+                  <p>{{ car }} · {{ car.get_vehicle_type_display }}<br><a href="{% url 'station_car_edit' station.pk car.pk %}">Редактировать автомобиль</a></p>
+                  {% endfor %}
                 </div>
               </div>
             </td>

@@ -32,10 +32,10 @@ class StationCalendarTests(TestCase):
         model = CarModel.objects.create(
             brand=brand,
             name="Газон Next",
-            vehicle_type="TRUCK",
         )
         self.client_user = User.objects.create_user(username="calendar-client")
         self.car = Car.objects.create(
+            vehicle_type="TRUCK",
             owner=self.client_user,
             model=model,
             plate_number="А123АА63",

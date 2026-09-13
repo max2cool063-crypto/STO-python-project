@@ -20,7 +20,7 @@ def brands_api(request):
 def models_api(request, brand_id):
     models = CarModel.objects.filter(brand_id=brand_id).order_by("name")
     return JsonResponse(
-        [{"id": m.id, "name": m.name, "vehicle_type": m.vehicle_type} for m in models],
+        [{"id": m.id, "name": m.name} for m in models],
         safe=False,
     )
 
@@ -67,7 +67,7 @@ def station_slots_api(request, station_id):
                 owner=request.user,
                 is_active=True,
             )
-        vehicle_type = car.model.vehicle_type
+        vehicle_type = car.vehicle_type
     elif requested_vehicle_type in {"CAR", "TRUCK"} and staff:
         # During station-side creation of a brand-new car there is no car_id yet.
         # The vehicle type is still needed so the preview and available slots use
@@ -87,7 +87,7 @@ def car_api(request, car_id):
     car = get_object_or_404(Car, id=car_id, owner=request.user, is_active=True)
     return JsonResponse({
         "id": car.id,
-        "vehicle_type": car.model.vehicle_type,
+        "vehicle_type": car.vehicle_type,
     })
 
 
@@ -128,7 +128,7 @@ def car_by_plate_api(request):
         matches.append({
             "id": car.id,
             "plate": car.plate_number,
-            "vehicle_type": car.model.vehicle_type,
+            "vehicle_type": car.vehicle_type,
             "brand": car.model.brand.name,
             "model": car.model.name,
             "vin": car.vin or "",
@@ -174,7 +174,7 @@ def brands_with_models_api(request):
             "id": brand.id,
             "name": brand.name,
             "models": [
-                {"id": model.id, "name": model.name, "vehicle_type": model.vehicle_type}
+                {"id": model.id, "name": model.name}
                 for model in brand.ordered_models
             ],
         })

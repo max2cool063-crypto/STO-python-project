@@ -19,7 +19,7 @@ class InputBoundaryTests(TestCase):
         cls.station = Station.objects.create(name="Boundary station")
         StationStaff.objects.create(station=cls.station, user=cls.owner, role=StationStaff.ROLE_OWNER)
         brand = Brand.objects.create(name="Boundary brand")
-        model = CarModel.objects.create(brand=brand, name="Car", vehicle_type="CAR")
+        model = CarModel.objects.create(brand=brand, name="Car")
         cls.car = Car.objects.create(owner=cls.user, model=model, plate_number="А111АА77")
         start = timezone.make_aware(datetime(2099, 3, 3, 10))
         StationSchedule.objects.create(station=cls.station, date=start.date(), work_start=time(9), work_end=time(18))

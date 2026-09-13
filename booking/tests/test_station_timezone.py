@@ -108,7 +108,7 @@ class StationTimezoneTests(TestCase):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.samars_station.pk}),
             {
-                "plate": "А555АА63",
+                "vehicle_type": "CAR", "plate": "А555АА63",
                 "new_model_id": str(model.pk),
                 "client_name": "Иванов Иван",
                 "client_phone": "",

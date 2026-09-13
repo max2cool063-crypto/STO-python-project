@@ -78,3 +78,13 @@
   .st-filter-field, .st-filter-field--search { width: 100%; min-width: 0; }
   .st-filter-bar .st-btn { width: 100%; }
 }
+
+/* Editing a selected car keeps the booking form and its client data in place. */
+.st-car-dialog{margin:auto;width:min(480px,calc(100vw - 32px));max-height:calc(100dvh - 32px);box-sizing:border-box;overflow:auto;border:1px solid #dbe3ee;border-radius:18px;padding:24px;color:#0f172a;background:#fff;box-shadow:0 24px 64px #0f172a33}
+.st-car-dialog::backdrop{background:#0f172a66}
+.st-car-dialog h2{margin:0 0 20px;font-size:22px}
+.st-car-dialog label{display:block;margin-bottom:6px;font-weight:600}
+.st-car-dialog p{font-size:14px;line-height:1.5}
+.st-car-dialog #car-edit-error{color:#b91c1c}
+
+#edit-selected-car[hidden]{display:none}

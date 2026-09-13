@@ -15,7 +15,7 @@ class CarSecurityTests(TestCase):
         )
         brand = Brand.objects.create(name="Test")
         model = CarModel.objects.create(
-            brand=brand, name="Passenger", vehicle_type="CAR"
+            brand=brand, name="Passenger",
         )
         self.car = Car.objects.create(
             owner=self.user,

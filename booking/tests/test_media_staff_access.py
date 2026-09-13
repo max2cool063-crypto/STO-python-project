@@ -18,7 +18,7 @@ class StationStaffMediaAccessTests(TestCase):
         station = Station.objects.create(name="Media Station")
         StationStaff.objects.create(station=station, user=operator, role=StationStaff.ROLE_OPERATOR, is_active=True)
         brand = Brand.objects.create(name="Media Brand")
-        model = CarModel.objects.create(brand=brand, name="Media Model", vehicle_type="CAR")
+        model = CarModel.objects.create(brand=brand, name="Media Model")
         car = Car.objects.create(owner=client_user, model=model, plate_number="M111MM")
         target = date(2099, 2, 3)
         StationWeeklySchedule.objects.create(station=station, weekday=target.weekday(), work_start=time(9), work_end=time(18))

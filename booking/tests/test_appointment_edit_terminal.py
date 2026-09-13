@@ -33,7 +33,7 @@ class TerminalAppointmentEditTests(TestCase):
             work_end=time(18, 0),
         )
         brand = Brand.objects.create(name="Terminal Test")
-        model = CarModel.objects.create(brand=brand, name="Passenger", vehicle_type="CAR")
+        model = CarModel.objects.create(brand=brand, name="Passenger")
         car = Car.objects.create(owner=client_user, model=model, plate_number="A111AA")
         start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))
         self.appointment = Appointment.objects.create(

@@ -18,9 +18,9 @@ class BrandModelsApiQueryTests(TestCase):
         )
         first = Brand.objects.create(name="Beta")
         second = Brand.objects.create(name="Alpha")
-        CarModel.objects.create(brand=first, name="Zeta", vehicle_type="CAR")
-        CarModel.objects.create(brand=first, name="Alpha", vehicle_type="TRUCK")
-        CarModel.objects.create(brand=second, name="Gamma", vehicle_type="CAR")
+        CarModel.objects.create(brand=first, name="Zeta")
+        CarModel.objects.create(brand=first, name="Alpha")
+        CarModel.objects.create(brand=second, name="Gamma")
         self.factory = RequestFactory()
 
     def test_catalog_uses_one_prefetch_query_for_all_models(self):

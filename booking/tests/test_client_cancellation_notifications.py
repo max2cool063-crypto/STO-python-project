@@ -52,7 +52,7 @@ class ClientCancellationNotificationTests(TestCase):
             receive_notifications=True,
         )
         self.brand = Brand.objects.create(name="Cancel Brand")
-        self.model = CarModel.objects.create(brand=self.brand, name="Cancel Model", vehicle_type="CAR")
+        self.model = CarModel.objects.create(brand=self.brand, name="Cancel Model")
         self.car = Car.objects.create(
             owner=self.client_user,
             model=self.model,

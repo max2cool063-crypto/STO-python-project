@@ -23,7 +23,7 @@ class BookingConcurrencyTests(TransactionTestCase):
         StationStaff.objects.create(station=self.station, user=self.owner, role=StationStaff.ROLE_OWNER)
         self.users = [User.objects.create_user(username=f"concurrent-client-{i}") for i in range(2)]
         brand = Brand.objects.create(name="Concurrency brand")
-        model = CarModel.objects.create(brand=brand, name="Car", vehicle_type="CAR")
+        model = CarModel.objects.create(brand=brand, name="Car")
         self.cars = [Car.objects.create(owner=user, model=model, plate_number=f"А11{i}АА77") for i, user in enumerate(self.users)]
         self.start = timezone.make_aware(datetime(2099, 3, 3, 10))
         StationSchedule.objects.create(station=self.station, date=self.start.date(), work_start=time(9), work_end=time(18))

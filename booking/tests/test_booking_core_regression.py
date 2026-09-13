@@ -15,6 +15,7 @@ class BookingCoreRegressionTests(BookingCoreTests):
         truck = Car.objects.create(
             owner=self.user,
             model=self.truck_model,
+            vehicle_type="TRUCK",
             plate_number="C333CC",
         )
         start = timezone.make_aware(timezone.datetime(2099, 2, 3, 10, 0))

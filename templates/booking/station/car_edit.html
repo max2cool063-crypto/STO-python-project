@@ -1,0 +1,11 @@
+{% extends "booking/station/base.html" %}
+{% block station_content %}
+<div class="st-page-head"><div><h1>Редактировать автомобиль</h1><p>{{ car }}</p></div><a class="st-btn st-btn--secondary" href="{% url 'station_clients' station.pk %}">← К клиентам</a></div>
+<div class="st-card"><div class="st-card__body">
+<form method="post">{% csrf_token %}
+  {{ form.as_p }}
+  <p>Изменения относятся к карточке автомобиля клиента. Время уже созданных записей не изменится. Для пересчёта длительности откройте редактирование нужной записи.</p>
+  <button class="st-btn st-btn--primary" type="submit">Сохранить автомобиль</button>
+</form>
+</div></div>
+{% endblock %}

@@ -89,7 +89,7 @@ class StationAccountApiSeparationTests(TestCase):
 
         response = self.client.get(
             reverse("car_by_plate_api"),
-            {"station_id": self.station.pk, "plate": self.car.plate_number},
+            {"station_id": self.station.pk, "vehicle_type": "CAR", "plate": self.car.plate_number},
         )
 
         self.assertEqual(response.status_code, 404)
@@ -110,7 +110,7 @@ class StationAccountApiSeparationTests(TestCase):
         response = self.client.post(
             url,
             {
-                "plate": "В222ВВ77",
+                "vehicle_type": "CAR", "plate": "В222ВВ77",
                 "new_model_id": self.model.pk,
                 "new_user_email": self.operator.email,
                 "client_name": "Сотрудник как клиент",

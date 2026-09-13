@@ -41,7 +41,6 @@ class AdminAppointmentAuditTests(TestCase):
         car_model = CarModel.objects.create(
             brand=brand,
             name="Audit model",
-            vehicle_type="CAR",
         )
         car = Car.objects.create(
             owner=self.client_user,

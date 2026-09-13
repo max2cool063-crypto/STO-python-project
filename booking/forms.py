@@ -133,9 +133,10 @@ class ProfileForm(forms.Form):
 
 class CarForm(forms.ModelForm):
     """Форма редактирования автомобиля."""
+    vehicle_type = forms.ChoiceField(label="Тип ТС", choices=[("", "Выберите тип ТС")] + Car.VEHICLE_TYPES)
     class Meta:
         model = Car
-        fields = ["plate_number", "vin"]
+        fields = ["plate_number", "vin", "vehicle_type"]
         widgets = {
             "plate_number": forms.TextInput(attrs={
                 "maxlength": "9",

@@ -12,7 +12,7 @@
         <div class="st-card-heading"><div class="st-heading-icon">📅</div><div><span class="st-section-eyebrow">Визит</span><h2>Дата и время</h2></div></div>
         <div class="st-edit-date-row">
           <div class="st-form-group"><label for="edit-date">Дата *</label><input id="edit-date" class="st-input st-date-input" type="date" min="{{ today }}" value="{{ appointment.local_start|date:'Y-m-d' }}" required></div>
-          <div class="st-edit-info"><strong>{{ appointment.car }}</strong><span>{% if appointment.car.model.vehicle_type == 'TRUCK' %}Грузовой · 60 минут · 2 слота{% else %}Легковой · 30 минут · 1 слот{% endif %}</span></div>
+          <div class="st-edit-info"><strong>{{ appointment.car }}</strong><span>{{ appointment.car.get_vehicle_type_display }} · Сейчас в записи: {{ appointment.duration_minutes }} мин. При сохранении длительность будет пересчитана по текущему типу ТС.</span></div>
         </div>
         <div class="st-form-group st-slot-group"><div class="st-slot-head"><label>Доступное время *</label><span id="edit-slots-count"></span></div><div id="edit-slot-chips" class="st-slot-chips"><div class="st-slot-placeholder">Загрузка доступного времени…</div></div><select name="start" id="edit-start" class="st-slot-native" required><option value="{{ appointment.local_start|date:'Y-m-d\\TH:i:s' }}" selected>{{ appointment.local_start|date:'H:i' }} — {{ appointment.local_end|date:'H:i' }}</option></select><div id="edit-slots-hint" class="st-edit-hint"></div></div>
         <p class="st-edit-hint">Показываются доступные интервалы станции. Прошедшие даты выбрать нельзя. Длительность рассчитывается автоматически по типу автомобиля. Часовой пояс: {{ station.timezone|default:'Europe/Moscow' }}.</p>

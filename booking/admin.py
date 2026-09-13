@@ -300,7 +300,7 @@ class StationAdmin(admin.ModelAdmin):
 class AppointmentAdmin(admin.ModelAdmin):
     list_display = ("station", "start", "end", "client_name", "client_phone", "car", "get_type", "user", "status")
     list_editable = ("status",)
-    list_filter = ("station", "car__model__vehicle_type", "status")
+    list_filter = ("station", "car__vehicle_type", "status")
     search_fields = ("name", "phone", "vin")
     ordering = ("start",)
     inlines = [AppointmentPhotoInline]
@@ -321,7 +321,7 @@ class AppointmentAdmin(admin.ModelAdmin):
     client_phone.short_description = "Телефон"
 
     def get_type(self, obj):
-        return obj.car.model.get_vehicle_type_display()
+        return obj.car.get_vehicle_type_display()
     get_type.short_description = "Тип ТС"
 
 
@@ -400,10 +400,10 @@ class CarAdmin(admin.ModelAdmin):
     list_display = ("owner", "model", "plate_number", "get_vehicle_type", "is_active")
     list_editable = ("is_active",)
     search_fields = ("model__name", "plate_number", "vin")
-    list_filter = ("model__brand", "model__vehicle_type", "is_active")
+    list_filter = ("model__brand", "vehicle_type", "is_active")
 
     def get_vehicle_type(self, obj):
-        return obj.model.get_vehicle_type_display()
+        return obj.get_vehicle_type_display()
     get_vehicle_type.short_description = "Тип ТС"
 
 
@@ -416,8 +416,8 @@ class BrandAdmin(admin.ModelAdmin):
 
 @admin.register(CarModel)
 class CarModelAdmin(admin.ModelAdmin):
-    list_display = ("name", "brand", "vehicle_type")
-    list_filter = ("brand", "vehicle_type")
+    list_display = ("name", "brand")
+    list_filter = ("brand",)
     search_fields = ("name",)
     ordering = ("brand", "name")
 

@@ -209,7 +209,7 @@ class ProtectedMediaStaffTests(TestCase):
             is_active=True,
         )
         brand = Brand.objects.create(name="Test")
-        model = CarModel.objects.create(brand=brand, name="Passenger", vehicle_type="CAR")
+        model = CarModel.objects.create(brand=brand, name="Passenger")
         self.car = Car.objects.create(owner=self.client_user, model=model, plate_number="A111AA")
         target = date(2099, 2, 3)
         StationWeeklySchedule.objects.create(

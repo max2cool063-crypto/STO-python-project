@@ -90,19 +90,20 @@ def station_appointment_edit(request, station_id, pk, staff=None):
                     return redirect(request.path)
 
                 old_start = appointment.start
+                old_end = appointment.end
                 # Имя и телефон намеренно не читаются из POST: они являются
                 # зафиксированными данными клиента этой записи.
                 appointment.start = start
                 appointment.end = start
                 appointment.notes = notes
-                appointment.save()
+                appointment.save(recalculate_duration=True)
                 for uploaded in files:
                     AppointmentPhoto.objects.create(
                         appointment=appointment,
                         image=uploaded,
                     )
 
-                if old_start != appointment.start:
+                if old_start != appointment.start or old_end != appointment.end:
                     old_local = station_localtime(station, old_start)
                     new_local = station_localtime(station, appointment.start)
                     AppointmentLog.objects.create(
@@ -112,7 +113,8 @@ def station_appointment_edit(request, station_id, pk, staff=None):
                         new_status=appointment.status,
                         comment=(
                             f"Перенесено с {old_local:%d.%m.%Y %H:%M} "
-                            f"на {new_local:%d.%m.%Y %H:%M}"
+                            f"на {new_local:%d.%m.%Y %H:%M}; "
+                            f"длительность: {int((old_end - old_start).total_seconds() // 60)} → {appointment.duration_minutes} мин"
                         ),
                     )
 

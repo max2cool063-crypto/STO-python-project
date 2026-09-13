@@ -228,10 +228,8 @@ class Brand(models.Model):
 
 
 class CarModel(models.Model):
-    VEHICLE_TYPES = [("CAR", "Легковой"), ("TRUCK", "Грузовой")]
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="models")
     name = models.CharField(max_length=100)
-    vehicle_type = models.CharField("Тип ТС", max_length=10, choices=VEHICLE_TYPES, default="CAR")
 
     class Meta:
         unique_together = ("brand", "name")
@@ -243,6 +241,8 @@ class CarModel(models.Model):
 
 
 class Car(models.Model):
+    VEHICLE_TYPES = [("CAR", "Легковой"), ("TRUCK", "Грузовой")]
+    vehicle_type = models.CharField("Тип ТС", max_length=10, choices=VEHICLE_TYPES, default="CAR")
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     model = models.ForeignKey(CarModel, on_delete=models.CASCADE)
     plate_number = models.CharField("Госномер", max_length=20)
@@ -302,7 +302,11 @@ class Appointment(models.Model):
 
     def get_required_duration(self):
         base = timedelta(minutes=self.station.slot_duration)
-        return base * 2 if self.car.model.vehicle_type == "TRUCK" else base
+        return base * 2 if self.car.vehicle_type == "TRUCK" else base
+
+    @property
+    def duration_minutes(self):
+        return int((self.end - self.start).total_seconds() // 60)
 
     def clean(self):
         if self.start >= self.end:
@@ -316,7 +320,7 @@ class Appointment(models.Model):
         if not (work_start <= local_start.time() < work_end):
             raise ValidationError("Запись вне графика работы станции")
 
-        expected_end = self.start + self.get_required_duration()
+        expected_end = self.end
         expected_end_local = station_localtime(self.station, expected_end)
         if expected_end_local.date() != date or expected_end_local.time() > work_end:
             raise ValidationError(
@@ -338,6 +342,7 @@ class Appointment(models.Model):
             raise ValidationError("Выбранное время заблокировано станцией")
 
     def save(self, *args, **kwargs):
+        recalculate_duration = kwargs.pop("recalculate_duration", False)
         # Only actively booked appointments need slot/schedule validation.
         # Result-pending and terminal records are historical workflow states.
         if self.status != "BOOKED":
@@ -346,20 +351,29 @@ class Appointment(models.Model):
 
         with transaction.atomic():
             Station.objects.select_for_update().get(pk=self.station_id)
+            previous = None
             if self.pk:
                 previous = (
                     Appointment.objects.filter(pk=self.pk)
-                    .values("start", "notification_revision")
+                    .values("start", "end", "car_id", "notification_revision")
                     .first()
                 )
                 if previous is not None:
                     self.notification_revision = previous["notification_revision"]
-                if previous is not None and previous["start"] != self.start:
-                    self.notification_revision += 1
-                    self.reminder_sent_at = None
-                    if kwargs.get("update_fields") is not None:
-                        kwargs["update_fields"] = set(kwargs["update_fields"]) | {"reminder_sent_at", "notification_revision"}
-            self.end = self.start + self.get_required_duration()
+            if (previous is None or recalculate_duration
+                    or previous["start"] != self.start or previous["car_id"] != self.car_id):
+                # Read the current card rather than a cached related object.
+                self.car = Car.objects.get(pk=self.car_id)
+                self.end = self.start + self.get_required_duration()
+            else:
+                self.end = previous["end"]
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {"end"}
+            if previous is not None and (previous["start"] != self.start or previous["end"] != self.end):
+                self.notification_revision += 1
+                self.reminder_sent_at = None
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = set(kwargs["update_fields"]) | {"reminder_sent_at", "notification_revision"}
             self.full_clean()
             super().save(*args, **kwargs)
 

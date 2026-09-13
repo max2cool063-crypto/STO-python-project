@@ -190,7 +190,7 @@ class AdminSafetyTests(TestCase):
         form = form_class(data={
             "owner": self.owner.pk,
             "model": car_model.pk,
-            "plate_number": "A123AA",
+            "vehicle_type": "CAR", "plate_number": "A123AA",
             "vin": "123",
             "is_active": "on",
         })
@@ -208,7 +208,7 @@ class AdminSafetyTests(TestCase):
         form = form_class(data={
             "owner": self.owner.pk,
             "model": car_model.pk,
-            "plate_number": "а123вс77",
+            "vehicle_type": "CAR", "plate_number": "а123вс77",
             "vin": "xta210990y1234567",
             "is_active": "on",
         })

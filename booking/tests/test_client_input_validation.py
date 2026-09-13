@@ -17,13 +17,12 @@ class ClientInputValidationTests(TestCase):
         self.model = CarModel.objects.create(
             brand=brand,
             name="Passenger",
-            vehicle_type="CAR",
         )
         self.client.login(username="client@example.com", password="test-password")
 
     def test_car_form_accepts_valid_russian_plate_and_vin(self):
         form = CarForm({
-            "plate_number": "А123ВС77",
+            "vehicle_type": "CAR", "plate_number": "А123ВС77",
             "vin": "XTA210990Y1234567",
         })
         self.assertTrue(form.is_valid(), form.errors)
@@ -33,14 +32,14 @@ class ClientInputValidationTests(TestCase):
     def test_car_form_rejects_invalid_plate(self):
         for plate in ("A123AA", "А123ВВ", "А12ВС777", "А123ABC77"):
             with self.subTest(plate=plate):
-                form = CarForm({"plate_number": plate, "vin": ""})
+                form = CarForm({"vehicle_type": "CAR", "plate_number": plate, "vin": ""})
                 self.assertFalse(form.is_valid())
                 self.assertIn("plate_number", form.errors)
 
     def test_car_form_rejects_invalid_vin(self):
         for vin in ("123", "XTA210990Y123456", "XTA210990Y123456I", "XTA210990Y12345O7"):
             with self.subTest(vin=vin):
-                form = CarForm({"plate_number": "А123ВС77", "vin": vin})
+                form = CarForm({"vehicle_type": "CAR", "plate_number": "А123ВС77", "vin": vin})
                 self.assertFalse(form.is_valid())
                 self.assertIn("vin", form.errors)
 
@@ -49,7 +48,7 @@ class ClientInputValidationTests(TestCase):
             reverse("cabinet_cars"),
             {
                 "model": self.model.id,
-                "plate": "A123AA",
+                "vehicle_type": "CAR", "plate": "A123AA",
                 "vin": "123",
             },
         )
@@ -61,7 +60,7 @@ class ClientInputValidationTests(TestCase):
             reverse("cabinet_cars"),
             {
                 "model": self.model.id,
-                "plate": "А123ВС77",
+                "vehicle_type": "CAR", "plate": "А123ВС77",
                 "vin": "XTA210990Y1234567",
             },
         )

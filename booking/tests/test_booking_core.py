@@ -40,12 +40,10 @@ class BookingCoreTests(TestCase):
         self.car_model = CarModel.objects.create(
             brand=self.brand,
             name="Passenger",
-            vehicle_type="CAR",
         )
         self.truck_model = CarModel.objects.create(
             brand=self.brand,
             name="Truck",
-            vehicle_type="TRUCK",
         )
         self.car = Car.objects.create(
             owner=self.user,
