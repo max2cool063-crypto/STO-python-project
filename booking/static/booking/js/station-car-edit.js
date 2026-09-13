@@ -2,11 +2,17 @@
   const dialog = document.getElementById('car-edit-dialog');
   const form = document.getElementById('car-edit-dialog-form');
   const error = document.getElementById('car-edit-error');
+  const button = document.getElementById('edit-selected-car');
+  const feedback = document.getElementById('car-info');
   let url = '';
+  const letters = {A:'А',B:'В',E:'Е',K:'К',M:'М',H:'Н',O:'О',P:'Р',C:'С',T:'Т',Y:'У',X:'Х'};
+  const normalizePlate = value => [...value.toUpperCase()].map(char => letters[char] || char).join('').trim();
   document.getElementById('car-edit-close').addEventListener('click', () => dialog.close());
-  document.getElementById('edit-selected-car').addEventListener('click', async () => {
-    if (!currentCarId) return;
-    url = '/station/' + STATION_ID + '/cars/' + currentCarId + '/edit/';
+  button.addEventListener('click', async () => {
+    const carId = button.dataset.carId || (typeof currentCarId !== 'undefined' ? currentCarId : null);
+    if (!carId) return;
+    url = '/station/' + dialog.dataset.stationId + '/cars/' + carId + '/edit/';
+    button.disabled = true;
     error.textContent = '';
     try {
       const response = await fetch(url, {headers: {Accept: 'application/json'}});
@@ -17,7 +23,9 @@
       form.elements.vehicle_type.value = car.vehicle_type;
       dialog.showModal();
     } catch (_) {
-      document.getElementById('car-info').textContent = 'Не удалось открыть автомобиль. Повторите попытку.';
+      feedback.textContent = 'Не удалось открыть автомобиль. Повторите попытку.';
+    } finally {
+      button.disabled = false;
     }
   });
   form.addEventListener('submit', async event => {
@@ -34,11 +42,7 @@
         error.textContent = data.errors ? Object.values(data.errors).flat().map(item => item.message).join(' ') : 'Не удалось сохранить автомобиль.';
         return;
       }
-      document.getElementById('plate-input').value = form.elements.plate_number.value;
-      updateDurationSummary(form.elements.vehicle_type.value);
-      document.getElementById('car-info').textContent = 'Автомобиль сохранён. Выберите свободное время заново.';
-      const date = document.getElementById('date-input').value;
-      await loadSlots(date);
+      document.dispatchEvent(new CustomEvent('station-car-saved', {detail: data}));
       dialog.close();
     } catch (_) {
       error.textContent = 'Не удалось сохранить автомобиль. Повторите попытку.';

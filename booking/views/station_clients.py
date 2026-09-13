@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.db.models import Count, Q, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
-from booking.forms import CarForm
+from booking.forms import StationCarForm
 from booking.models import Car
 
 from booking.station_access import require_station_access
@@ -65,19 +65,27 @@ def station_cars(station_id):
 def station_car_edit(request, station_id, pk, staff=None):
     car = get_object_or_404(station_cars(station_id), pk=pk)
     wants_json = request.headers.get("Accept") == "application/json"
-    form = CarForm(request.POST if request.method == "POST" else None, instance=car)
+    form = StationCarForm(request.POST if request.method == "POST" else None, instance=car)
     if request.method == "POST" and form.is_valid():
         # Save only editable fields; never reassign the owner or model from POST.
         car = form.save(commit=False)
         car.save(update_fields=["plate_number", "vin", "vehicle_type"])
         if wants_json:
-            return JsonResponse({"saved": True})
+            return JsonResponse({"saved": True, **car_edit_data(car)})
         messages.success(request, "Автомобиль сохранён. Время существующих записей не изменено.")
         return redirect("station_clients", station_id=station_id)
     if wants_json:
         if request.method == "POST":
             return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
-        return JsonResponse({"plate_number": car.plate_number, "vin": car.vin or "", "vehicle_type": car.vehicle_type})
+        return JsonResponse(car_edit_data(car))
     return render(request, "booking/station/car_edit.html", {
         "station": staff.station, "staff": staff, "car": car, "form": form,
     })
+
+
+def car_edit_data(car):
+    return {
+        "id": car.pk, "label": str(car), "plate_number": car.plate_number,
+        "vin": car.vin or "", "vehicle_type": car.vehicle_type,
+        "vehicle_type_display": car.get_vehicle_type_display(),
+    }

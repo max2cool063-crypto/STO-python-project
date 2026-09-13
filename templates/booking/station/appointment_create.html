@@ -134,17 +134,5 @@ $('date-input').addEventListener('change',()=>{setText('summary-date',$('date-in
 $('appointment-photos').addEventListener('change',()=>{const files=[...$('appointment-photos').files];const preview=$('photo-preview');preview.innerHTML='';files.slice(0,5).forEach(file=>{const figure=document.createElement('figure');const img=document.createElement('img');img.src=URL.createObjectURL(file);img.alt=file.name;figure.appendChild(img);preview.appendChild(figure)})});
 $('appt-form').addEventListener('submit',e=>{validateNewVehicleFields();if(!validatePhone($('client-phone').value)){$('client-phone').setCustomValidity('Введите корректный российский номер телефона')}else{$('client-phone').setCustomValidity('')}const carId=$('car-id-input').value;if(!carId&&!$('new-car-block').hidden){if(!$('model-select').value||!$('vehicle-type-select').value){e.preventDefault();alert('Выберите модель автомобиля и тип ТС');return}}else if(!carId){e.preventDefault();$('car-info').style.color='#dc2626';setText('car-info','✗ Сначала найдите автомобиль или зарегистрируйте новый');$('plate-input').focus();return}if(!validateNewVehicleFields()||!validatePhone($('client-phone').value)){e.preventDefault()}});loadBrands();setProgressState();
 </script>
-{% load static %}
-<dialog class="st-car-dialog" id="car-edit-dialog" aria-labelledby="car-edit-title">
-  <h2 id="car-edit-title">Редактировать автомобиль</h2>
-  <form id="car-edit-dialog-form">{% csrf_token %}
-    <p><label for="dialog-plate">Госномер</label><input id="dialog-plate" class="st-input" name="plate_number" required maxlength="9"></p>
-    <p><label for="dialog-vin">VIN</label><input id="dialog-vin" class="st-input" name="vin" maxlength="17"></p>
-    <p><label for="dialog-type">Тип ТС</label><select id="dialog-type" class="st-select" name="vehicle_type" required><option value="CAR">Легковой</option><option value="TRUCK">Грузовой</option></select></p>
-    <p>Время существующих записей не изменится.</p><p id="car-edit-error" role="alert"></p>
-    <button type="submit" class="st-btn st-btn--primary">Сохранить автомобиль</button>
-    <button type="button" id="car-edit-close" class="st-btn st-btn--secondary">Отмена</button>
-  </form>
-</dialog>
-<script src="{% static 'booking/js/station-car-edit.js' %}"></script>
+{% include "booking/station/_car_edit_dialog.html" %}
 {% endblock %}

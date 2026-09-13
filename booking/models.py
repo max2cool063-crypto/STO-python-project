@@ -110,7 +110,7 @@ class Station(models.Model):
 
         return None, None
 
-    def get_available_slots(self, date, vehicle_type=None):
+    def get_available_slots(self, date, vehicle_type=None, exclude_appointment_id=None):
         work_start, work_end = self.get_working_hours(date)
         if not work_start or not work_end or work_start >= work_end:
             return []
@@ -127,7 +127,7 @@ class Station(models.Model):
                 station=self,
                 start__lt=end_dt,
                 end__gt=start_dt,
-            ).exclude(status="CANCELLED").only("start", "end")
+            ).exclude(status="CANCELLED").exclude(pk=exclude_appointment_id).only("start", "end")
         )
         blocks = list(
             SlotBlock.objects.filter(

@@ -174,6 +174,15 @@ class CarForm(forms.ModelForm):
         return vin or None
 
 
+class StationCarForm(CarForm):
+    """Car fields using the shared station form components."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            field.widget.attrs["class"] = "st-select" if name == "vehicle_type" else "st-input"
+        self.fields["vin"].label = "VIN"
+
+
 class PhotosUploadForm:
     """Валидация количества, размера, MIME-типа и фактического формата файлов."""
 

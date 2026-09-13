@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from booking.input_validation import safe_parse_date as parse_date
 from django.views.decorators.http import require_GET
 
-from booking.models import Brand, CarModel, Station, Car, StationStaff
+from booking.models import Appointment, Brand, CarModel, Station, Car, StationStaff
 from booking.station_access import get_staff_record
 
 
@@ -74,7 +74,21 @@ def station_slots_api(request, station_id):
         # the same duration rule as Appointment.save().
         vehicle_type = requested_vehicle_type
 
-    slots = station.get_available_slots(date, vehicle_type=vehicle_type)
+    exclude_appointment_id = None
+    appointment_id = request.GET.get("appointment")
+    if appointment_id:
+        if not staff:
+            return JsonResponse({"error": "forbidden"}, status=403)
+        if (not appointment_id.isdecimal() or len(appointment_id) > 19
+                or int(appointment_id) > 9223372036854775807 or not car_id):
+            return JsonResponse({"error": "invalid appointment"}, status=400)
+        appointment = get_object_or_404(
+            Appointment, pk=appointment_id, station=station, car_id=car_id, status="BOOKED",
+        )
+        exclude_appointment_id = appointment.pk
+    slots = station.get_available_slots(
+        date, vehicle_type=vehicle_type, exclude_appointment_id=exclude_appointment_id,
+    )
     return JsonResponse({"slots": slots})
 
 

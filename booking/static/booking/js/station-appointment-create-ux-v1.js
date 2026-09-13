@@ -109,6 +109,15 @@
     }
   };
 
+  document.addEventListener('station-car-saved', function (event) {
+    const car = event.detail;
+    document.getElementById('plate-input').value = car.plate_number;
+    document.getElementById('summary-car').textContent = car.label;
+    updateDurationSummary(car.vehicle_type);
+    document.getElementById('car-info').textContent = 'Автомобиль сохранён. Выберите свободное время заново.';
+    loadSlots(dateInput.value);
+  });
+
   document.getElementById('vehicle-type-select').addEventListener('change', function () {
     updateDurationSummary(selectedVehicleType());
     setProgressState();

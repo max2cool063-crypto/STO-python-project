@@ -1,11 +1,16 @@
 {% extends "booking/station/base.html" %}
 {% block station_content %}
 <div class="st-page-head"><div><h1>Редактировать автомобиль</h1><p>{{ car }}</p></div><a class="st-btn st-btn--secondary" href="{% url 'station_clients' station.pk %}">← К клиентам</a></div>
-<div class="st-card"><div class="st-card__body">
-<form method="post">{% csrf_token %}
-  {{ form.as_p }}
-  <p>Изменения относятся к карточке автомобиля клиента. Время уже созданных записей не изменится. Для пересчёта длительности откройте редактирование нужной записи.</p>
-  <button class="st-btn st-btn--primary" type="submit">Сохранить автомобиль</button>
+<div class="st-card st-car-editor"><div class="st-card__body">
+<form method="post" class="st-car-form">{% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="st-car-form__fields">
+    <div class="st-form-group">{{ form.plate_number.label_tag }}{{ form.plate_number }}{{ form.plate_number.errors }}<p class="st-car-form__hint">8–9 знаков, например А123ВС77.</p></div>
+    <div class="st-form-group">{{ form.vin.label_tag }}{{ form.vin }}{{ form.vin.errors }}<p class="st-car-form__hint">Необязательно. 17 символов, без букв I, O и Q.</p></div>
+    <div class="st-form-group">{{ form.vehicle_type.label_tag }}{{ form.vehicle_type }}{{ form.vehicle_type.errors }}</div>
+  </div>
+  <p class="st-car-form__notice">Изменения сохранятся в карточке автомобиля клиента. Время уже созданных записей останется прежним. Для пересчёта длительности откройте редактирование нужной записи.</p>
+  <div class="st-car-form__actions"><button class="st-btn st-btn--primary" type="submit">Сохранить автомобиль</button><a class="st-btn st-btn--secondary" href="{% url 'station_clients' station.pk %}">Отмена</a></div>
 </form>
 </div></div>
 {% endblock %}

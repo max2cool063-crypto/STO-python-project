@@ -29,6 +29,62 @@ class VehicleTypeTests(TestCase):
     def edit_url(self, car=None):
         return reverse("station_car_edit", args=[self.station.pk, (car or self.car).pk])
 
+    def edit_slots(self, **overrides):
+        return self.client.get(reverse("station_slots_api", args=[self.station.pk]), {
+            "date": self.day.isoformat(), "car": self.car.pk,
+            "appointment": self.appointment.pk, **overrides,
+        })
+
+    def test_edit_slots_recalculate_current_interval_without_blocking_itself(self):
+        self.client.force_login(self.operator)
+        self.car.vehicle_type = "TRUCK"
+        self.car.save()
+        slots = self.edit_slots().json()["slots"]
+        current = next(slot for slot in slots if slot["start"][11:16] == "10:00")
+        self.assertEqual(current["end"][11:16], "11:00")
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.duration_minutes, 30)
+
+    def test_edit_slots_still_exclude_other_visits_when_car_type_changes(self):
+        self.book(self.truck, self.start + timedelta(minutes=30))
+        self.car.vehicle_type = "TRUCK"
+        self.car.save()
+        self.client.force_login(self.operator)
+        slots = self.edit_slots().json()["slots"]
+        self.assertNotIn("10:00", [slot["start"][11:16] for slot in slots])
+
+    def test_client_cannot_exclude_appointments_from_availability(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.edit_slots().status_code, 403)
+
+    def test_edit_slots_require_the_same_car_and_an_editable_appointment(self):
+        self.book(self.truck, self.start + timedelta(hours=2))
+        self.client.force_login(self.operator)
+        self.assertEqual(self.edit_slots(car=self.truck.pk).status_code, 404)
+        self.appointment.status = "CANCELLED"
+        self.appointment.save()
+        self.assertEqual(self.edit_slots().status_code, 404)
+
+    def test_edit_slots_reject_foreign_station_and_invalid_appointment_ids(self):
+        other_station = Station.objects.create(name="Foreign edit station")
+        StationWeeklySchedule.objects.create(station=other_station, weekday=self.day.weekday(), work_start=time(9), work_end=time(18))
+        foreign = Appointment.objects.create(station=other_station, car=self.car, user=self.user, start=self.start, end=self.start, name="Клиент")
+        self.client.force_login(self.operator)
+        self.assertEqual(self.edit_slots(appointment=foreign.pk).status_code, 404)
+        for value in ["abc", "9" * 40, "9999999999999999999"]:
+            self.assertEqual(self.edit_slots(appointment=value).status_code, 400)
+
+    def test_modal_save_returns_updated_car_without_changing_appointment(self):
+        self.client.force_login(self.operator)
+        response = self.client.post(self.edit_url(), {
+            "plate_number": "К345МН77", "vin": "", "vehicle_type": "TRUCK",
+        }, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["vehicle_type_display"], "Грузовой")
+        self.assertIn("К345МН77", response.json()["label"])
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.duration_minutes, 30)
+
     def test_same_model_has_independent_types_and_durations(self):
         truck_visit = self.book(self.truck, self.start + timedelta(hours=2))
         self.assertEqual(self.appointment.duration_minutes, 30)
