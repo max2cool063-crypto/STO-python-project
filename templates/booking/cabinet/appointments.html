@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static tz %}
 {% block title %}Мои записи{% endblock %}
 {% block content %}
 <div class="cabinet-shell">
@@ -19,7 +19,9 @@
           </div>
           {% if a.status == "BOOKED" %}<span class="cabinet-status cabinet-status--booked">● Запланировано</span>{% elif a.status == "AWAITING_RESULT" %}<span class="cabinet-status cabinet-status--awaiting">⌛ Требует результата</span>{% elif a.status == "DONE" %}<span class="cabinet-status cabinet-status--done">✓ Выполнено</span>{% elif a.status == "CANCELLED" %}<span class="cabinet-status cabinet-status--cancelled">× Отменено</span>{% elif a.status == "NO_SHOW" %}<span class="cabinet-status cabinet-status--noshow">! Не явился</span>{% endif %}
         </div>
+        {% localtime off %}
         <div class="appt-date-modern">📅 {{ a.local_start|date:"d.m.Y" }} · {{ a.local_start|date:"H:i" }}–{{ a.local_end|date:"H:i" }}</div>
+        {% endlocaltime %}
         <div class="appt-car-modern">🚗 {{ a.car }}</div>
         <div class="appt-meta-modern"><span>Станция технического осмотра · {{ a.station.timezone|default:"Europe/Moscow" }}</span>{% if a.notes %}<span>{{ a.notes }}</span>{% endif %}</div>
 
