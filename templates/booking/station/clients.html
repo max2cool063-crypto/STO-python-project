@@ -58,7 +58,7 @@
           {% for client in clients %}
           <tr>
             <td>
-              <div style="display:flex;align-items:center;gap:12px;min-width:210px">
+              <div class="st-client-identity" style="display:flex;align-items:center;gap:12px">
                 <div style="width:42px;height:42px;flex:0 0 42px;border-radius:12px;background:#eef4ff;color:#155eef;display:grid;place-items:center;font-size:14px;font-weight:800">
                   {% if client.first_name %}{{ client.first_name|slice:':1'|upper }}{% elif client.last_name %}{{ client.last_name|slice:':1'|upper }}{% else %}К{% endif %}
                 </div>
