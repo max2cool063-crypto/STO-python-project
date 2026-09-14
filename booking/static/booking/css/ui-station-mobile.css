@@ -78,8 +78,9 @@
   .station-workspace .st-inline-form > * { max-width: 100%; }
   .station-workspace .st-week-grid { grid-template-columns: minmax(0, 1fr); }
   .station-workspace .st-week-day { min-width: 0; }
-  .station-workspace .st-week-day__times { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .station-workspace .st-week-day__times { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
   .station-workspace .st-week-day__times label { min-width: 0; }
+  .station-workspace .st-week-day__times .st-select { width: 100%; font-size: 14px; padding-left: 8px; padding-right: 24px; }
   .station-workspace .st-staff-grid { grid-template-columns: minmax(0, 1fr); }
   .station-workspace .st-staff-grid > * { min-width: 0; }
   .station-workspace .st-staff-modal__dialog { max-height: calc(100dvh - 24px); overflow-y: auto; }
