@@ -84,7 +84,7 @@ def _stale_reason(item):
             return "PasswordLinkInvalid"
         if item.kind == "welcome" and not StationStaff.objects.filter(user=user, is_active=True).exists():
             return "StaffDeactivated"
-    if item.kind in {"booking", "cancellation", "reminder", "staff_booking", "staff_cancellation"}:
+    if item.kind in {"booking", "reschedule", "cancellation", "reminder", "staff_booking", "staff_cancellation"}:
         appt = item.appointment
         if not appt:
             return "AppointmentDeleted"

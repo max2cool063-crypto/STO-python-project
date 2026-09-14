@@ -11,6 +11,7 @@ from django.utils.timezone import is_aware
 
 from booking.forms import PhotosUploadForm
 from booking.models import Appointment, AppointmentLog, AppointmentPhoto
+from booking.notifications import notify_client_rescheduled
 from booking.station_access import require_station_access
 from booking.timezones import station_localtime
 
@@ -117,6 +118,7 @@ def station_appointment_edit(request, station_id, pk, staff=None):
                             f"длительность: {int((old_end - old_start).total_seconds() // 60)} → {appointment.duration_minutes} мин"
                         ),
                     )
+                    notify_client_rescheduled(appointment, old_start, old_end)
 
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
