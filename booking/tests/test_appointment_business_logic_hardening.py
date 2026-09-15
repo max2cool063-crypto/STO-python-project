@@ -23,12 +23,10 @@ class AppointmentBusinessLogicHardeningTests(TestCase):
         self.passenger_model = CarModel.objects.create(
             brand=self.brand,
             name="Passenger",
-            vehicle_type="CAR",
         )
         self.truck_model = CarModel.objects.create(
             brand=self.brand,
             name="Truck",
-            vehicle_type="TRUCK",
         )
         self.passenger = Car.objects.create(
             owner=self.client_user,
@@ -36,6 +34,7 @@ class AppointmentBusinessLogicHardeningTests(TestCase):
             plate_number="A111AA",
         )
         self.truck = Car.objects.create(
+            vehicle_type="TRUCK",
             owner=self.client_user,
             model=self.truck_model,
             plate_number="B222BB",

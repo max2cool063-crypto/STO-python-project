@@ -19,7 +19,7 @@ class StationAppointmentEditIdentityTests(TestCase):
             is_active=True,
         )
         self.brand = Brand.objects.create(name="Edit Brand")
-        self.model = CarModel.objects.create(brand=self.brand, name="Edit Model", vehicle_type="CAR")
+        self.model = CarModel.objects.create(brand=self.brand, name="Edit Model")
         target = date(2099, 3, 4)
         StationWeeklySchedule.objects.create(
             station=self.station,

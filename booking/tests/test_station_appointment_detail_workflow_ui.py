@@ -38,7 +38,6 @@ class StationAppointmentDetailWorkflowUiTests(TestCase):
         model = CarModel.objects.create(
             brand=brand,
             name="Detail model",
-            vehicle_type="CAR",
         )
         car = Car.objects.create(
             owner=self.client_user,

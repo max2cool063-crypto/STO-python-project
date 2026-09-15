@@ -1,0 +1,13 @@
+{% load static %}
+<dialog class="st-car-dialog" id="car-edit-dialog" data-station-id="{{ station.pk }}" aria-labelledby="car-edit-title">
+  <h2 id="car-edit-title">Редактировать автомобиль</h2>
+  <form id="car-edit-dialog-form">{% csrf_token %}
+    <p><label for="dialog-plate">Госномер</label><input id="dialog-plate" class="st-input" name="plate_number" required maxlength="9"></p>
+    <p><label for="dialog-vin">VIN</label><input id="dialog-vin" class="st-input" name="vin" maxlength="17"></p>
+    <p><label for="dialog-type">Тип ТС</label><select id="dialog-type" class="st-select" name="vehicle_type" required><option value="CAR">Легковой</option><option value="TRUCK">Грузовой</option></select></p>
+    <p>Время существующих записей не изменится.</p><p id="car-edit-error" role="alert"></p>
+    <button type="submit" class="st-btn st-btn--primary">Сохранить автомобиль</button>
+    <button type="button" id="car-edit-close" class="st-btn st-btn--secondary">Отмена</button>
+  </form>
+</dialog>
+<script src="{% static 'booking/js/station-car-edit.js' %}"></script>

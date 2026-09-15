@@ -25,7 +25,6 @@ class StationManualBookingIdentityTests(TestCase):
         self.model = CarModel.objects.create(
             brand=brand,
             name="Manual Identity Model",
-            vehicle_type="CAR",
         )
         target = date(2099, 4, 7)
         StationWeeklySchedule.objects.create(
@@ -48,7 +47,7 @@ class StationManualBookingIdentityTests(TestCase):
         response = self.client.post(
             self.url,
             {
-                "plate": "А111АА77",
+                "vehicle_type": "CAR", "plate": "А111АА77",
                 "new_model_id": self.model.pk,
                 "new_user_email": "not-an-email",
                 "client_name": "Новый Клиент",
@@ -74,7 +73,7 @@ class StationManualBookingIdentityTests(TestCase):
         response = self.client.post(
             self.url,
             {
-                "plate": "В222ВВ77",
+                "vehicle_type": "CAR", "plate": "В222ВВ77",
                 "new_model_id": self.model.pk,
                 "new_user_email": "GLOBAL-CLIENT@example.com",
                 "client_name": "Подменённое Имя",

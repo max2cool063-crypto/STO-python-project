@@ -1,0 +1,36 @@
+@media (max-width: 760px) {
+  .client-workspace .page-wrap { padding: 18px 12px 36px; }
+  .client-workspace .site-header { position: relative; }
+  body.client-workspace .header-inner { height: auto; min-height: 0; padding: 12px; gap: 10px; flex-wrap: wrap; }
+  .client-workspace .logo-wrap { min-width: 0; gap: 8px; }
+  .client-workspace .logo-img { width: 32px; height: 32px; }
+  .client-workspace .logo-text { font-size: 14px; white-space: normal; }
+  .client-workspace .header-user__name, .client-workspace .header-user__chevron { display: none; }
+  .client-workspace .header-actions { gap: 6px; }
+  .client-workspace .header-nav { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; flex-basis: 100%; order: 3; gap: 4px; overflow: visible; }
+  body.client-workspace .nav-link { min-width: 0; white-space: normal; padding: 10px; text-align: center; font-size: 13px; color: #475467; background: #f5f7fb; }
+  .client-workspace .booking-layout, .client-workspace .booking-flow { min-width: 0; }
+  .client-workspace .booking-layout--v2 { display: flex; flex-direction: column; gap: 20px; }
+  .client-workspace .booking-flow { order: 0; }
+  .client-workspace .booking-map-card { order: 1; width: 100%; box-sizing: border-box; }
+  .client-workspace .booking-map-card .map-container { height: 240px; }
+  .client-workspace .booking-card { min-width: 0; padding: 16px; }
+  .client-workspace .booking-station-title-row h1 { font-size: 27px; overflow-wrap: anywhere; }
+  .client-workspace .booking-date-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .client-workspace .booking-date-field { grid-column: 1 / -1; min-width: 0; }
+  .client-workspace .booking-slot-note { min-width: 0; padding: 10px; }
+  .client-workspace .booking-slot-note small { white-space: normal; }
+  .client-workspace .booking-slots { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+  .client-workspace .booking-slots > button { min-width: 0; min-height: 44px; padding: 8px 4px; margin: 0; }
+  .client-workspace .booking-slots > span { grid-column: 1 / -1; }
+  .client-workspace .selected-slot-info { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .client-workspace .selected-slot-info strong { white-space: normal; overflow-wrap: anywhere; }
+  .client-workspace input:not([type="checkbox"]):not([type="radio"]), .client-workspace select { min-width: 0; max-width: 100%; box-sizing: border-box; font-size: 16px; }
+  .client-workspace #car-select { width: 100%; }
+  .client-workspace .booking-photo-head, .client-workspace .booking-photo-drop { flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+  .client-workspace .booking-photo-head small { width: 100%; }
+  .client-workspace .booking-photo-drop small { flex-basis: 100%; }
+  .client-workspace .cabinet-shell, .client-workspace .cabinet-layout > *, .client-workspace .cabinet-profile > * { min-width: 0; }
+  .client-workspace .cabinet-page-head h1 { font-size: 28px; overflow-wrap: anywhere; }
+  .client-workspace .appt-date-modern, .client-workspace .appt-car-modern { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}

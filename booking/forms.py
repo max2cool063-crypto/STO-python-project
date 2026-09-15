@@ -133,9 +133,10 @@ class ProfileForm(forms.Form):
 
 class CarForm(forms.ModelForm):
     """Форма редактирования автомобиля."""
+    vehicle_type = forms.ChoiceField(label="Тип ТС", choices=[("", "Выберите тип ТС")] + Car.VEHICLE_TYPES)
     class Meta:
         model = Car
-        fields = ["plate_number", "vin"]
+        fields = ["plate_number", "vin", "vehicle_type"]
         widgets = {
             "plate_number": forms.TextInput(attrs={
                 "maxlength": "9",
@@ -171,6 +172,15 @@ class CarForm(forms.ModelForm):
                 "VIN должен содержать ровно 17 символов: латинские буквы и цифры, без I, O и Q"
             )
         return vin or None
+
+
+class StationCarForm(CarForm):
+    """Car fields using the shared station form components."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            field.widget.attrs["class"] = "st-select" if name == "vehicle_type" else "st-input"
+        self.fields["vin"].label = "VIN"
 
 
 class PhotosUploadForm:

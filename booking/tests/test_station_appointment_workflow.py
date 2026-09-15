@@ -17,7 +17,7 @@ class StationAppointmentWorkflowTests(TestCase):
         self.station = Station.objects.create(name="Station Workflow")
         StationStaff.objects.create(station=self.station, user=self.operator, role=StationStaff.ROLE_OPERATOR, is_active=True)
         self.brand = Brand.objects.create(name="Test Brand")
-        self.model = CarModel.objects.create(brand=self.brand, name="Test Model", vehicle_type="CAR")
+        self.model = CarModel.objects.create(brand=self.brand, name="Test Model")
         target = date(2099, 2, 3)
         StationWeeklySchedule.objects.create(station=self.station, weekday=target.weekday(), work_start=time(9, 0), work_end=time(18, 0))
         self.start = "2099-02-03T10:00:00+03:00"
@@ -33,7 +33,7 @@ class StationAppointmentWorkflowTests(TestCase):
     def test_operator_can_create_client_without_email_and_attach_photo(self):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
-            {"plate": "А123АА77", "new_model_id": self.model.id, "new_user_email": "", "client_name": "Иванов Иван", "client_phone": "+79990000000", "start": self.start, "photos": self.image_upload()},
+            {"vehicle_type": "CAR", "plate": "А123АА77", "new_model_id": self.model.id, "new_user_email": "", "client_name": "Иванов Иван", "client_phone": "+79990000000", "start": self.start, "photos": self.image_upload()},
         )
         self.assertRedirects(response, reverse("station_appointments", kwargs={"station_id": self.station.id}))
         appointment = Appointment.objects.get(station=self.station)
@@ -46,7 +46,7 @@ class StationAppointmentWorkflowTests(TestCase):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
             {
-                "plate": "В456ВВ63",
+                "vehicle_type": "CAR", "plate": "В456ВВ63",
                 "new_model_id": self.model.id,
                 "vin": "XTA12345678901234",
                 "new_user_email": "",

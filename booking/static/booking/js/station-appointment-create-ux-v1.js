@@ -27,11 +27,12 @@
 
   function selectedVehicleType() {
     if (typeof currentCarId !== 'undefined' && currentCarId) return '';
-    const option = modelSelect.selectedOptions && modelSelect.selectedOptions[0];
-    return option && option.value ? (option.dataset.vehicleType || '') : '';
+    return document.getElementById('vehicle-type-select').value;
   }
 
+  let slotRequest = 0;
   loadSlots = async function (date) {
+    const requestId = ++slotRequest;
     const native = document.getElementById('slots-select');
     const chips = document.getElementById('slot-chips');
     const hint = document.getElementById('slots-hint');
@@ -44,6 +45,8 @@
     summaryTime.textContent = 'Не выбрано';
 
     if (!date) {
+      chips.innerHTML = '<div class="st-slot-placeholder">Сначала выберите дату</div>';
+      hint.textContent = '';
       setProgressState();
       return;
     }
@@ -59,6 +62,8 @@
     try {
       const response = await fetch(url);
       const data = await response.json();
+      if (requestId !== slotRequest) return;
+      if (!response.ok) throw new Error('slots unavailable');
       chips.innerHTML = '';
 
       if (!data.slots || !data.slots.length) {
@@ -97,13 +102,25 @@
         chips.appendChild(button);
       });
     } catch (error) {
+      if (requestId !== slotRequest) return;
       chips.innerHTML = '<div class="st-slot-placeholder">Не удалось загрузить слоты</div>';
       hint.textContent = 'Попробуйте ещё раз';
       setProgressState();
     }
   };
 
-  modelSelect.addEventListener('change', function () {
+  document.addEventListener('station-car-saved', function (event) {
+    const car = event.detail;
+    document.getElementById('plate-input').value = car.plate_number;
+    document.getElementById('summary-car').textContent = car.label;
+    updateDurationSummary(car.vehicle_type);
+    document.getElementById('car-info').textContent = 'Автомобиль сохранён. Выберите свободное время заново.';
+    loadSlots(dateInput.value);
+  });
+
+  document.getElementById('vehicle-type-select').addEventListener('change', function () {
+    updateDurationSummary(selectedVehicleType());
+    setProgressState();
     if (dateInput.value) loadSlots(dateInput.value);
   });
 })();

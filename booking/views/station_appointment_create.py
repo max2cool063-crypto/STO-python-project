@@ -170,6 +170,9 @@ def station_appointment_create(request, station_id, staff=None):
         try:
             with transaction.atomic():
                 if not car_id:
+                    vehicle_type = request.POST.get("vehicle_type", "")
+                    if vehicle_type not in dict(Car.VEHICLE_TYPES):
+                        raise ValidationError("Выберите тип ТС: легковой или грузовой")
                     plate = request.POST.get("plate", "").strip().upper()
                     model_id = request.POST.get("new_model_id", "").strip()
                     vin = request.POST.get("vin", "").strip().upper() or None
@@ -203,6 +206,7 @@ def station_appointment_create(request, station_id, staff=None):
                     car = Car.objects.create(
                         owner=client_user,
                         model=model,
+                        vehicle_type=vehicle_type,
                         plate_number=plate,
                         vin=vin,
                     )

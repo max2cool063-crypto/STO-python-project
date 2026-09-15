@@ -18,9 +18,9 @@ class ClientBookingDurationTests(TestCase):
         truck_model = CarModel.objects.create(
             brand=brand,
             name="GAZelle Next",
-            vehicle_type="TRUCK",
         )
         self.truck = Car.objects.create(
+            vehicle_type="TRUCK",
             owner=self.user,
             model=truck_model,
             plate_number="A822KE763",

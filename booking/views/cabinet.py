@@ -56,7 +56,7 @@ def cabinet_cars(request):
             messages.error(request, "Выберите модель и укажите госномер")
             return redirect("cabinet_cars")
 
-        car_form = CarForm({"plate_number": plate, "vin": vin})
+        car_form = CarForm({"plate_number": plate, "vin": vin, "vehicle_type": request.POST.get("vehicle_type", "")})
         if not car_form.is_valid():
             errors = []
             for field_errors in car_form.errors.values():
@@ -70,6 +70,7 @@ def cabinet_cars(request):
                 model_id=int(model_id),
                 plate_number=car_form.cleaned_data["plate_number"],
                 vin=car_form.cleaned_data["vin"],
+                vehicle_type=car_form.cleaned_data["vehicle_type"],
             )
         except Exception:
             messages.error(request, "Не удалось добавить автомобиль")

@@ -78,3 +78,23 @@
   .st-filter-field, .st-filter-field--search { width: 100%; min-width: 0; }
   .st-filter-bar .st-btn { width: 100%; }
 }
+
+/* Editing a selected car keeps the booking form and its client data in place. */
+.st-car-dialog{margin:auto;width:min(480px,calc(100vw - 32px));max-height:calc(100dvh - 32px);box-sizing:border-box;overflow:auto;border:1px solid #dbe3ee;border-radius:18px;padding:24px;color:#0f172a;background:#fff;box-shadow:0 24px 64px #0f172a33}
+.st-car-dialog::backdrop{background:#0f172a66}
+.st-car-dialog h2{margin:0 0 20px;font-size:22px}
+.st-car-dialog label{display:block;margin-bottom:6px;font-weight:600}
+.st-car-dialog p{font-size:14px;line-height:1.5}
+.st-car-dialog #car-edit-error{color:#b91c1c}
+
+#edit-selected-car[hidden]{display:none}
+
+.st-car-editor{max-width:850px}
+.st-car-form__fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.st-car-form__fields .st-input,.st-car-form__fields .st-select{width:100%;box-sizing:border-box}
+.st-car-form__hint{margin:6px 0 0;color:#526581;font-size:13px;line-height:1.5}
+.st-car-form__notice{margin:24px 0;padding:16px;border:1px solid #dbe3ee;border-radius:12px;background:#f8fbff;color:#475569;font-size:14px;line-height:1.6}
+.st-car-form__actions{display:flex;flex-wrap:wrap;gap:10px}
+.st-car-form .errorlist{color:#b91c1c;font-size:13px;margin:6px 0;padding-left:18px}
+.st-edit-info #edit-selected-car{margin-top:12px;align-self:flex-start;white-space:normal}
+@media(max-width:650px){.st-car-form__fields{grid-template-columns:1fr}}

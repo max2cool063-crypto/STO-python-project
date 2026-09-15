@@ -26,7 +26,6 @@ class UpdateAppointmentsAuditTests(TestCase):
         self.model = CarModel.objects.create(
             brand=self.brand,
             name="Auto Result Model",
-            vehicle_type="CAR",
         )
         self.car = Car.objects.create(
             owner=self.user,

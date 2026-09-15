@@ -14,8 +14,8 @@ class SecurityCompletionTests(TestCase):
         self.staff_user = User.objects.create_user(username="staff@example.com", password="pass")
         self.brand = Brand.objects.create(name="Test Brand")
         self.other_brand = Brand.objects.create(name="Other Brand")
-        self.model = CarModel.objects.create(brand=self.brand, name="Test Model", vehicle_type="CAR")
-        self.other_model = CarModel.objects.create(brand=self.other_brand, name="Other Model", vehicle_type="CAR")
+        self.model = CarModel.objects.create(brand=self.brand, name="Test Model")
+        self.other_model = CarModel.objects.create(brand=self.other_brand, name="Other Model")
         self.station = Station.objects.create(name="Station A", address="A")
         StationWeeklySchedule.objects.create(
             station=self.station, weekday=2, work_start="09:00", work_end="18:00"
@@ -40,7 +40,7 @@ class SecurityCompletionTests(TestCase):
         response = client.post(reverse("cabinet_cars"), {
             "owner": self.other_user.id,
             "model": self.model.id,
-            "plate": "А999АА77",
+            "vehicle_type": "CAR", "plate": "А999АА77",
             "vin": "XTA210990Y1234567",
         })
         self.assertEqual(response.status_code, 302)

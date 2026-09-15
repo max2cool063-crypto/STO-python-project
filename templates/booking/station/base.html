@@ -19,6 +19,8 @@
     </div>
     <div class="st-sidebar__name">{{ station.name }}</div>
     <div class="st-sidebar__label">Рабочая область</div>
+    <button type="button" class="st-menu-toggle" aria-expanded="true" aria-controls="st-menu-panel" hidden><i data-lucide="menu" aria-hidden="true"></i><span>Разделы станции</span><span class="st-menu-toggle__state">Скрыть</span></button>
+    <div id="st-menu-panel" class="st-menu-panel">
     <nav class="st-sidebar__nav" aria-label="Навигация станции">
       <a href="{% url 'station_dashboard' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_dashboard' %}st-nav-link--active{% endif %}"><i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Обзор</span></a>
       <a href="{% url 'station_day_calendar' station.pk %}" class="st-nav-link {% if request.resolver_match.url_name == 'station_day_calendar' %}st-nav-link--active{% endif %}"><i data-lucide="calendar-days" aria-hidden="true"></i><span>Календарь дня</span></a>
@@ -32,6 +34,7 @@
     </nav>
     <a href="{% url 'station_change_password' %}" class="st-sidebar__back"><i data-lucide="key-round" aria-hidden="true"></i><span>Сменить пароль</span></a>
     <a href="{% url 'station_select' %}" class="st-sidebar__back"><i data-lucide="arrow-left" aria-hidden="true"></i><span>Все станции</span></a>
+    </div>
   </aside>
 
   <main class="st-main">
@@ -40,6 +43,7 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
+<script src="{% static 'booking/js/station-mobile-menu.js' %}"></script>
 <script src="{% static 'booking/js/station-notifications-v1.js' %}?v=20260901-2"></script>
 {% if request.resolver_match.url_name == 'station_appointment_create' %}<script src="{% static 'booking/js/station-appointment-create-ux-v1.js' %}?v=20260907-1"></script>{% endif %}
 {% endblock %}

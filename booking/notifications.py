@@ -6,6 +6,7 @@ import logging
 
 from django.conf import settings
 from booking.email_queue import enqueue_mail
+from booking.timezones import station_localtime
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,30 @@ def notify_client_booked(appointment):
         ),
         recipients=[email],
         kind="booking", appointment=appointment,
+    )
+
+
+def notify_client_rescheduled(appointment, old_start, old_end):
+    """Queue a schedule-change notice in the same transaction as the edit."""
+    if not appointment.user.email:
+        return False
+    old_local_start = station_localtime(appointment.station, old_start)
+    old_local_end = station_localtime(appointment.station, old_end)
+    return _send(
+        subject=f"Изменено время записи на ТО — {appointment.station.name}",
+        body=(
+            f"Здравствуйте, {appointment.name}!\n\n"
+            f"Сотрудник станции изменил время вашей записи на технический осмотр.\n\n"
+            f"Станция: {appointment.station.name}\n"
+            f"Адрес: {appointment.station.address}\n"
+            f"Было: {old_local_start:%d.%m.%Y %H:%M} — {old_local_end:%d.%m.%Y %H:%M}\n"
+            f"Стало: {appointment.local_start:%d.%m.%Y %H:%M} — {appointment.local_end:%d.%m.%Y %H:%M}\n"
+            f"Время указано по часовому поясу станции: {appointment.station.timezone}.\n"
+            f"Автомобиль: {appointment.car}\n\n"
+            f"Актуальная запись доступна в личном кабинете.\n"
+        ),
+        recipients=[appointment.user.email],
+        kind="reschedule", appointment=appointment,
     )
 
 

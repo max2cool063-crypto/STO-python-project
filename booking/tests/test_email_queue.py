@@ -125,7 +125,7 @@ class AppointmentEmailQueueTests(TestCase):
         self.owner = User.objects.create_user(username="queue-owner", email="owner@example.com")
         self.station = Station.objects.create(name="Queue station")
         StationStaff.objects.create(station=self.station, user=self.owner, role="OWNER")
-        model = CarModel.objects.create(brand=Brand.objects.create(name="Queue brand"), name="Car", vehicle_type="CAR")
+        model = CarModel.objects.create(brand=Brand.objects.create(name="Queue brand"), name="Car")
         self.car = Car.objects.create(owner=self.user, model=model, plate_number="А123АА77")
         self.start = timezone.make_aware(datetime(2099, 3, 3, 10))
         StationSchedule.objects.create(station=self.station, date=self.start.date(), work_start=time(9), work_end=time(18))

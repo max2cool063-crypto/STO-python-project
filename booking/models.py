@@ -19,27 +19,38 @@ class EmailOutbox(models.Model):
         FAILED = "failed", "Попытки исчерпаны"
         CANCELLED = "cancelled", "Устарело"
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    deduplication_key = models.CharField(max_length=64, unique=True)
-    kind = models.CharField(max_length=32, default="generic")
-    subject = models.TextField()
-    body = models.TextField()
-    sender = models.TextField(blank=True)
-    recipient = models.EmailField()
-    appointment = models.ForeignKey("Appointment", null=True, blank=True, on_delete=models.SET_NULL)
-    expected_start = models.DateTimeField(null=True, blank=True)
-    expected_revision = models.PositiveIntegerField(default=0)
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
-    auth_token = models.CharField(max_length=128, blank=True)
-    expires_at = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
-    attempts = models.PositiveIntegerField(default=0)
-    available_at = models.DateTimeField(default=timezone.now)
-    locked_until = models.DateTimeField(null=True, blank=True)
-    lock_token = models.UUIDField(null=True, blank=True)
-    last_error = models.CharField(max_length=128, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    finished_at = models.DateTimeField(null=True, blank=True)
+    class Kind(models.TextChoices):
+        GENERIC = "generic", "Общее уведомление"
+        PASSWORD = "password", "Установка или восстановление пароля"
+        WELCOME = "welcome", "Доступ сотрудника станции"
+        BOOKING = "booking", "Подтверждение записи клиенту"
+        RESCHEDULE = "reschedule", "Перенос записи"
+        CANCELLATION = "cancellation", "Отмена записи клиенту"
+        REMINDER = "reminder", "Напоминание о записи"
+        STAFF_BOOKING = "staff_booking", "Новая запись для станции"
+        STAFF_CANCELLATION = "staff_cancellation", "Отмена записи для станции"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name="Идентификатор")
+    deduplication_key = models.CharField(max_length=64, unique=True, verbose_name="Ключ защиты от повторной отправки")
+    kind = models.CharField(max_length=32, default="generic", choices=Kind.choices, verbose_name="Тип письма")
+    subject = models.TextField(verbose_name="Тема")
+    body = models.TextField(verbose_name="Текст письма")
+    sender = models.TextField(blank=True, verbose_name="Отправитель")
+    recipient = models.EmailField(verbose_name="Получатель")
+    appointment = models.ForeignKey("Appointment", null=True, blank=True, on_delete=models.SET_NULL, verbose_name="Запись на ТО")
+    expected_start = models.DateTimeField(null=True, blank=True, verbose_name="Ожидаемое время записи")
+    expected_revision = models.PositiveIntegerField(default=0, verbose_name="Версия записи")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="Пользователь")
+    auth_token = models.CharField(max_length=128, blank=True, verbose_name="Токен доступа")
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="Срок действия")
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING, verbose_name="Статус")
+    attempts = models.PositiveIntegerField(default=0, verbose_name="Количество попыток")
+    available_at = models.DateTimeField(default=timezone.now, verbose_name="Следующая попытка")
+    locked_until = models.DateTimeField(null=True, blank=True, verbose_name="Блокировка до")
+    lock_token = models.UUIDField(null=True, blank=True, verbose_name="Токен блокировки")
+    last_error = models.CharField(max_length=128, blank=True, verbose_name="Последняя ошибка")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name="Завершено")
 
     class Meta:
         verbose_name = "Исходящее письмо"
@@ -50,7 +61,7 @@ class EmailOutbox(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.kind}: {self.status} ({self.pk})"
+        return f"{self.get_kind_display()}: {self.get_status_display()} ({self.pk})"
 
 
 # =========================
@@ -110,7 +121,7 @@ class Station(models.Model):
 
         return None, None
 
-    def get_available_slots(self, date, vehicle_type=None):
+    def get_available_slots(self, date, vehicle_type=None, exclude_appointment_id=None):
         work_start, work_end = self.get_working_hours(date)
         if not work_start or not work_end or work_start >= work_end:
             return []
@@ -127,7 +138,7 @@ class Station(models.Model):
                 station=self,
                 start__lt=end_dt,
                 end__gt=start_dt,
-            ).exclude(status="CANCELLED").only("start", "end")
+            ).exclude(status="CANCELLED").exclude(pk=exclude_appointment_id).only("start", "end")
         )
         blocks = list(
             SlotBlock.objects.filter(
@@ -216,7 +227,7 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 
 class Brand(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField("Название марки", max_length=100, unique=True)
 
     class Meta:
         verbose_name = "Марка"
@@ -228,10 +239,8 @@ class Brand(models.Model):
 
 
 class CarModel(models.Model):
-    VEHICLE_TYPES = [("CAR", "Легковой"), ("TRUCK", "Грузовой")]
-    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="models")
-    name = models.CharField(max_length=100)
-    vehicle_type = models.CharField("Тип ТС", max_length=10, choices=VEHICLE_TYPES, default="CAR")
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="models", verbose_name="Марка")
+    name = models.CharField("Название модели", max_length=100)
 
     class Meta:
         unique_together = ("brand", "name")
@@ -243,10 +252,12 @@ class CarModel(models.Model):
 
 
 class Car(models.Model):
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
-    model = models.ForeignKey(CarModel, on_delete=models.CASCADE)
+    VEHICLE_TYPES = [("CAR", "Легковой"), ("TRUCK", "Грузовой")]
+    vehicle_type = models.CharField("Тип ТС", max_length=10, choices=VEHICLE_TYPES, default="CAR")
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Владелец")
+    model = models.ForeignKey(CarModel, on_delete=models.CASCADE, verbose_name="Модель")
     plate_number = models.CharField("Госномер", max_length=20)
-    vin = models.CharField(max_length=32, blank=True, null=True)
+    vin = models.CharField("VIN-код", max_length=32, blank=True, null=True)
     is_active = models.BooleanField(default=True, verbose_name="Активен")
 
     def save(self, *args, **kwargs):
@@ -302,7 +313,11 @@ class Appointment(models.Model):
 
     def get_required_duration(self):
         base = timedelta(minutes=self.station.slot_duration)
-        return base * 2 if self.car.model.vehicle_type == "TRUCK" else base
+        return base * 2 if self.car.vehicle_type == "TRUCK" else base
+
+    @property
+    def duration_minutes(self):
+        return int((self.end - self.start).total_seconds() // 60)
 
     def clean(self):
         if self.start >= self.end:
@@ -316,7 +331,7 @@ class Appointment(models.Model):
         if not (work_start <= local_start.time() < work_end):
             raise ValidationError("Запись вне графика работы станции")
 
-        expected_end = self.start + self.get_required_duration()
+        expected_end = self.end
         expected_end_local = station_localtime(self.station, expected_end)
         if expected_end_local.date() != date or expected_end_local.time() > work_end:
             raise ValidationError(
@@ -338,6 +353,7 @@ class Appointment(models.Model):
             raise ValidationError("Выбранное время заблокировано станцией")
 
     def save(self, *args, **kwargs):
+        recalculate_duration = kwargs.pop("recalculate_duration", False)
         # Only actively booked appointments need slot/schedule validation.
         # Result-pending and terminal records are historical workflow states.
         if self.status != "BOOKED":
@@ -346,20 +362,29 @@ class Appointment(models.Model):
 
         with transaction.atomic():
             Station.objects.select_for_update().get(pk=self.station_id)
+            previous = None
             if self.pk:
                 previous = (
                     Appointment.objects.filter(pk=self.pk)
-                    .values("start", "notification_revision")
+                    .values("start", "end", "car_id", "notification_revision")
                     .first()
                 )
                 if previous is not None:
                     self.notification_revision = previous["notification_revision"]
-                if previous is not None and previous["start"] != self.start:
-                    self.notification_revision += 1
-                    self.reminder_sent_at = None
-                    if kwargs.get("update_fields") is not None:
-                        kwargs["update_fields"] = set(kwargs["update_fields"]) | {"reminder_sent_at", "notification_revision"}
-            self.end = self.start + self.get_required_duration()
+            if (previous is None or recalculate_duration
+                    or previous["start"] != self.start or previous["car_id"] != self.car_id):
+                # Read the current card rather than a cached related object.
+                self.car = Car.objects.get(pk=self.car_id)
+                self.end = self.start + self.get_required_duration()
+            else:
+                self.end = previous["end"]
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {"end"}
+            if previous is not None and (previous["start"] != self.start or previous["end"] != self.end):
+                self.notification_revision += 1
+                self.reminder_sent_at = None
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = set(kwargs["update_fields"]) | {"reminder_sent_at", "notification_revision"}
             self.full_clean()
             super().save(*args, **kwargs)
 

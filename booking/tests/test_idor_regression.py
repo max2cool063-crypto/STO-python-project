@@ -24,7 +24,7 @@ class IdorRegressionTests(TestCase):
         self.other_user = User.objects.create_user(username="u2@example.com", password="pass")
         self.operator = User.objects.create_user(username="op@example.com", password="pass")
         self.brand = Brand.objects.create(name="Test")
-        self.model = CarModel.objects.create(brand=self.brand, name="Model", vehicle_type="CAR")
+        self.model = CarModel.objects.create(brand=self.brand, name="Model")
         self.station = Station.objects.create(name="A", address="A")
         self.other_station = Station.objects.create(name="B", address="B")
         StationWeeklySchedule.objects.create(

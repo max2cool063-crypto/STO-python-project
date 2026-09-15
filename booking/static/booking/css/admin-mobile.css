@@ -1,0 +1,38 @@
+.admin-scroll-hint { display: none; }
+@media (max-width: 767px) {
+  .app-main, .app-content, .app-content .row > *, #content-main, #changelist, .card, .card-body, .tab-content, .tab-pane, fieldset { min-width: 0; }
+  .app-content-header h1 { font-size: 24px; overflow-wrap: anywhere; }
+  .breadcrumb { flex-wrap: wrap; overflow-wrap: anywhere; }
+  .app-content .card-body { padding: 12px; }
+  /* Bootstrap's spacing utilities and Select2's inline widths require overrides. */
+  .change-form .app-content .p-5 { padding: 16px !important; }
+  #changelist-search { width: 100%; }
+  #changelist-search > input, #changelist-search > select:not(.select2-hidden-accessible), #changelist-search > .select2-container,
+  .change-list-actions select:not(.select2-hidden-accessible), .change-list-actions .select2-container { width: 100% !important; min-width: 0 !important; max-width: 100%; }
+  #changelist-search > .btn { width: 100%; }
+  .change-list-actions .actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+  .change-list-actions .actions > label { width: 100%; margin: 0; }
+  .change-list-actions .action-counter, .change-list-actions .all, .change-list-actions .question { white-space: normal; }
+  .app-main .btn { white-space: normal; overflow-wrap: anywhere; min-height: 40px; }
+  #jazzy-actions .btn { width: 100%; margin: 0; }
+  .change-form .nav-tabs { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .change-form .nav-tabs .nav-link { width: 100%; text-align: left; white-space: normal; padding: 10px 12px; }
+  .change-form .form-group .row > label, .change-form .form-group .row > div { width: 100%; flex: 0 0 100%; }
+  .change-form .form-group input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .change-form .form-group textarea, .change-form .form-group select { max-width: 100%; box-sizing: border-box; font-size: 16px; }
+  .change-form .form-group input[type="text"], .change-form .form-group input[type="email"],
+  .change-form .form-group input[type="password"], .change-form .form-group textarea { width: 100%; }
+  .change-form .form-group .select2-container { width: 100% !important; max-width: 100%; }
+  .change-form .related-widget-wrapper { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+  .change-form .help-block, .change-form .readonly { overflow-wrap: anywhere; }
+  .change-form .selector { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 100%; }
+  .change-form .selector-available, .change-form .selector-chosen { width: 100%; min-width: 0; margin: 0; float: none; }
+  .change-form .selector select { width: 100%; max-width: 100%; }
+  .change-form .selector .selector-filter { display: flex; flex-wrap: wrap; }
+  .change-form .selector .selector-filter input { width: 100%; min-width: 0; }
+  .admin-table-scroll, .app-main .table-responsive { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+  .admin-table-scroll table { min-width: 600px; }
+  .admin-scroll-hint.is-needed { display: block; margin: 8px 0; color: #526175; font-size: 13px; }
+  .admin-table-scroll:focus-visible, .table-responsive:focus-visible { outline: 2px solid #155eef; outline-offset: -2px; }
+  .app-main .pagination { flex-wrap: wrap; gap: 4px; }
+}

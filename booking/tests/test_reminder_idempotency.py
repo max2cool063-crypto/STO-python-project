@@ -27,7 +27,6 @@ class AppointmentReminderIdempotencyTests(TestCase):
         self.model = CarModel.objects.create(
             brand=self.brand,
             name="Reminder Model",
-            vehicle_type="CAR",
         )
         self.car = Car.objects.create(
             owner=self.user,

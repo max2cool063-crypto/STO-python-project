@@ -50,7 +50,6 @@ class StationSecurityTests(TestCase):
         self.model = CarModel.objects.create(
             brand=self.brand,
             name="Passenger",
-            vehicle_type="CAR",
         )
         self.car = Car.objects.create(
             owner=self.client_user,

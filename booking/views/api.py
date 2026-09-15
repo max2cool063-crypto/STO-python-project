@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from booking.input_validation import safe_parse_date as parse_date
 from django.views.decorators.http import require_GET
 
-from booking.models import Brand, CarModel, Station, Car, StationStaff
+from booking.models import Appointment, Brand, CarModel, Station, Car, StationStaff
 from booking.station_access import get_staff_record
 
 
@@ -20,7 +20,7 @@ def brands_api(request):
 def models_api(request, brand_id):
     models = CarModel.objects.filter(brand_id=brand_id).order_by("name")
     return JsonResponse(
-        [{"id": m.id, "name": m.name, "vehicle_type": m.vehicle_type} for m in models],
+        [{"id": m.id, "name": m.name} for m in models],
         safe=False,
     )
 
@@ -67,14 +67,28 @@ def station_slots_api(request, station_id):
                 owner=request.user,
                 is_active=True,
             )
-        vehicle_type = car.model.vehicle_type
+        vehicle_type = car.vehicle_type
     elif requested_vehicle_type in {"CAR", "TRUCK"} and staff:
         # During station-side creation of a brand-new car there is no car_id yet.
         # The vehicle type is still needed so the preview and available slots use
         # the same duration rule as Appointment.save().
         vehicle_type = requested_vehicle_type
 
-    slots = station.get_available_slots(date, vehicle_type=vehicle_type)
+    exclude_appointment_id = None
+    appointment_id = request.GET.get("appointment")
+    if appointment_id:
+        if not staff:
+            return JsonResponse({"error": "forbidden"}, status=403)
+        if (not appointment_id.isdecimal() or len(appointment_id) > 19
+                or int(appointment_id) > 9223372036854775807 or not car_id):
+            return JsonResponse({"error": "invalid appointment"}, status=400)
+        appointment = get_object_or_404(
+            Appointment, pk=appointment_id, station=station, car_id=car_id, status="BOOKED",
+        )
+        exclude_appointment_id = appointment.pk
+    slots = station.get_available_slots(
+        date, vehicle_type=vehicle_type, exclude_appointment_id=exclude_appointment_id,
+    )
     return JsonResponse({"slots": slots})
 
 
@@ -87,7 +101,7 @@ def car_api(request, car_id):
     car = get_object_or_404(Car, id=car_id, owner=request.user, is_active=True)
     return JsonResponse({
         "id": car.id,
-        "vehicle_type": car.model.vehicle_type,
+        "vehicle_type": car.vehicle_type,
     })
 
 
@@ -128,7 +142,7 @@ def car_by_plate_api(request):
         matches.append({
             "id": car.id,
             "plate": car.plate_number,
-            "vehicle_type": car.model.vehicle_type,
+            "vehicle_type": car.vehicle_type,
             "brand": car.model.brand.name,
             "model": car.model.name,
             "vin": car.vin or "",
@@ -174,7 +188,7 @@ def brands_with_models_api(request):
             "id": brand.id,
             "name": brand.name,
             "models": [
-                {"id": model.id, "name": model.name, "vehicle_type": model.vehicle_type}
+                {"id": model.id, "name": model.name}
                 for model in brand.ordered_models
             ],
         })

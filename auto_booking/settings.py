@@ -47,6 +47,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 JAZZMIN_SETTINGS = {
+    "custom_css": "booking/css/password-visibility.css",
+    "custom_js": "booking/js/password-visibility.js",
     "site_title": "СТО Бронирование",
     "site_header": "Администрирование СТО",
     "site_brand": "СТО Booking",

@@ -25,7 +25,6 @@ class StationClientAndPlateLookupTests(TestCase):
         self.model = CarModel.objects.create(
             brand=self.brand,
             name="Lookup Model",
-            vehicle_type="CAR",
         )
         target = date(2099, 3, 3)
         StationWeeklySchedule.objects.create(
@@ -219,7 +218,7 @@ class StationClientAndPlateLookupTests(TestCase):
         response = self.client.post(
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
             {
-                "plate": "А555АА63",
+                "vehicle_type": "CAR", "plate": "А555АА63",
                 "new_model_id": self.model.id,
                 "new_user_email": "new-client@example.com",
                 "client_name": "Сидоров Сергей",
@@ -257,7 +256,7 @@ class StationClientAndPlateLookupTests(TestCase):
             reverse("station_appointment_create", kwargs={"station_id": self.station.id}),
             {
                 "car_id": car.id,
-                "plate": "A666AA63",
+                "vehicle_type": "CAR", "plate": "A666AA63",
                 "client_name": "Орлов Олег",
                 "client_phone": "+79990003344",
                 "start": self.start,
