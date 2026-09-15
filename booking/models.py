@@ -19,27 +19,38 @@ class EmailOutbox(models.Model):
         FAILED = "failed", "Попытки исчерпаны"
         CANCELLED = "cancelled", "Устарело"
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    deduplication_key = models.CharField(max_length=64, unique=True)
-    kind = models.CharField(max_length=32, default="generic")
-    subject = models.TextField()
-    body = models.TextField()
-    sender = models.TextField(blank=True)
-    recipient = models.EmailField()
-    appointment = models.ForeignKey("Appointment", null=True, blank=True, on_delete=models.SET_NULL)
-    expected_start = models.DateTimeField(null=True, blank=True)
-    expected_revision = models.PositiveIntegerField(default=0)
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
-    auth_token = models.CharField(max_length=128, blank=True)
-    expires_at = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
-    attempts = models.PositiveIntegerField(default=0)
-    available_at = models.DateTimeField(default=timezone.now)
-    locked_until = models.DateTimeField(null=True, blank=True)
-    lock_token = models.UUIDField(null=True, blank=True)
-    last_error = models.CharField(max_length=128, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    finished_at = models.DateTimeField(null=True, blank=True)
+    class Kind(models.TextChoices):
+        GENERIC = "generic", "Общее уведомление"
+        PASSWORD = "password", "Установка или восстановление пароля"
+        WELCOME = "welcome", "Доступ сотрудника станции"
+        BOOKING = "booking", "Подтверждение записи клиенту"
+        RESCHEDULE = "reschedule", "Перенос записи"
+        CANCELLATION = "cancellation", "Отмена записи клиенту"
+        REMINDER = "reminder", "Напоминание о записи"
+        STAFF_BOOKING = "staff_booking", "Новая запись для станции"
+        STAFF_CANCELLATION = "staff_cancellation", "Отмена записи для станции"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name="Идентификатор")
+    deduplication_key = models.CharField(max_length=64, unique=True, verbose_name="Ключ защиты от повторной отправки")
+    kind = models.CharField(max_length=32, default="generic", choices=Kind.choices, verbose_name="Тип письма")
+    subject = models.TextField(verbose_name="Тема")
+    body = models.TextField(verbose_name="Текст письма")
+    sender = models.TextField(blank=True, verbose_name="Отправитель")
+    recipient = models.EmailField(verbose_name="Получатель")
+    appointment = models.ForeignKey("Appointment", null=True, blank=True, on_delete=models.SET_NULL, verbose_name="Запись на ТО")
+    expected_start = models.DateTimeField(null=True, blank=True, verbose_name="Ожидаемое время записи")
+    expected_revision = models.PositiveIntegerField(default=0, verbose_name="Версия записи")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="Пользователь")
+    auth_token = models.CharField(max_length=128, blank=True, verbose_name="Токен доступа")
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="Срок действия")
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING, verbose_name="Статус")
+    attempts = models.PositiveIntegerField(default=0, verbose_name="Количество попыток")
+    available_at = models.DateTimeField(default=timezone.now, verbose_name="Следующая попытка")
+    locked_until = models.DateTimeField(null=True, blank=True, verbose_name="Блокировка до")
+    lock_token = models.UUIDField(null=True, blank=True, verbose_name="Токен блокировки")
+    last_error = models.CharField(max_length=128, blank=True, verbose_name="Последняя ошибка")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name="Завершено")
 
     class Meta:
         verbose_name = "Исходящее письмо"
@@ -50,7 +61,7 @@ class EmailOutbox(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.kind}: {self.status} ({self.pk})"
+        return f"{self.get_kind_display()}: {self.get_status_display()} ({self.pk})"
 
 
 # =========================
@@ -216,7 +227,7 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 
 class Brand(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField("Название марки", max_length=100, unique=True)
 
     class Meta:
         verbose_name = "Марка"
@@ -228,8 +239,8 @@ class Brand(models.Model):
 
 
 class CarModel(models.Model):
-    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="models")
-    name = models.CharField(max_length=100)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name="models", verbose_name="Марка")
+    name = models.CharField("Название модели", max_length=100)
 
     class Meta:
         unique_together = ("brand", "name")
@@ -243,10 +254,10 @@ class CarModel(models.Model):
 class Car(models.Model):
     VEHICLE_TYPES = [("CAR", "Легковой"), ("TRUCK", "Грузовой")]
     vehicle_type = models.CharField("Тип ТС", max_length=10, choices=VEHICLE_TYPES, default="CAR")
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
-    model = models.ForeignKey(CarModel, on_delete=models.CASCADE)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Владелец")
+    model = models.ForeignKey(CarModel, on_delete=models.CASCADE, verbose_name="Модель")
     plate_number = models.CharField("Госномер", max_length=20)
-    vin = models.CharField(max_length=32, blank=True, null=True)
+    vin = models.CharField("VIN-код", max_length=32, blank=True, null=True)
     is_active = models.BooleanField(default=True, verbose_name="Активен")
 
     def save(self, *args, **kwargs):
