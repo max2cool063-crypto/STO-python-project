@@ -23,8 +23,8 @@ def photo_bytes():
 def seed():
     user = User.objects.create_user(username=USERNAME)
     station = Station.objects.create(name="Restore sentinel station")
-    model = CarModel.objects.create(brand=Brand.objects.create(name="Restore brand"), name="Restore car", vehicle_type="CAR")
-    car = Car.objects.create(owner=user, model=model, plate_number="А123АА77")
+    model = CarModel.objects.create(brand=Brand.objects.create(name="Restore brand"), name="Restore car")
+    car = Car.objects.create(owner=user, model=model, plate_number="А123АА77", vehicle_type="CAR")
     start = timezone.make_aware(datetime(2099, 3, 3, 10))
     StationSchedule.objects.create(station=station, date=start.date(), work_start=time(9), work_end=time(18))
     appointment = Appointment.objects.create(user=user, station=station, car=car, start=start, end=start, name="Restore client")
@@ -50,6 +50,7 @@ def verify():
     appointment = Appointment.objects.get(user=user)
     assert appointment.status == "BOOKED"
     assert appointment.car.plate_number == "А123АА77"
+    assert appointment.car.vehicle_type == "CAR"
     photo = appointment.photos.get()
     with photo.image.open("rb") as restored:
         assert restored.read() == photo_bytes(), "Restored image bytes do not match"
