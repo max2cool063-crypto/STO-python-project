@@ -32,6 +32,30 @@
         sync();
       });
       wrapper.append(button);
+      const error = document.createElement('p');
+      error.id = `${input.id}-validation-error`;
+      error.className = 'password-field-error';
+      error.setAttribute('role', 'alert');
+      error.hidden = true;
+      wrapper.after(error);
+      const describedBy = input.getAttribute('aria-describedby');
+      const clearError = () => {
+        error.hidden = true;
+        error.textContent = '';
+        input.removeAttribute('aria-invalid');
+        if (describedBy) input.setAttribute('aria-describedby', describedBy);
+        else input.removeAttribute('aria-describedby');
+      };
+      input.addEventListener('invalid', () => {
+        error.textContent = input.validity.valueMissing ? 'Введите пароль.' :
+          input.validity.tooShort ? `Пароль должен содержать не менее ${input.minLength} символов.` :
+          input.validationMessage;
+        error.hidden = false;
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-describedby', [describedBy, error.id].filter(Boolean).join(' '));
+      });
+      input.addEventListener('input', clearError);
+      input.form?.addEventListener('reset', clearError);
       // Also track the existing password generator revealing the generated value.
       new MutationObserver(sync).observe(input, { attributes: true, attributeFilter: ['type'] });
       input.form?.addEventListener('submit', hide);
@@ -40,6 +64,13 @@
     });
   }
   enhance();
+  const serverError = document.querySelector('[data-password-error]') ||
+    (controls.size ? document.querySelector('.messages .alert-error, .errornote') : null);
+  if (serverError) requestAnimationFrame(() => {
+    serverError.tabIndex = -1;
+    serverError.focus({ preventScroll: true });
+    serverError.scrollIntoView({ block: 'center', behavior: 'instant' });
+  });
   new MutationObserver(enhance).observe(document.body, { childList: true, subtree: true });
   window.addEventListener('pagehide', () => controls.forEach((hide) => hide()));
 })();

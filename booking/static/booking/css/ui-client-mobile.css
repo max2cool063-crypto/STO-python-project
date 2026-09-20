@@ -1,5 +1,8 @@
 @media (max-width: 760px) {
   .client-workspace .page-wrap { padding: 18px 12px 36px; }
+  /* ui-auth-v1 gives the auth layout negative margins for a desktop gutter. Keep
+     those panels within the viewport when the page-wrap has mobile padding. */
+  .client-workspace .auth-page { margin-left: -12px; margin-right: -12px; }
   .client-workspace .site-header { position: relative; }
   body.client-workspace .header-inner { height: auto; min-height: 0; padding: 12px; gap: 10px; flex-wrap: wrap; }
   .client-workspace .logo-wrap { min-width: 0; gap: 8px; }
