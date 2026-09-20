@@ -1,0 +1,9 @@
+.pwa-install { margin: 12px auto 24px; padding: 16px; max-width: 480px; border: 1px solid #d0d5dd; border-radius: 16px; color: #101828; background: #fff; box-sizing: border-box; font: 14px/1.5 system-ui, sans-serif; }
+.pwa-install[hidden] { display: none; }
+/* Auth pages extend into the bottom gutter with a -64px margin. */
+.auth-page ~ .pwa-install { margin-top: 80px; }
+.pwa-install p { margin: 0 0 12px; overflow-wrap: anywhere; }
+.pwa-install-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pwa-install button { min-height: 44px; padding: 10px 16px; border: 1px solid #d0d5dd; border-radius: 10px; background: white; color: #344054; font: inherit; cursor: pointer; }
+.pwa-install button[data-install] { background: #155eef; color: white; border-color: #155eef; }
+@media(max-width: 520px) { .pwa-install { margin: 12px 16px 24px; } }

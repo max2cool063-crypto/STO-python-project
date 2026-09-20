@@ -3,6 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
+from booking import pwa
 
 # Add the per-station timezone field to the existing Station admin without
 # changing the existing RSA import/admin implementation.
@@ -19,6 +20,9 @@ def healthz(request):
 
 
 urlpatterns = [
+    path("manifest.webmanifest", pwa.manifest, name="pwa_manifest"),
+    path("service-worker.js", pwa.service_worker, name="pwa_service_worker"),
+    path("offline/", pwa.offline, name="pwa_offline"),
     # The container probes this over its internal HTTP socket. SecurityMiddleware
     # exempts only this exact path from HTTPS redirect.
     path("healthz/", healthz, name="healthz"),

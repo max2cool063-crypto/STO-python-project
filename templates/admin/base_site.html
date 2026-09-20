@@ -2,6 +2,7 @@
 {% load static %}
 {% block extrastyle %}
   {{ block.super }}
+  {% include "pwa/head.html" %}
   <link rel="stylesheet" href="{% static 'booking/css/admin-mobile.css' %}">
 {% endblock %}
 {% block extrajs %}
