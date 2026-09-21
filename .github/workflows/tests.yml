@@ -2,7 +2,7 @@ name: Django tests
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "codex/production-hardening-ready"]
   pull_request:
     branches: ["main"]
 
@@ -52,6 +52,9 @@ jobs:
 
       - name: Check Django configuration
         run: python manage.py check
+
+      - name: Check PWA network and cache behavior
+        run: node --test scripts/test_pwa_worker.cjs
 
       - name: Check production security configuration
         env:
