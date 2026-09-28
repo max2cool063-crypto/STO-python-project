@@ -2,7 +2,15 @@
   'use strict';
 
   var root = document.querySelector('[data-station-notifications]');
-  if (!root) return;
+  function appBadge(count) {
+    try {
+      var result = count > 0 ? navigator.setAppBadge?.(count) : navigator.clearAppBadge?.();
+      Promise.resolve(result).catch(function () {});
+    } catch (_) { /* Unsupported or disallowed badging must not break the bell. */ }
+  }
+  if (!root) { appBadge(0); return; }
+  var stopped = false;
+  var loading = false;
 
   var toggle = root.querySelector('[data-notification-toggle]');
   var panel = root.querySelector('[data-notification-panel]');
@@ -32,10 +40,12 @@
   }
 
   function updateBadge(count) {
-    count = Number(count) || 0;
+    count = Number(count);
+    count = Number.isSafeInteger(count) && count > 0 ? count : 0;
     badge.textContent = count > 99 ? '99+' : String(count);
     badge.hidden = count === 0;
     toggle.setAttribute('aria-label', count ? 'Уведомления: ' + count + ' непрочитанных' : 'Уведомления');
+    appBadge(count);
   }
 
   function render(items) {
@@ -56,10 +66,21 @@
   }
 
   function load() {
-    fetch(endpoint, {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
-      .then(function (response) { if (!response.ok) throw new Error('notification request failed'); return response.json(); })
-      .then(function (data) { updateBadge(data.unread_count); render(data.notifications || []); })
-      .catch(function () {});
+    if (stopped || loading) return;
+    loading = true;
+    fetch(endpoint, {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin', cache: 'no-store'})
+      .then(function (response) {
+        if (response.redirected || response.status === 401 || response.status === 403) {
+          if (!stopped) updateBadge(0);
+          stopped = true;
+          throw new Error('notification session ended');
+        }
+        if (!response.ok) throw new Error('notification request failed');
+        return response.json();
+      })
+      .then(function (data) { if (!stopped) { updateBadge(data.unread_count); render(data.notifications || []); } })
+      .catch(function () {})
+      .finally(function () { loading = false; });
   }
 
   toggle.addEventListener('click', function () {
@@ -86,4 +107,11 @@
 
   load();
   window.setInterval(load, 20000);
+  window.addEventListener('focus', load);
+  window.addEventListener('online', load);
+  window.addEventListener('pageshow', function () { stopped = false; load(); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+  document.querySelectorAll('form[action$="/logout/"]').forEach(function (form) {
+    form.addEventListener('submit', function () { stopped = true; appBadge(0); });
+  });
 })();

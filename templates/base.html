@@ -23,6 +23,7 @@
   {% if request.has_active_station_access %}<link rel="stylesheet" href="{% static 'booking/css/ui-station-mobile.css' %}">{% endif %}
   {% if not request.has_active_station_access %}<link rel="stylesheet" href="{% static 'booking/css/ui-client-mobile.css' %}">{% endif %}
   <link rel="stylesheet" href="{% static 'booking/css/password-visibility.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/css/ui-station-notifications-v1.css' %}">
 </head>
 <body class="{% if request.has_active_station_access %}station-workspace{% else %}client-workspace{% endif %}">
 <header class="site-header"><div class="header-inner"><a href="/" class="logo-wrap" aria-label="СТО Онлайн-запись — главная"><img src="{% static 'booking/img/logo.png' %}" alt="СТО" class="logo-img"><div class="logo-text">Технический Осмотр<span>онлайн запись</span></div></a>
@@ -44,6 +45,7 @@
 </script>
 <script src="{% static 'booking/js/ui-icons-v1.js' %}?v=20260901-2"></script>
 <script src="{% static 'booking/js/password-visibility.js' %}"></script>
+<script src="{% static 'booking/js/station-notifications-v1.js' %}"></script>
 <script src="{% static 'booking/js/booking-photo-multi-v1.js' %}?v=20260831-1"></script>
 <script src="{% static 'booking/js/station-appointment-lookup-v1.js' %}?v=20260901-1"></script>{% block extra_scripts %}{% endblock %}
 

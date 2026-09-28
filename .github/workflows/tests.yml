@@ -54,7 +54,7 @@ jobs:
         run: python manage.py check
 
       - name: Check PWA network and cache behavior
-        run: node --test scripts/test_pwa_worker.cjs
+        run: node --test scripts/test_pwa_worker.cjs scripts/test_app_badge.cjs
 
       - name: Check production security configuration
         env:
